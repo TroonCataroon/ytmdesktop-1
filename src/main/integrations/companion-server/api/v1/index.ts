@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { FastifyPluginCallback, FastifyPluginOptions } from "fastify";
 import playerStateStore, { PlayerState, RepeatMode } from "../../../../player-state-store";
 import { createAuthToken, getIsTemporaryAuthCodeValidAndRemove, getTemporaryAuthCode, isAuthValid, isAuthValidMiddleware } from "../../api-shared/auth";
@@ -345,7 +345,7 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
       });
 
       authorizationWindow.webContents.on("will-navigate", event => {
-        if (process.env.NODE_ENV === "development") if (event.url.startsWith("http://localhost")) return;
+        if (!app.isPackaged) if (event.url.startsWith("http://localhost")) return;
 
         event.preventDefault();
       });
@@ -354,7 +354,7 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
 
       try {
         // Open the DevTools.
-        if (process.env.NODE_ENV === "development") {
+        if (!app.isPackaged) {
           authorizationWindow.webContents.openDevTools({
             mode: "detach"
           });

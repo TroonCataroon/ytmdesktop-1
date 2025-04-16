@@ -371,7 +371,7 @@ app.on("ready", async () => {
 
   function getTrayIconPath() {
     const style = configStore.get("appearance").trayIconStyle;
-    const iconsDir = process.env.NODE_ENV === "development" ? path.join(app.getAppPath(), "src/assets/icons") : process.resourcesPath;
+    const iconsDir = app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), "src/assets/icons");
     return path.join(iconsDir, trayIconFileName(style));
   }
 
