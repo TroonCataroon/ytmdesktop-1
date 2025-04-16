@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, Menu, MenuItemConstructorOptions, nativeTheme, powerMonitor, safeStorage, screen, Tray } from "electron";
+import { app, dialog, ipcMain, Menu, MenuItemConstructorOptions, nativeTheme, powerMonitor, safeStorage, screen, shell, Tray } from "electron";
 import log from "electron-log";
 import { getIconPath, v1ConfigMigration } from "./util";
 import { AppView } from "./services/windowmanager/appview";
@@ -309,7 +309,7 @@ app.on("ready", async () => {
     }
 
     const mainWindowBounds = mainWindow._getElectronWindow().getBounds();
-    windowManager.createWindow("Browser", {
+    const settingsWindow = windowManager.createWindow("Browser", {
       name: "Settings",
       autoRecreate: false,
       waitForViews: true,
@@ -342,6 +342,15 @@ app.on("ready", async () => {
           devTools: !app.isPackaged ? true : configStore.get("developer.enableDevTools")
         }
       }
+    });
+    settingsWindow.setWindowOpenHandler(details => {
+      if (details.url === "https://github.com/ytmdesktop/ytmdesktop" || details.url === "https://ytmdesktop.github.io/") {
+        shell.openExternal(details.url);
+      }
+
+      return {
+        action: "deny"
+      };
     });
   });
   mainWindow.ipcOn("ytmView:navigateDefault", () => {

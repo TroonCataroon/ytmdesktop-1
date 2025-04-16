@@ -162,6 +162,10 @@ export class AppWindow<T extends AppWindowType> extends EventEmitter<AppWindowEv
     }
   }
 
+  /**
+   * This method should not be used as is mostly for internal purposes
+   * @returns The native electron window
+   */
   public _getElectronWindow(): MappedElectronWindow[T] {
     assert(this.destroyed === false, new Error("This AppWindow is destroyed"));
 
@@ -265,6 +269,12 @@ export class AppWindow<T extends AppWindowType> extends EventEmitter<AppWindowEv
 
   public getWindowType() {
     return this.windowType;
+  }
+
+  public setWindowOpenHandler(handler: (details: Electron.HandlerDetails) => Electron.WindowOpenHandlerResponse) {
+    assert(this.windowType === "Browser", new Error("Attempted to setWindowOpenHandler but the current window isn't of type 'Browser'"));
+
+    (this.electronWindow as BrowserWindow).webContents.setWindowOpenHandler(handler);
   }
 
   private createElectronWindow() {
