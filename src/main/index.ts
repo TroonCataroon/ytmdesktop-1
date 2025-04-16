@@ -457,8 +457,9 @@ app.on("ready", async () => {
       if (ytmViewManager.hasError()) {
         const hookError = ytmViewManager.getError();
         const setupFlags = ytmViewManager.getSetupFlags();
-        const setFlags = YTMViewSetupCompletionFlagsNames.filter(key => (setupFlags & YTMViewSetupCompletionFlags[key]) !== 0);
-        const unsetFlags = YTMViewSetupCompletionFlagsNames.filter(key => (setupFlags & YTMViewSetupCompletionFlags[key]) === 0);
+        const setupFlagNames = YTMViewSetupCompletionFlagsNames.filter(key => key != "LocationNotApplicable");
+        const setFlags = setupFlagNames.filter(key => (setupFlags & YTMViewSetupCompletionFlags[key]) !== 0);
+        const unsetFlags = setupFlagNames.filter(key => (setupFlags & YTMViewSetupCompletionFlags[key]) === 0);
 
         const dialogMessage =
           `Features from YouTube Music Desktop App may not be present or function correctly\n\nHook log:\n${setFlags.map(flag => `    ${flag}... OK\n`).join("")}${unsetFlags.map(flag => `    ${flag}... FAIL\n`).join("")}\n` +

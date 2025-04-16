@@ -1,5 +1,5 @@
 import { app, Menu, session, shell } from "electron";
-import { DependencyConstructor, YTMViewStatus } from "~shared/types";
+import { DependencyConstructor, YTMViewSetupCompletionFlags, YTMViewStatus } from "~shared/types";
 import playerStateStore from "../../player-state-store";
 import log from "electron-log";
 import path from "node:path";
@@ -157,7 +157,14 @@ export default class YTMViewManager extends EventEmitterService<YTMViewManagerEv
 
     this.ytmView.on("ready", () => {
       this.ytmView.webContents.setZoomFactor(configStore.get("appearance.zoom") / 100);
-      this.setStatus(YTMViewStatus.Hooking);
+      const url = new URL(this.ytmView.webContents.getURL());
+      if (url.hostname === "music.youtube.com") {
+        this.setStatus(YTMViewStatus.Hooking);
+      } else {
+        this.hooksReady = true;
+        this.setupCompletionFlags = YTMViewSetupCompletionFlags.LocationNotApplicable;
+        this.setStatus(YTMViewStatus.Ready);
+      }
     });
     this.ytmView.on("recreated", () => {
       this.hooksReady = false;

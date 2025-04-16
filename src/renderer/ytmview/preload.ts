@@ -8,6 +8,11 @@
 //   - Always wrap your executeJavaScript code in an IIFE calling it from outside executeJavaScript when it returns
 // - Add functions to exposeInMainWorld when you need to call back to the main program. By nature you should not trust data coming from this.
 
+// Early bail if the page isn't YTM. This could be an account login or something else
+if (window.location.hostname !== "music.youtube.com") {
+  throw new Error("[YTMDFastFail]: THIS IS NOT AN ERROR! Location not applicable bailing preload");
+}
+
 import { contextBridge, ipcRenderer, webFrame } from "electron";
 import Store from "../store-ipc/store";
 import { StoreSchema } from "~shared/store/schema";
@@ -33,13 +38,6 @@ contextBridge.exposeInMainWorld("ytmd", {
 EarlySetup.hookYTMObjects();
 
 window.addEventListener("load", async () => {
-  if (window.location.hostname !== "music.youtube.com") {
-    if (window.location.hostname === "consent.youtube.com" || window.location.hostname === "accounts.google.com") {
-      ipcRenderer.send("ytmView:ready");
-    }
-    return;
-  }
-
   let setupCompletions = 0;
   try {
     {

@@ -11,12 +11,16 @@ export enum YTMViewStatus {
 }
 
 export enum YTMViewSetupCompletionFlags {
-  Early = 1,
-  Styles = 2,
-  Navigation = 4,
-  Hooks = 8,
-  Remote = 16,
-  Extras = 32
+  /**
+   * This is an exclusive flag which when set will make all other flags ignored
+   */
+  LocationNotApplicable = 1,
+  Early = 2,
+  Styles = 4,
+  Navigation = 8,
+  Hooks = 16,
+  Remote = 32,
+  Extras = 64
 }
 export const AllYTMViewSetupCompletionFlags = (Object.values(YTMViewSetupCompletionFlags) as YTMViewSetupCompletionFlags[]).reduce(
   (prev, curr) => prev | curr,
