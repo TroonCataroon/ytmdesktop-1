@@ -14,7 +14,15 @@ const errorCodes = [
   "AUTHORIZATION_DENIED",
   "AUTHORIZATION_TOO_MANY",
   "YOUTUBE_MUSIC_UNVAILABLE",
-  "YOUTUBE_MUSIC_TIME_OUT"
+  "YOUTUBE_MUSIC_TIME_OUT",
+  // New error codes
+  "NETWORK_ERROR",
+  "API_RATE_LIMIT",
+  "INTERNAL_SERVER_ERROR",
+  "SERVICE_UNAVAILABLE",
+  "INVALID_REQUEST_FORMAT",
+  "UNSUPPORTED_MEDIA_TYPE",
+  "RESOURCE_NOT_FOUND"
 ];
 
 // When adding an error make sure to include its code in the errorCodes array above so the API can return it to the client
@@ -32,7 +40,37 @@ export const AuthorizationTooManyError = createError<[]>("AUTHORIZATION_TOO_MANY
 export const YouTubeMusicUnavailableError = createError<[]>("YOUTUBE_MUSIC_UNVAILABLE", "YouTube Music is currently unvailable", 503);
 export const YouTubeMusicTimeOutError = createError<[]>("YOUTUBE_MUSIC_TIME_OUT", "Response from YouTube Music took too long", 504);
 
+// New error types
+export const NetworkError = createError<[string]>("NETWORK_ERROR", "Network error: %s", 503);
+export const ApiRateLimitError = createError<[]>("API_RATE_LIMIT", "API rate limit exceeded, please try again later", 429);
+export const InternalServerError = createError<[string]>("INTERNAL_SERVER_ERROR", "Internal server error: %s", 500);
+export const ServiceUnavailableError = createError<[string]>("SERVICE_UNAVAILABLE", "Service unavailable: %s", 503);
+export const InvalidRequestFormatError = createError<[string]>("INVALID_REQUEST_FORMAT", "Invalid request format: %s", 400);
+export const UnsupportedMediaTypeError = createError<[]>("UNSUPPORTED_MEDIA_TYPE", "Unsupported media type", 415);
+export const ResourceNotFoundError = createError<[string]>("RESOURCE_NOT_FOUND", "Resource not found: %s", 404);
+
 export function isDefinedAPIError(error: FastifyError): boolean {
   if (errorCodes.includes(error.code)) return true;
   return false;
+}
+
+// Helper to get a standardized error based on error type
+export function getStandardizedError(error: unknown): FastifyError {
+  if (error instanceof Error) {
+    // Network errors
+    if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+      return new NetworkError(error.message);
+    }
+    
+    // Rate limiting
+    if (error.message.includes('rate limit') || error.message.includes('429')) {
+      return new ApiRateLimitError();
+    }
+    
+    // General server error
+    return new InternalServerError(error.message);
+  }
+  
+  // Unknown error type
+  return new InternalServerError('Unknown error');
 }

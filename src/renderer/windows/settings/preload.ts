@@ -10,6 +10,28 @@ import MemoryStore from "../../store-ipc/memory-store";
 const store = new Store<StoreSchema>();
 const memoryStore = new MemoryStore<MemoryStoreSchema>();
 
+// Set up global error handlers for the renderer process
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error in settings window:', event.error);
+  ipcRenderer.send('renderer:unhandledError', {
+    message: event.error?.message || 'Unknown error',
+    stack: event.error?.stack || '',
+    source: event.filename,
+    line: event.lineno,
+    column: event.colno,
+    window: 'settings'
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled rejection in settings window:', event.reason);
+  ipcRenderer.send('renderer:unhandledRejection', {
+    message: event.reason?.message || 'Unknown promise rejection',
+    stack: event.reason?.stack || '',
+    window: 'settings'
+  });
+});
+
 contextBridge.exposeInMainWorld("ytmd", {
   isDarwin: process.platform === "darwin",
   isLinux: process.platform === "linux",

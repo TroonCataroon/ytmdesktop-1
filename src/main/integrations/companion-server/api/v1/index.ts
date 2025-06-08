@@ -147,9 +147,16 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
 
         case "seekTo": {
           const position = commandRequest.data;
-          if (isNaN(position) || position < 0 || position > playerStateStore.getState().videoDetails.durationSeconds) {
+          const state = playerStateStore.getState();
+          
+          // Validate position within bounds and make sure videoDetails exists
+          if (!state || !state.videoDetails || 
+              isNaN(position) || 
+              position < 0 || 
+              position > state.videoDetails.durationSeconds) {
             throw new InvalidPositionError(position);
           }
+          
           ytmView.webContents.send("remoteControl:execute", "seekTo", position);
           break;
         }
@@ -210,7 +217,10 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
           const index = commandRequest.data;
           const state = playerStateStore.getState();
 
-          if (isNaN(index) || index > state.queue.items.length + state.queue.automixItems.length - 1) {
+          if (!state || !state.queue || !state.queue.items || 
+              isNaN(index) || 
+              index < 0 || 
+              index > (state.queue.items.length + (state.queue.automixItems?.length || 0) - 1)) {
             throw new InvalidQueueIndexError(index);
           }
 
@@ -559,6 +569,54 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
       ipcMain.off("ytmView:createPlaylistObserved", createPlaylistObservedListener);
       ipcMain.off("ytmView:deletePlaylistObserved", deletePlaylistObservedListener);
     });
+  });
+
+  // Get the player state
+  fastify.get("/player/state", async (request, reply) => {
+    const token = parseToken(request);
+    await validateToken(token, getStore());
+    
+    const state = playerStateStore.getState();
+    
+    // Add null checks to ensure the response doesn't cause errors
+    if (!state) {
+      return {
+        status: "UNKNOWN",
+        state: null,
+        queue: null,
+        progress: 0,
+        volume: 0,
+        muted: false,
+        adPlaying: false
+      };
+    }
+    
+    const data = {
+      status: state.trackState,
+      state: state.videoDetails ? {
+        video: state.videoDetails,
+        full: {
+          author: state.videoDetails.author,
+          channelId: state.videoDetails.channelId,
+          title: state.videoDetails.title,
+          album: state.videoDetails.album,
+          albumId: state.videoDetails.albumId,
+          likeStatus: state.videoDetails.likeStatus,
+          thumbnails: state.videoDetails.thumbnails,
+          durationSeconds: state.videoDetails.durationSeconds,
+          id: state.videoDetails.id,
+          isLive: state.videoDetails.isLive,
+          videoType: state.videoDetails.videoType,
+        }
+      } : null,
+      queue: state.queue,
+      progress: state.videoProgress,
+      volume: state.volume,
+      muted: state.muted,
+      adPlaying: state.adPlaying
+    };
+    
+    return data;
   });
 };
 

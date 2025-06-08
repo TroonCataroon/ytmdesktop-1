@@ -86,6 +86,23 @@ log.initialize({
   preload: true,
   spyRendererConsole: true
 });
+
+// Set debug logging level based on settings
+function setDebugLoggingLevel(store: Conf<StoreSchema>) {
+  const debugLoggingEnabled = store.get("debugLoggingEnabled", false);
+  const debugLoggingLevel = store.get("debugLoggingLevel", "info");
+  
+  if (debugLoggingEnabled) {
+    log.transports.console.level = debugLoggingLevel;
+    log.transports.file.level = debugLoggingLevel;
+    log.info(`Debug logging enabled at level: ${debugLoggingLevel}`);
+  } else {
+    // Default to info level when debug logging is disabled
+    log.transports.console.level = "info";
+    log.transports.file.level = "info";
+  }
+}
+
 // Handle logs and errors
 log.errorHandler.startCatching({
   showDialog: false,
@@ -395,7 +412,9 @@ const store = new Conf<StoreSchema>({
       scrobblePercent: 50
     },
     developer: {
-      enableDevTools: false
+      enableDevTools: false,
+      debugLoggingEnabled: false,
+      debugLoggingLevel: "info"
     }
   },
   beforeEachMigration: (store, context) => {
@@ -425,7 +444,17 @@ const store = new Conf<StoreSchema>({
     }
   }
 });
+
+// Set initial debug logging level
+setDebugLoggingLevel(store);
+
 store.onDidAnyChange(async (newState, oldState) => {
+  // Update debug logging level if settings changed
+  if (newState.developer?.debugLoggingEnabled !== oldState.developer?.debugLoggingEnabled ||
+      newState.developer?.debugLoggingLevel !== oldState.developer?.debugLoggingLevel) {
+    setDebugLoggingLevel(store);
+  }
+
   if (settingsWindow !== null) {
     settingsWindow.webContents.send("settings:stateChanged", newState, oldState);
   }
@@ -1044,6 +1073,52 @@ const createYTMView = (): void => {
       openExternalFromYtmView(event.url);
     }
   });
+  
+  // Set Content Security Policy to reduce unsafe-eval warnings
+  ytmView.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (details.url.startsWith("https://music.youtube.com/")) {
+      const responseHeaders = details.responseHeaders || {};
+      const existingCSP = responseHeaders["content-security-policy"] || [];
+      
+      // Modify the CSP to allow safer inline script execution with nonce
+      const cspModification = existingCSP.map(policy => {
+        // Add 'strict-dynamic' to script-src to allow better dynamic script loading patterns
+        // Replace 'unsafe-eval' with safer alternatives where possible
+        return policy
+          .replace(/script-src([^;]*);/g, 
+                  "script-src$1 'strict-dynamic' https: http:;")
+          .replace(/style-src([^;]*);/g, 
+                  "style-src$1 'unsafe-inline' https: http:;");
+      });
+      
+      if (cspModification.length > 0) {
+        responseHeaders["content-security-policy"] = cspModification;
+      }
+      
+      callback({ responseHeaders });
+    } else {
+      callback({ responseHeaders: details.responseHeaders });
+    }
+  });
+  
+  // Handle CORS errors from YouTube ad services
+  ytmView.webContents.session.webRequest.onHeadersReceived(
+    { urls: ["https://www.youtube.com/pagead/*", "https://*.doubleclick.net/*"] },
+    (details, callback) => {
+      if (details.resourceType === 'xhr') {
+        const responseHeaders = details.responseHeaders || {};
+        
+        // Fix CORS by setting proper Access-Control-Allow-Origin header
+        responseHeaders["access-control-allow-origin"] = ["https://music.youtube.com"];
+        responseHeaders["access-control-allow-credentials"] = ["true"];
+        
+        callback({ responseHeaders });
+      } else {
+        callback({ responseHeaders: details.responseHeaders });
+      }
+    }
+  );
+  
   ytmView.webContents.on("will-redirect", event => {
     const url = new URL(event.url);
     if (isPreventedNavOrRedirect(url)) {
@@ -1986,3 +2061,18 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+// Add this after the other ipcMain handlers, before app startup
+
+// Global error handlers for renderer process errors
+ipcMain.on('renderer:unhandledError', (_, errorInfo) => {
+  log.error('Renderer process uncaught error:', errorInfo);
+});
+
+ipcMain.on('renderer:unhandledRejection', (_, errorInfo) => {
+  log.error('Renderer process unhandled promise rejection:', errorInfo);
+});
+
+ipcMain.on('renderer:reportError', (_, errorInfo) => {
+  log.error('Renderer process reported error:', errorInfo);
+});

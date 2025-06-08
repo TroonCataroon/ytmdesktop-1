@@ -8,6 +8,28 @@ import MemoryStore from "../../store-ipc/memory-store";
 
 const memoryStore = new MemoryStore<MemoryStoreSchema>();
 
+// Set up global error handlers for the renderer process
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error:', event.error);
+  ipcRenderer.send('renderer:unhandledError', {
+    message: event.error?.message || 'Unknown error',
+    stack: event.error?.stack || '',
+    source: event.filename,
+    line: event.lineno,
+    column: event.colno
+  });
+  
+  // Don't prevent default - still allow the error to be logged in the console
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled rejection:', event.reason);
+  ipcRenderer.send('renderer:unhandledRejection', {
+    message: event.reason?.message || 'Unknown promise rejection',
+    stack: event.reason?.stack || '',
+  });
+});
+
 contextBridge.exposeInMainWorld("ytmd", {
   minimizeWindow: () => ipcRenderer.send("mainWindow:minimize"),
   maximizeWindow: () => ipcRenderer.send("mainWindow:maximize"),
@@ -25,5 +47,9 @@ contextBridge.exposeInMainWorld("ytmd", {
     get: async (key: keyof MemoryStoreSchema) => await memoryStore.get(key),
     onStateChanged: (callback: (newState: MemoryStoreSchema, oldState: MemoryStoreSchema) => void) => memoryStore.onStateChanged(callback)
   },
-  restartApplicationForUpdate: () => ipcRenderer.send("app:restartApplicationForUpdate")
+  restartApplicationForUpdate: () => ipcRenderer.send("app:restartApplicationForUpdate"),
+  reportError: (error: Error) => ipcRenderer.send('renderer:reportError', {
+    message: error.message,
+    stack: error.stack
+  })
 });

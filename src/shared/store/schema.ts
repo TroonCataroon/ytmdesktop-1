@@ -61,6 +61,8 @@ export type StoreSchema = {
   };
   developer: {
     enableDevTools: boolean;
+    debugLoggingEnabled: boolean;
+    debugLoggingLevel: string;
   };
 };
 
@@ -75,6 +77,8 @@ export type MemoryStoreSchema = {
   shortcutsVolumeDownRegisterFailed: boolean;
   companionServerAuthWindowEnabled: boolean;
   safeStorageAvailable: boolean;
+  lastfmUsingInsecureStorage: boolean;
+  companionServerUsingInsecureStorage: boolean;
   autoUpdaterDisabled: boolean;
   ytmViewLoadTimedout: boolean;
   ytmViewLoading: boolean;
