@@ -1,15 +1,13 @@
 import { shell, safeStorage } from "electron";
 import Conf from "conf";
-import cypto from "crypto";
 
-import playerStateStore, { PlayerState, VideoDetails, VideoState } from "../../player-state-store";
+import { PlayerState, VideoDetails, VideoState } from "../../player-state-store";
 import MemoryStore from "../../memory-store";
 
-import IIntegration from "../integration";
 import { MemoryStoreSchema, StoreSchema } from "~shared/store/schema";
 import { LastfmErrorResponse, LastfmRequestBody, LastfmSessionResponse, LastfmTokenResponse } from "./schemas";
 import log from "electron-log";
-import { createBody, createApiSig, getSession } from "./utils";
+import { createBody, createApiSig, createQueryString } from "./utils";
 import BaseIntegration from "../base-integration";
 
 export default class LastFM extends BaseIntegration {
@@ -39,9 +37,9 @@ export default class LastFM extends BaseIntegration {
 
       api_key: this.lastfmDetails.api_key
     };
-    const api_sig = this.createApiSig(data, this.lastfmDetails.secret);
+    const api_sig = createApiSig(data, this.lastfmDetails.secret);
 
-    const response = await fetch(`https://ws.audioscrobbler.com/2.0/` + `?${this.createQueryString(data, api_sig)}`);
+    const response = await fetch(`https://ws.audioscrobbler.com/2.0/` + `?${createQueryString(data, api_sig)}`);
 
     const json = (await response.json()) as LastfmTokenResponse;
     return json?.token;
@@ -64,9 +62,9 @@ export default class LastFM extends BaseIntegration {
       token: this.lastfmDetails.token
     };
 
-    const api_sig = this.createApiSig(params, this.lastfmDetails.secret);
+    const api_sig = createApiSig(params, this.lastfmDetails.secret);
 
-    const response = await fetch(`https://ws.audioscrobbler.com/2.0/` + `?${this.createQueryString(params, api_sig)}`);
+    const response = await fetch(`https://ws.audioscrobbler.com/2.0/` + `?${createQueryString(params, api_sig)}`);
 
     const json = (await response.json()) as LastfmSessionResponse;
 
@@ -87,22 +85,23 @@ export default class LastFM extends BaseIntegration {
 
     try {
       // Make sure we have a valid state with videoDetails and a valid queue
-      if (state?.videoDetails && 
-          state.trackState === VideoState.Playing && 
-          state.queue && 
-          state.queue.items && 
-          state.queue.items.length > 0 && 
-          state.queue.selectedItemIndex !== undefined && 
-          state.queue.selectedItemIndex >= 0 && 
-          state.queue.selectedItemIndex < state.queue.items.length) {
-        
+      if (
+        state?.videoDetails &&
+        state.trackState === VideoState.Playing &&
+        state.queue &&
+        state.queue.items &&
+        state.queue.items.length > 0 &&
+        state.queue.selectedItemIndex !== undefined &&
+        state.queue.selectedItemIndex >= 0 &&
+        state.queue.selectedItemIndex < state.queue.items.length
+      ) {
         // Check if we need to re-scrobble a track that's on repeat
         const currentTime = new Date().getTime();
         const timeSinceLastScrobble = currentTime - this.lastScrobbleTime;
         const minScrobbleInterval = 5 * 60 * 1000; // 5 minutes minimum between scrobbles of the same track
         const isRepeatTrack = this.lastScrobbledVideoId === state.videoDetails.id;
         const shouldRescrobble = isRepeatTrack && timeSinceLastScrobble > minScrobbleInterval;
-        
+
         // Either this is a new track, or we're eligible to re-scrobble
         const shouldProceed = !isRepeatTrack || shouldRescrobble;
 
@@ -116,22 +115,22 @@ export default class LastFM extends BaseIntegration {
           const duration = state.videoDetails.durationSeconds;
           // Calculate the time to wait before scrobbling, now with a sane default
           let scrobbleTime = Math.floor((duration * scrobblePercent) / 100) * 1000;
-          
+
           if (isNaN(scrobbleTime) || scrobbleTime <= 0) {
             // If we can't calculate, set a reasonable default (30 seconds)
             scrobbleTime = 30 * 1000;
           }
-          
+
           // Clear any existing timer
           if (this.scrobbleTimer) {
             clearTimeout(this.scrobbleTimer);
           }
-          
+
           // Set a new timer
           this.scrobbleTimer = setTimeout(() => {
             this.scrobbleTrack(state.videoDetails);
             this.scrobbleTimer = null;
-            
+
             // Track the scrobbled video ID and time
             this.lastScrobbledVideoId = state.videoDetails.id;
             this.lastScrobbleTime = new Date().getTime();
@@ -139,7 +138,7 @@ export default class LastFM extends BaseIntegration {
         }
       }
     } catch (error) {
-      log.error('Error in LastFM updatePlayerState:', error);
+      log.error("Error in LastFM updatePlayerState:", error);
     }
   }
 
@@ -161,7 +160,7 @@ export default class LastFM extends BaseIntegration {
   }
 
   // This method is now deprecated and replaced by scrobbleTrack
-  private async scrobbleSong(videoDetails: VideoDetails, scrobbleTime: number): Promise<void> {
+  private async scrobbleSong(videoDetails: VideoDetails): Promise<void> {
     return this.scrobbleTrack(videoDetails);
   }
 
@@ -180,21 +179,21 @@ export default class LastFM extends BaseIntegration {
       api_key: this.lastfmDetails.api_key,
       sk: this.lastfmDetails.sessionKey
     };
-    
+
     try {
-      data.api_sig = this.createApiSig(data, this.lastfmDetails.secret);
+      data.api_sig = createApiSig(data, this.lastfmDetails.secret);
 
       const response = await fetch(`https://ws.audioscrobbler.com/2.0/`, {
         method: "POST",
-        body: this.createBody(data)
+        body: createBody(data)
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json() as LastfmErrorResponse;
+        const errorData = (await response.json()) as LastfmErrorResponse;
         // Check Errors against https://www.last.fm/api/show/track.scrobble#errors
         switch (errorData.error) {
           case 9: // Invalid session key
-            log.warn('Last.fm session key invalid, attempting to reauthenticate');
+            log.warn("Last.fm session key invalid, attempting to reauthenticate");
             this.lastfmDetails.sessionKey = null;
             this.authenticateUser();
             break;
@@ -212,7 +211,7 @@ export default class LastFM extends BaseIntegration {
       }
     } catch (error) {
       // Handle network errors and other exceptions
-      log.error(`Last.fm API request failed: ${error.message || 'Unknown error'}`);
+      log.error(`Last.fm API request failed: ${error.message || "Unknown error"}`);
     }
   }
 
@@ -251,81 +250,18 @@ export default class LastFM extends BaseIntegration {
     if (!this.isEnabled) {
       return;
     }
-    
+
     if (this.scrobbleTimer) {
       clearTimeout(this.scrobbleTimer);
       this.scrobbleTimer = null;
     }
-    
+
     // Call the base class implementation to cleanup event listeners
     super.disable();
   }
 
   public getYTMScripts(): { name: string; script: string }[] {
     return [];
-  }
-
-  /**
-   * Format the data to be sent to the Last.fm API as a query string
-   * @param params data to send
-   * @param api_sig signature to append to the data
-   * @returns URL encoded query string to be used in the request
-   */
-  private createQueryString(params: LastfmRequestBody, api_sig: string) {
-    const data = [];
-    params.api_sig = api_sig;
-
-    for (const key in params) {
-      const value = params[key as keyof LastfmRequestBody];
-      if (!value) {
-        continue;
-      }
-
-      data.push(`${encodeURIComponent(key)}=${encodeURIComponent(value.toString())}`);
-    }
-    return data.join("&");
-  }
-
-  private createBody(params: Partial<LastfmRequestBody>) {
-    const data = new URLSearchParams();
-    for (const key in params) {
-      const value = params[key as keyof LastfmRequestBody];
-      if (value === null || value === undefined) {
-        continue;
-      }
-
-      data.append(key, value.toString());
-    }
-    return data;
-  }
-
-  /**
-   * Create a Signature for the Last.fm API
-   * @see {@link https://www.last.fm/api/authspec#_8-signing-calls} for details on how to create the signature
-   * @param params Data to be signed
-   * @param secret Secret key
-   * @returns Signature for the data
-   */
-  private createApiSig(params: Partial<LastfmRequestBody>, secret: string) {
-    const keys = Object.keys(params).sort();
-    const data = [];
-
-    for (const key of keys) {
-      // Ignore format and callback parameters
-      if (key === "format" || key === "callback") {
-        continue;
-      }
-
-      const value = params[key as keyof LastfmRequestBody];
-      if (!value) {
-        continue;
-      }
-
-      data.push(`${key}${value.toString()}`);
-    }
-
-    data.push(secret);
-    return md5(data.join(""));
   }
 
   private getSettings(): StoreSchema["lastfm"] {
@@ -363,7 +299,7 @@ export default class LastFM extends BaseIntegration {
   private async saveSettings(): Promise<void> {
     try {
       const safeStorageAvailable = this.memoryStore.get("safeStorageAvailable");
-      
+
       if (this.lastfmDetails.sessionKey) {
         if (safeStorageAvailable) {
           this.store.set("lastfm.sessionKey", safeStorage.encryptString(this.lastfmDetails.sessionKey).toString("hex"));
@@ -372,7 +308,7 @@ export default class LastFM extends BaseIntegration {
           this.store.set("lastfm.sessionKey", this.lastfmDetails.sessionKey);
         }
       }
-      
+
       if (this.lastfmDetails.token) {
         if (safeStorageAvailable) {
           this.store.set("lastfm.token", safeStorage.encryptString(this.lastfmDetails.token).toString("hex"));
@@ -382,11 +318,7 @@ export default class LastFM extends BaseIntegration {
         }
       }
     } catch (error) {
-      log.error(`Failed to save LastFM settings: ${error.message || 'Unknown error'}`);
+      log.error(`Failed to save LastFM settings: ${error.message || "Unknown error"}`);
     }
   }
-}
-
-function md5(string: string): string {
-  return cypto.createHash("md5").update(string).digest("hex");
 }

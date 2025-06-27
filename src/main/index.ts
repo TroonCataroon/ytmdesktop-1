@@ -91,7 +91,7 @@ log.initialize({
 function setDebugLoggingLevel(store: Conf<StoreSchema>) {
   const debugLoggingEnabled = store.get("debugLoggingEnabled", false);
   const debugLoggingLevel = store.get("debugLoggingLevel", "info");
-  
+
   if (debugLoggingEnabled) {
     log.transports.console.level = debugLoggingLevel;
     log.transports.file.level = debugLoggingLevel;
@@ -177,13 +177,6 @@ app.enableSandbox();
 const template: MenuItemConstructorOptions[] = [{ role: "appMenu", label: "YouTube Music Desktop App" }, { role: "editMenu" }];
 const builtMenu = isDarwin ? Menu.buildFromTemplate(template) : null; // null for performance https://www.electronjs.org/docs/latest/tutorial/performance#8-call-menusetapplicationmenunull-when-you-do-not-need-a-default-menu
 Menu.setApplicationMenu(builtMenu);
-
-const companionServer = new CompanionServer();
-const customCss = new CustomCSS();
-const discordPresence = new DiscordPresence();
-const lastFMScrobbler = new LastFM();
-const nowPlayingNotifications = new NowPlayingNotifications();
-const ratioVolume = new VolumeRatio();
 
 const ytmViewIntegrationScripts: { [name: string]: { [name: string]: string } } = {};
 
@@ -448,10 +441,20 @@ const store = new Conf<StoreSchema>({
 // Set initial debug logging level
 setDebugLoggingLevel(store);
 
+// Initialize the integrations
+const companionServer = new CompanionServer();
+const customCss = new CustomCSS();
+const discordPresence = new DiscordPresence();
+const lastFMScrobbler = new LastFM(store, memoryStore);
+const nowPlayingNotifications = new NowPlayingNotifications();
+const ratioVolume = new VolumeRatio();
+
 store.onDidAnyChange(async (newState, oldState) => {
   // Update debug logging level if settings changed
-  if (newState.developer?.debugLoggingEnabled !== oldState.developer?.debugLoggingEnabled ||
-      newState.developer?.debugLoggingLevel !== oldState.developer?.debugLoggingLevel) {
+  if (
+    newState.developer?.debugLoggingEnabled !== oldState.developer?.debugLoggingEnabled ||
+    newState.developer?.debugLoggingLevel !== oldState.developer?.debugLoggingLevel
+  ) {
     setDebugLoggingLevel(store);
   }
 
@@ -603,6 +606,28 @@ stateSaverInterval = setInterval(
   5 * 60 * 1000
 );
 
+// Throttle function to limit how often a function can be called
+function throttle<T>(func: (state: T) => void, limit: number): (state: T) => void {
+  let inThrottle = false;
+  let lastState: T | null = null;
+
+  return function (state: T) {
+    lastState = state;
+
+    if (!inThrottle) {
+      func(state);
+      inThrottle = true;
+      setTimeout(() => {
+        inThrottle = false;
+        // Check if state changed while throttling
+        if (lastState) {
+          func(lastState);
+        }
+      }, limit);
+    }
+  };
+}
+
 function setupTaskbarFeatures() {
   // Setup Taskbar Icons
   if (mainWindow && mainWindow.isVisible() && process.platform === "win32") {
@@ -639,7 +664,9 @@ function setupTaskbarFeatures() {
       }
     ]);
   }
-  playerStateStore.addEventListener((state: PlayerState) => {
+
+  // Update taskbar buttons with throttling to prevent flickering
+  const updateTaskbarButtons = throttle((state: PlayerState) => {
     const hasVideo = !!state.videoDetails;
     const isPlaying = state.trackState === VideoState.Playing;
 
@@ -686,8 +713,17 @@ function setupTaskbarFeatures() {
         ]);
       }
     }
+  }, 100); // Throttle to update at most every 100ms
 
+  playerStateStore.addEventListener((state: PlayerState) => {
+    // Update taskbar buttons (throttled)
+    updateTaskbarButtons(state);
+
+    // Update progress bar (this is fine to update frequently)
     if (mainWindow && store.get("playback.progressInTaskbar")) {
+      const hasVideo = !!state.videoDetails;
+      const isPlaying = state.trackState === VideoState.Playing;
+
       mainWindow.setProgressBar(hasVideo ? state.videoProgress / state.videoDetails.durationSeconds : -1, {
         mode: isPlaying ? "normal" : "paused"
       });
@@ -1073,52 +1109,50 @@ const createYTMView = (): void => {
       openExternalFromYtmView(event.url);
     }
   });
-  
+
   // Set Content Security Policy to reduce unsafe-eval warnings
   ytmView.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     if (details.url.startsWith("https://music.youtube.com/")) {
       const responseHeaders = details.responseHeaders || {};
       const existingCSP = responseHeaders["content-security-policy"] || [];
-      
+
       // Modify the CSP to allow safer inline script execution with nonce
       const cspModification = existingCSP.map(policy => {
         // Add 'strict-dynamic' to script-src to allow better dynamic script loading patterns
         // Replace 'unsafe-eval' with safer alternatives where possible
         return policy
-          .replace(/script-src([^;]*);/g, 
-                  "script-src$1 'strict-dynamic' https: http:;")
-          .replace(/style-src([^;]*);/g, 
-                  "style-src$1 'unsafe-inline' https: http:;");
+          .replace(/script-src([^;]*);/g, "script-src$1 'strict-dynamic' https: http:;")
+          .replace(/style-src([^;]*);/g, "style-src$1 'unsafe-inline' https: http:;");
       });
-      
+
       if (cspModification.length > 0) {
         responseHeaders["content-security-policy"] = cspModification;
       }
-      
+
       callback({ responseHeaders });
     } else {
       callback({ responseHeaders: details.responseHeaders });
     }
   });
-  
+
   // Handle CORS errors from YouTube ad services
   ytmView.webContents.session.webRequest.onHeadersReceived(
     { urls: ["https://www.youtube.com/pagead/*", "https://*.doubleclick.net/*"] },
     (details, callback) => {
-      if (details.resourceType === 'xhr') {
+      if (details.resourceType === "xhr") {
         const responseHeaders = details.responseHeaders || {};
-        
+
         // Fix CORS by setting proper Access-Control-Allow-Origin header
         responseHeaders["access-control-allow-origin"] = ["https://music.youtube.com"];
         responseHeaders["access-control-allow-credentials"] = ["true"];
-        
+
         callback({ responseHeaders });
       } else {
         callback({ responseHeaders: details.responseHeaders });
       }
     }
   );
-  
+
   ytmView.webContents.on("will-redirect", event => {
     const url = new URL(event.url);
     if (isPreventedNavOrRedirect(url)) {
@@ -2065,14 +2099,14 @@ app.on("activate", () => {
 // Add this after the other ipcMain handlers, before app startup
 
 // Global error handlers for renderer process errors
-ipcMain.on('renderer:unhandledError', (_, errorInfo) => {
-  log.error('Renderer process uncaught error:', errorInfo);
+ipcMain.on("renderer:unhandledError", (_, errorInfo) => {
+  log.error("Renderer process uncaught error:", errorInfo);
 });
 
-ipcMain.on('renderer:unhandledRejection', (_, errorInfo) => {
-  log.error('Renderer process unhandled promise rejection:', errorInfo);
+ipcMain.on("renderer:unhandledRejection", (_, errorInfo) => {
+  log.error("Renderer process unhandled promise rejection:", errorInfo);
 });
 
-ipcMain.on('renderer:reportError', (_, errorInfo) => {
-  log.error('Renderer process reported error:', errorInfo);
+ipcMain.on("renderer:reportError", (_, errorInfo) => {
+  log.error("Renderer process reported error:", errorInfo);
 });

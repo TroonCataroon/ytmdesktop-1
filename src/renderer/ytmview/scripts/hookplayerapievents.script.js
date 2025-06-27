@@ -18,8 +18,42 @@
     window.ytmd.sendStoreUpdate(state.queue, likeStatus, volume, muted, adPlaying);
   }
 
+  // Create a throttled version of sendVideoProgress
+  let lastProgressTime = 0;
+  let progressThrottleTimeout = null;
+  let lastProgress = null;
+  
+  function throttledSendVideoProgress(progress) {
+    const now = Date.now();
+    lastProgress = progress;
+    
+    // If we haven't sent progress in 250ms, send it immediately
+    if (now - lastProgressTime > 250) {
+      window.ytmd.sendVideoProgress(progress);
+      lastProgressTime = now;
+      lastProgress = null;
+      
+      // Clear any pending timeout
+      if (progressThrottleTimeout) {
+        clearTimeout(progressThrottleTimeout);
+        progressThrottleTimeout = null;
+      }
+    } 
+    // Otherwise, schedule an update if we don't have one already
+    else if (!progressThrottleTimeout) {
+      progressThrottleTimeout = setTimeout(() => {
+        if (lastProgress !== null) {
+          window.ytmd.sendVideoProgress(lastProgress);
+          lastProgressTime = Date.now();
+          lastProgress = null;
+        }
+        progressThrottleTimeout = null;
+      }, 250 - (now - lastProgressTime));
+    }
+  }
+
   document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.addEventListener("onVideoProgress", progress => {
-    window.ytmd.sendVideoProgress(progress);
+    throttledSendVideoProgress(progress);
   });
   document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.addEventListener("onStateChange", state => {
     window.ytmd.sendVideoState(state);
