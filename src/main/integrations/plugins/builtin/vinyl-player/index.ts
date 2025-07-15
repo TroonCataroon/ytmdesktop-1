@@ -1,6 +1,7 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, ipcMain, globalShortcut } from "electron";
 import path from "path";
+import playerStateStore, { PlayerState, VideoState } from "../../../player-state-store";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
@@ -39,11 +40,13 @@ export class VinylPlayerPlugin extends BasePlugin {
     console.log("Vinyl Player Plugin enabled");
     this.createVinylWindow();
     this.setupPlayerStateListener();
+    this.setupIpcHandlers();
   }
 
   onDisable(): void {
     console.log("Vinyl Player Plugin disabled");
     this.destroyVinylWindow();
+    this.cleanupIpcHandlers();
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
@@ -67,6 +70,64 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setMaximumSize(size, size);
       }
     }
+  }
+
+  private setupIpcHandlers(): void {
+    // Handle toggle window request from player bar
+    ipcMain.on("vinyl-player:toggle-window", () => {
+      this.toggleWindow();
+    });
+
+    // Handle play/pause from vinyl player window
+    ipcMain.on("vinyl-player:play-pause", () => {
+      // Send play/pause command to main window
+      const mainWindow = BrowserWindow.getAllWindows().find(w => w.getTitle().includes("YouTube Music"));
+      if (mainWindow) {
+        mainWindow.webContents.send("remoteControl:execute", "playPause");
+      }
+    });
+
+    // Handle close from vinyl player window
+    ipcMain.on("vinyl-player:close", () => {
+      this.hideVinylWindow();
+    });
+
+    // Handle keyboard shortcuts
+    ipcMain.on("vinyl-player:register-shortcuts", () => {
+      this.registerKeyboardShortcuts();
+    });
+
+    ipcMain.on("vinyl-player:unregister-shortcuts", () => {
+      this.unregisterKeyboardShortcuts();
+    });
+  }
+
+  private cleanupIpcHandlers(): void {
+    ipcMain.removeAllListeners("vinyl-player:toggle-window");
+    ipcMain.removeAllListeners("vinyl-player:play-pause");
+    ipcMain.removeAllListeners("vinyl-player:close");
+    ipcMain.removeAllListeners("vinyl-player:register-shortcuts");
+    ipcMain.removeAllListeners("vinyl-player:unregister-shortcuts");
+  }
+
+  private registerKeyboardShortcuts(): void {
+    // Register global shortcuts for vinyl player
+    globalShortcut.register("Alt+V", () => {
+      this.toggleWindow();
+    });
+
+    globalShortcut.register("Alt+Shift+V", () => {
+      this.showVinylWindow();
+    });
+
+    console.log("Vinyl player keyboard shortcuts registered");
+  }
+
+  private unregisterKeyboardShortcuts(): void {
+    globalShortcut.unregister("Alt+V");
+    globalShortcut.unregister("Alt+Shift+V");
+
+    console.log("Vinyl player keyboard shortcuts unregistered");
   }
 
   private createVinylWindow(): void {
@@ -130,26 +191,57 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   private setupPlayerStateListener(): void {
-    // This would listen to player state changes from the main app
-    // For now, we'll simulate with a timer
-    setInterval(() => {
-      this.updatePlayerState();
-    }, 1000);
+    // Listen to actual player state changes
+    playerStateStore.addEventListener((state: PlayerState) => {
+      this.updatePlayerState(state);
+    });
   }
 
-  private updatePlayerState(): void {
-    // This would get the actual player state from the main app
-    // For now, we'll use mock data
-    const mockTrack = {
-      title: "Bohemian Rhapsody",
-      artist: "Queen",
-      thumbnail: "https://via.placeholder.com/200x200/1db954/ffffff?text=Album"
-    };
+  private updatePlayerState(state: PlayerState): void {
+    const hasVideo = !!state.videoDetails;
+    const isPlaying = state.trackState === VideoState.Playing;
 
-    if (JSON.stringify(mockTrack) !== JSON.stringify(this.currentTrack)) {
-      this.currentTrack = mockTrack;
+    if (hasVideo && state.videoDetails) {
+      const track = {
+        title: state.videoDetails.title || "Unknown Title",
+        artist: state.videoDetails.author || "Unknown Artist",
+        thumbnail: this.getBestThumbnail(state.videoDetails.thumbnails),
+        isPlaying: isPlaying,
+        spinSpeed: this.settings.spinSpeed as number
+      };
+
+      // Only update if track info has changed
+      if (JSON.stringify(track) !== JSON.stringify(this.currentTrack)) {
+        this.currentTrack = track;
+        this.updateVinylDisplay();
+      }
+    } else {
+      // No video playing
+      this.currentTrack = {
+        title: "No track playing",
+        artist: "",
+        thumbnail: "",
+        isPlaying: false,
+        spinSpeed: this.settings.spinSpeed as number
+      };
       this.updateVinylDisplay();
     }
+
+    // Update playing state
+    if (this.isPlaying !== isPlaying) {
+      this.isPlaying = isPlaying;
+      this.updateVinylDisplay();
+    }
+  }
+
+  private getBestThumbnail(thumbnails: unknown[]): string {
+    if (!thumbnails || thumbnails.length === 0) {
+      return "";
+    }
+
+    // Try to get the highest quality thumbnail
+    const sortedThumbnails = (thumbnails as Array<{ width?: number; url?: string }>).sort((a, b) => (b.width || 0) - (a.width || 0));
+    return sortedThumbnails[0]?.url || "";
   }
 
   private updateVinylDisplay(): void {
@@ -168,8 +260,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       spinSpeed: this.settings.spinSpeed
     });
 
-    // Show window if auto-show is enabled
-    if (this.settings.autoShow && !this.vinylWindow.isVisible) {
+    // Show window if auto-show is enabled and a track is playing
+    if (this.settings.autoShow && this.isPlaying && !this.vinylWindow.isVisible) {
       this.showVinylWindow();
     }
   }

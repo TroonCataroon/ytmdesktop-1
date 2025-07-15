@@ -278,6 +278,12 @@ async function loadPluginSettingsSchemas(): Promise<void> {
         label: "Opacity",
         description: "Transparency of the vinyl player window (0.1-1.0)",
         default: 0.9
+      },
+      enableKeyboardShortcuts: {
+        type: "boolean",
+        label: "Enable Keyboard Shortcuts",
+        description: "Use Alt+V to toggle, Alt+Shift+V to show vinyl player",
+        default: true
       }
     }
   };
