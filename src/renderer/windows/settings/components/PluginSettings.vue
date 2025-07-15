@@ -149,6 +149,14 @@ async function loadPlugins(): Promise<void> {
         version: "1.0.0",
         author: "YTMDesktop Team",
         enabled: false
+      },
+      {
+        id: "vinyl-player",
+        name: "Vinyl Player",
+        description: "Mini pop-out player with spinning vinyl record",
+        version: "1.0.0",
+        author: "YTMDesktop Team",
+        enabled: false
       }
     ];
 
@@ -232,6 +240,44 @@ async function loadPluginSettingsSchemas(): Promise<void> {
         label: "Enable Global Shortcuts",
         description: "Allow shortcuts to work even when app is not focused",
         default: true
+      }
+    },
+    "vinyl-player": {
+      windowSize: {
+        type: "number",
+        label: "Window Size",
+        description: "Size of the vinyl player window in pixels",
+        default: 200
+      },
+      alwaysOnTop: {
+        type: "boolean",
+        label: "Always On Top",
+        description: "Keep the vinyl player window above other windows",
+        default: true
+      },
+      autoShow: {
+        type: "boolean",
+        label: "Auto Show",
+        description: "Automatically show the vinyl player when a song starts",
+        default: false
+      },
+      spinSpeed: {
+        type: "number",
+        label: "Spin Speed",
+        description: "Speed of the vinyl record rotation (1-5)",
+        default: 2
+      },
+      showControls: {
+        type: "boolean",
+        label: "Show Controls",
+        description: "Show play/pause controls on the vinyl player",
+        default: true
+      },
+      opacity: {
+        type: "number",
+        label: "Opacity",
+        description: "Transparency of the vinyl player window (0.1-1.0)",
+        default: 0.9
       }
     }
   };

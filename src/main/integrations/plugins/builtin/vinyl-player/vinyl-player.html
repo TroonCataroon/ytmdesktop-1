@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyl Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: transparent;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-app-region: drag;
+        }
+
+        .vinyl-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 70%, transparent 100%);
+        }
+
+        .track-info {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            max-width: 90%;
+        }
+
+        .track-title {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-artist {
+            color: #ccc;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .vinyl-record {
+            width: 80%;
+            height: 80%;
+            max-width: 180px;
+            max-height: 180px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vinyl-disc {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #1a1a1a, #333, #1a1a1a, #333);
+            position: relative;
+            animation: spin 3s linear infinite;
+            box-shadow: 
+                0 0 20px rgba(0,0,0,0.8),
+                inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .vinyl-disc.paused {
+            animation-play-state: paused;
+        }
+
+        .vinyl-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 15%;
+            height: 15%;
+            background: radial-gradient(circle, #gold, #b8860b);
+            border-radius: 50%;
+            border: 2px solid #333;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .album-art {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 3px solid #333;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .vinyl-grooves {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: repeating-conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                transparent 1deg,
+                rgba(255,255,255,0.1) 1deg,
+                rgba(255,255,255,0.1) 2deg
+            );
+            pointer-events: none;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s;
+            -webkit-app-region: no-drag;
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Vinyl record texture */
+        .vinyl-disc::before {
+            content: '';
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            right: 5%;
+            bottom: 5%;
+            border-radius: 50%;
+            background: repeating-radial-gradient(
+                circle at center,
+                transparent 0px,
+                transparent 2px,
+                rgba(255,255,255,0.05) 2px,
+                rgba(255,255,255,0.05) 4px
+            );
+            pointer-events: none;
+        }
+
+        /* Responsive design */
+        @media (max-width: 200px) {
+            .track-title {
+                font-size: 12px;
+            }
+            .track-artist {
+                font-size: 10px;
+            }
+            .control-btn {
+                width: 25px;
+                height: 25px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="vinyl-container">
+        <div class="track-info">
+            <div class="track-title" id="track-title">Loading...</div>
+            <div class="track-artist" id="track-artist">Unknown Artist</div>
+        </div>
+
+        <div class="vinyl-record">
+            <div class="vinyl-disc" id="vinyl-disc">
+                <div class="vinyl-grooves"></div>
+                <div class="album-art" id="album-art"></div>
+                <div class="vinyl-center"></div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <button class="control-btn" id="play-pause-btn" title="Play/Pause">▶</button>
+            <button class="control-btn" id="close-btn" title="Close">✕</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        // DOM elements
+        const trackTitle = document.getElementById('track-title');
+        const trackArtist = document.getElementById('track-artist');
+        const albumArt = document.getElementById('album-art');
+        const vinylDisc = document.getElementById('vinyl-disc');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const closeBtn = document.getElementById('close-btn');
+        const controls = document.getElementById('controls');
+
+        let currentTrack = {
+            title: 'Loading...',
+            artist: 'Unknown Artist',
+            thumbnail: '',
+            isPlaying: false,
+            spinSpeed: 2
+        };
+
+        // Update track info
+        function updateTrackInfo(track) {
+            currentTrack = { ...currentTrack, ...track };
+            
+            trackTitle.textContent = track.title || 'Unknown Title';
+            trackArtist.textContent = track.artist || 'Unknown Artist';
+            
+            if (track.thumbnail) {
+                albumArt.style.backgroundImage = `url(${track.thumbnail})`;
+            } else {
+                albumArt.style.backgroundImage = 'url(https://via.placeholder.com/200x200/1db954/ffffff?text=Album)';
+            }
+
+            // Update spin animation
+            const spinDuration = 6 - track.spinSpeed; // Faster speed = shorter duration
+            vinylDisc.style.animationDuration = `${spinDuration}s`;
+            
+            if (track.isPlaying) {
+                vinylDisc.classList.remove('paused');
+            } else {
+                vinylDisc.classList.add('paused');
+            }
+
+            // Update play/pause button
+            playPauseBtn.textContent = track.isPlaying ? '⏸' : '▶';
+        }
+
+        // Event listeners
+        playPauseBtn.addEventListener('click', () => {
+            ipcRenderer.send('vinyl-player:play-pause');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            ipcRenderer.send('vinyl-player:close');
+        });
+
+        // Listen for track updates from main process
+        ipcRenderer.on('vinyl-player:update-track', (event, track) => {
+            updateTrackInfo(track);
+        });
+
+        // Handle settings changes
+        ipcRenderer.on('vinyl-player:update-settings', (event, settings) => {
+            if (settings.showControls !== undefined) {
+                controls.style.display = settings.showControls ? 'flex' : 'none';
+            }
+        });
+
+        // Initialize with default values
+        updateTrackInfo(currentTrack);
+    </script>
+</body>
+</html> 

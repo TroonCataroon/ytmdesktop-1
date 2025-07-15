@@ -2,6 +2,7 @@ import { BasePlugin, PluginSettings } from "./base-plugin";
 import { NotificationEnhancerPlugin } from "./builtin/notification-enhancer";
 import { CustomThemesPlugin } from "./builtin/custom-themes";
 import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
+import { VinylPlayerPlugin } from "./builtin/vinyl-player";
 
 export class PluginManager {
   private plugins: Map<string, BasePlugin> = new Map();
@@ -16,6 +17,7 @@ export class PluginManager {
     this.registerPlugin(new NotificationEnhancerPlugin());
     this.registerPlugin(new CustomThemesPlugin());
     this.registerPlugin(new KeyboardShortcutsPlugin());
+    this.registerPlugin(new VinylPlayerPlugin());
   }
 
   registerPlugin(plugin: BasePlugin): void {
