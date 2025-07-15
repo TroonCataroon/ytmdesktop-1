@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import KeybindInput from "../../components/KeybindInput.vue";
 import YTMDSetting from "../../components/YTMDSetting.vue";
+import PluginSettings from "./components/PluginSettings.vue";
 import { StoreSchema, TrayIconStyle } from "~shared/store/schema";
 import { AuthToken } from "~shared/integrations/companion-server/types";
 import logo from "~assets/icons/ytmd.png";
@@ -276,6 +277,7 @@ window.ytmd.handleUpdateDownloaded(() => {
         <li :class="{ active: currentTab === 3 }" @click="changeTab(3)"><span class="material-symbols-outlined">music_note</span>Playback</li>
         <li :class="{ active: currentTab === 4 }" @click="changeTab(4)"><span class="material-symbols-outlined">wifi_tethering</span>Integrations</li>
         <li :class="{ active: currentTab === 5 }" @click="changeTab(5)"><span class="material-symbols-outlined">keyboard</span>Shortcuts</li>
+        <li :class="{ active: currentTab === 6 }" @click="changeTab(6)"><span class="material-symbols-outlined">extension</span>Plugins</li>
         <span class="push"></span>
         <li :class="{ active: currentTab === 99 }" @click="changeTab(99)"><span class="material-symbols-outlined">info</span>About</li>
       </ul>
@@ -517,6 +519,10 @@ window.ytmd.handleUpdateDownloaded(() => {
             </p>
             <KeybindInput v-model="shortcutVolumeDown" @change="settingsChanged" />
           </div>
+        </div>
+
+        <div v-if="currentTab === 6" class="plugins-tab">
+          <PluginSettings />
         </div>
 
         <div v-if="currentTab === 99" class="about-tab">

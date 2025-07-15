@@ -1,0 +1,143 @@
+import { BasePlugin, PluginSettings } from "./base-plugin";
+import { NotificationEnhancerPlugin } from "./builtin/notification-enhancer";
+import { CustomThemesPlugin } from "./builtin/custom-themes";
+import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
+
+export class PluginManager {
+  private plugins: Map<string, BasePlugin> = new Map();
+  private enabledPlugins: Set<string> = new Set();
+
+  constructor() {
+    this.registerBuiltinPlugins();
+  }
+
+  private registerBuiltinPlugins(): void {
+    // Register built-in plugins
+    this.registerPlugin(new NotificationEnhancerPlugin());
+    this.registerPlugin(new CustomThemesPlugin());
+    this.registerPlugin(new KeyboardShortcutsPlugin());
+  }
+
+  registerPlugin(plugin: BasePlugin): void {
+    this.plugins.set(plugin.id, plugin);
+
+    // Auto-enable if it was previously enabled
+    if (plugin.enabled) {
+      this.enablePlugin(plugin.id);
+    }
+  }
+
+  unregisterPlugin(pluginId: string): void {
+    const plugin = this.plugins.get(pluginId);
+    if (plugin) {
+      this.disablePlugin(pluginId);
+      this.plugins.delete(pluginId);
+    }
+  }
+
+  enablePlugin(pluginId: string): boolean {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      console.warn(`Plugin ${pluginId} not found`);
+      return false;
+    }
+
+    if (this.enabledPlugins.has(pluginId)) {
+      console.warn(`Plugin ${pluginId} is already enabled`);
+      return false;
+    }
+
+    try {
+      plugin.onEnable();
+      this.enabledPlugins.add(pluginId);
+      console.log(`Plugin ${pluginId} enabled successfully`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to enable plugin ${pluginId}:`, error);
+      return false;
+    }
+  }
+
+  disablePlugin(pluginId: string): boolean {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      console.warn(`Plugin ${pluginId} not found`);
+      return false;
+    }
+
+    if (!this.enabledPlugins.has(pluginId)) {
+      console.warn(`Plugin ${pluginId} is not enabled`);
+      return false;
+    }
+
+    try {
+      plugin.onDisable();
+      this.enabledPlugins.delete(pluginId);
+      console.log(`Plugin ${pluginId} disabled successfully`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to disable plugin ${pluginId}:`, error);
+      return false;
+    }
+  }
+
+  getPlugin(pluginId: string): BasePlugin | undefined {
+    return this.plugins.get(pluginId);
+  }
+
+  getAllPlugins(): BasePlugin[] {
+    return Array.from(this.plugins.values());
+  }
+
+  getEnabledPlugins(): BasePlugin[] {
+    return Array.from(this.enabledPlugins).map(id => this.plugins.get(id)!);
+  }
+
+  isPluginEnabled(pluginId: string): boolean {
+    return this.enabledPlugins.has(pluginId);
+  }
+
+  updatePluginSettings(pluginId: string, settings: Record<string, unknown>): boolean {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      console.warn(`Plugin ${pluginId} not found`);
+      return false;
+    }
+
+    plugin.updateSettings(settings);
+    return true;
+  }
+
+  getPluginSettingsSchema(pluginId: string): PluginSettings | null {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      return null;
+    }
+
+    return (plugin.constructor as typeof BasePlugin).getSettingsSchema?.() || null;
+  }
+
+  // Lifecycle methods
+  async onAppReady(): Promise<void> {
+    for (const plugin of this.getEnabledPlugins()) {
+      try {
+        await plugin.onAppReady?.();
+      } catch (error) {
+        console.error(`Error in plugin ${plugin.id} onAppReady:`, error);
+      }
+    }
+  }
+
+  async onAppClose(): Promise<void> {
+    for (const plugin of this.getEnabledPlugins()) {
+      try {
+        await plugin.onAppClose?.();
+      } catch (error) {
+        console.error(`Error in plugin ${plugin.id} onAppClose:`, error);
+      }
+    }
+  }
+}
+
+// Export singleton instance
+export const pluginManager = new PluginManager();
