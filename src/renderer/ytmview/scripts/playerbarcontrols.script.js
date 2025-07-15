@@ -330,7 +330,26 @@
                             }
                           }
                         }
-                        : {}
+                        : {},
+                      {
+                        menuServiceItemRenderer: {
+                          icon: {
+                            iconType: "ALBUM"
+                          },
+                          serviceEndpoint: {
+                            ytmdVinylPlayerServiceEndpoint: {
+                              action: "toggle"
+                            }
+                          },
+                          text: {
+                            runs: [
+                              {
+                                text: "Vinyl Player"
+                              }
+                            ]
+                          }
+                        }
+                      }
                     ]
                   }
                 },
@@ -347,18 +366,7 @@
   };
   rightControls.querySelector(".shuffle").insertAdjacentElement("afterend", sleepTimerButton);
 
-  // Add Vinyl Player Button
-  let vinylPlayerButton = document.createElement("tp-yt-paper-icon-button");
-  vinylPlayerButton.setAttribute("title", "Vinyl Player");
-  vinylPlayerButton.classList.add("ytmusic-player-bar");
-  vinylPlayerButton.classList.add("ytmd-player-bar-control");
-  vinylPlayerButton.classList.add("vinyl-player-button");
-  vinylPlayerButton.set("icon", "yt-sys-icons:album");
-  vinylPlayerButton.onclick = () => {
-    // Send message to main process to toggle vinyl player
-    window.__YTMD_HOOK__.ipcRenderer.send("vinyl-player:toggle-window");
-  };
-  sleepTimerButton.insertAdjacentElement("afterend", vinylPlayerButton);
+
 
   const humanizeTime = time => {
     // This is just a hacked together function to provide a humanization for the sleep timer. It serves no purpose outside that and isn't some complicated humanizer
@@ -370,7 +378,10 @@
 
   window.addEventListener("yt-action", e => {
     if (e.detail.actionName === "yt-service-request") {
-      if (e.detail.args[1].ytmdSleepTimerServiceEndpoint) {
+      if (e.detail.args[1].ytmdVinylPlayerServiceEndpoint) {
+        // Handle vinyl player toggle
+        window.__YTMD_HOOK__.ipcRenderer.send("vinyl-player:toggle-window");
+      } else if (e.detail.args[1].ytmdSleepTimerServiceEndpoint) {
         if (sleepTimerTimeout !== null) {
           clearTimeout(sleepTimerTimeout);
           sleepTimerTimeout = null;
