@@ -529,6 +529,40 @@
     // Update library button for current data
     const currentMenu = document.querySelector("ytmusic-app-layout>ytmusic-player-bar").getMenuRenderer();
     if (currentMenu) {
+      // Add vinyl player option to the menu if it doesn't exist
+      let vinylPlayerExists = false;
+      for (let i = 0; i < currentMenu.items.length; i++) {
+        const item = currentMenu.items[i];
+        if (item.menuServiceItemRenderer && 
+            item.menuServiceItemRenderer.serviceEndpoint && 
+            item.menuServiceItemRenderer.serviceEndpoint.ytmdVinylPlayerServiceEndpoint) {
+          vinylPlayerExists = true;
+          break;
+        }
+      }
+      
+      if (!vinylPlayerExists) {
+        // Add vinyl player option to the menu
+        currentMenu.items.push({
+          menuServiceItemRenderer: {
+            icon: {
+              iconType: "ALBUM"
+            },
+            serviceEndpoint: {
+              ytmdVinylPlayerServiceEndpoint: {
+                action: "toggle"
+              }
+            },
+            text: {
+              runs: [
+                {
+                  text: "Vinyl Player"
+                }
+              ]
+            }
+          }
+        });
+      }
       if (playlistButton.classList.contains("hidden")) {
         playlistButton.classList.remove("hidden");
       }
