@@ -330,7 +330,27 @@
                             }
                           }
                         }
-                        : {}
+                        : {},
+                      // Divider
+                      { menuSectionRenderer: { items: [] } },
+                      // Vinyl Player Option
+                      {
+                        menuServiceItemRenderer: {
+                          icon: {
+                            iconType: "ALBUM"
+                          },
+                          serviceEndpoint: {
+                            ytmdVinylPlayerServiceEndpoint: {}
+                          },
+                          text: {
+                            runs: [
+                              {
+                                text: "Vinyl Player"
+                              }
+                            ]
+                          }
+                        }
+                      }
                     ]
                   }
                 },
@@ -346,19 +366,6 @@
     );
   };
   rightControls.querySelector(".shuffle").insertAdjacentElement("afterend", sleepTimerButton);
-
-  // Add Vinyl Player Button
-  let vinylPlayerButton = document.createElement("tp-yt-paper-icon-button");
-  vinylPlayerButton.setAttribute("title", "Vinyl Player");
-  vinylPlayerButton.classList.add("ytmusic-player-bar");
-  vinylPlayerButton.classList.add("ytmd-player-bar-control");
-  vinylPlayerButton.classList.add("vinyl-player-button");
-  vinylPlayerButton.set("icon", "yt-sys-icons:album");
-  vinylPlayerButton.onclick = () => {
-    // Send message to main process to toggle vinyl player
-    window.__YTMD_HOOK__.ipcRenderer.send("vinyl-player:toggle-window");
-  };
-  sleepTimerButton.insertAdjacentElement("afterend", vinylPlayerButton);
 
   const humanizeTime = time => {
     // This is just a hacked together function to provide a humanization for the sleep timer. It serves no purpose outside that and isn't some complicated humanizer
@@ -508,6 +515,10 @@
             })
           );
         }
+      }
+      // Handle Vinyl Player menu item
+      if (e.detail.args[1].ytmdVinylPlayerServiceEndpoint !== undefined) {
+        window.__YTMD_HOOK__.ipcRenderer.send("vinyl-player:toggle-window");
       }
     }
   });
