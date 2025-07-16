@@ -1,7 +1,7 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
 import { BrowserWindow, ipcMain, globalShortcut } from "electron";
 import path from "path";
-import playerStateStore, { PlayerState, VideoState } from "../../../player-state-store";
+import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
