@@ -35,6 +35,7 @@ export type StoreSchema = {
     companionServerCORSWildcardEnabled: boolean;
     discordPresenceEnabled: boolean;
     lastFMEnabled: boolean;
+    vinylPlayerEnabled: boolean;
   };
   shortcuts: {
     playPause: string;
