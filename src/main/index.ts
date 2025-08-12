@@ -604,9 +604,32 @@ if (store.get("playback").enableSpeakerFill) {
 }
 
 function saveState() {
-  store.set("state.lastUrl", lastUrl);
-  store.set("state.lastVideoId", lastVideoId);
-  store.set("state.lastPlaylistId", lastPlaylistId);
+  try {
+    // Only save if values have actually changed
+    const currentState = store.get("state");
+    if (currentState.lastUrl !== lastUrl || currentState.lastVideoId !== lastVideoId || currentState.lastPlaylistId !== lastPlaylistId) {
+      store.set("state.lastUrl", lastUrl);
+      store.set("state.lastVideoId", lastVideoId);
+      store.set("state.lastPlaylistId", lastPlaylistId);
+      log.debug("State saved to disk");
+    }
+  } catch (error) {
+    log.error("Failed to save state to disk:", error);
+    // If ENOSPC error, reduce save frequency temporarily
+    if (error.code === "ENOSPC") {
+      log.warn("Disk space low, reducing save frequency");
+      if (stateSaverInterval) {
+        clearInterval(stateSaverInterval);
+        // Restart with 30 minute intervals instead of 5 minutes
+        stateSaverInterval = setInterval(
+          () => {
+            saveState();
+          },
+          30 * 60 * 1000
+        );
+      }
+    }
+  }
 }
 
 // Automatic background state saving every 5 minutes
@@ -638,6 +661,15 @@ function throttle<T>(func: (state: T) => void, limit: number): (state: T) => voi
     }
   };
 }
+
+// Throttled state saving to prevent excessive disk writes
+const throttledStateUpdate = throttle(() => {
+  try {
+    saveState();
+  } catch (error) {
+    log.error("Throttled state update failed:", error);
+  }
+}, 10000); // Maximum one update per 10 seconds
 
 function setupTaskbarFeatures() {
   // Setup Taskbar Icons
@@ -965,6 +997,9 @@ function ytmViewNavigated() {
         canGoBack: ytmView.webContents.navigationHistory.canGoBack(),
         canGoForward: ytmView.webContents.navigationHistory.canGoForward()
       });
+
+      // Throttled disk write to prevent excessive I/O during navigation
+      throttledStateUpdate();
     }
   }
 }
@@ -1196,9 +1231,12 @@ const createYTMView = (): void => {
     }
   });
   ytmView.webContents.on("render-process-gone", () => {
-    store.set("state.lastUrl", lastUrl);
-    store.set("state.lastVideoId", lastVideoId);
-    store.set("state.lastPlaylistId", lastPlaylistId);
+    try {
+      // Save state before recreating view
+      saveState();
+    } catch (error) {
+      log.error("Failed to save state after render process crash:", error);
+    }
     createYTMView();
   });
   ytmView.webContents.on("page-title-updated", (_event, title) => {
@@ -1310,7 +1348,8 @@ const createYTMView = (): void => {
 
   if (navigateDefault) {
     ytmView.webContents.loadURL("https://music.youtube.com/");
-    store.set("state.lastUrl", "https://music.youtube.com/");
+    lastUrl = "https://music.youtube.com/";
+    // Don't immediately save to disk, let the normal state saving handle it
   }
 
   ytmViewLoadTimeout = setTimeout(() => {
@@ -1745,10 +1784,15 @@ app.on("ready", async () => {
   ipcMain.on("ytmView:videoDataChanged", (event, videoDetails, playlistId, album, likeStatus, hasFullMetadata) => {
     if (event.sender !== ytmView.webContents) return;
 
+    // Update in-memory state
     lastVideoId = videoDetails.videoId;
     lastPlaylistId = playlistId;
 
+    // Update player state store
     playerStateStore.updateVideoDetails(videoDetails, playlistId, album, likeStatus, hasFullMetadata);
+
+    // Throttled disk write to prevent excessive I/O
+    throttledStateUpdate();
   });
 
   ipcMain.on("ytmView:storeStateChanged", (event, queue, likeStatus, volume, muted, adPlaying) => {
@@ -1817,7 +1861,18 @@ app.on("ready", async () => {
   ipcMain.on("settings:set", (event, key: string, value?: unknown) => {
     if (settingsWindow && event.sender !== settingsWindow.webContents) return;
 
-    store.set(key, value);
+    try {
+      store.set(key, value);
+    } catch (error) {
+      log.error(`Failed to set store value for key "${key}":`, error);
+      if (error.code === "ENOSPC") {
+        log.error("Disk space full - cannot save settings");
+        // Send error back to renderer
+        if (settingsWindow) {
+          settingsWindow.webContents.send("settings:error", "Disk space full - cannot save settings");
+        }
+      }
+    }
   });
 
   ipcMain.handle("settings:get", (event, key: string) => {
@@ -2092,7 +2147,21 @@ app.on("ready", async () => {
 app.on("before-quit", () => {
   log.info("Application quitting\n\n");
   applicationQuitting = true;
-  saveState();
+
+  // Clear the interval to prevent conflicts
+  if (stateSaverInterval) {
+    clearInterval(stateSaverInterval);
+    stateSaverInterval = null;
+  }
+
+  // Save final state with error handling
+  try {
+    saveState();
+    log.info("Final state saved successfully");
+  } catch (error) {
+    log.error("Failed to save final state on quit:", error);
+    // Don't block quitting even if save fails
+  }
 });
 
 app.on("open-url", (_, url) => {
