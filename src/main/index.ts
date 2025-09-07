@@ -389,7 +389,8 @@ const store = new Conf<StoreSchema>({
       thumbsUp: "",
       thumbsDown: "",
       volumeUp: "",
-      volumeDown: ""
+      volumeDown: "",
+      openDevTools: "F12"
     },
     state: {
       lastUrl: "https://music.youtube.com/",
@@ -971,6 +972,31 @@ function registerShortcuts() {
     }
   } else {
     memoryStore.set("shortcutsVolumeDownRegisterFailed", false);
+  }
+
+  if (shortcuts.openDevTools) {
+    let registered = false;
+    try {
+      registered = globalShortcut.register(shortcuts.openDevTools, () => {
+        if (ytmView && store.get("developer.enableDevTools")) {
+          ytmView.webContents.openDevTools({
+            mode: "detach"
+          });
+        }
+      });
+    } catch {
+      /* empty */
+    }
+
+    if (!registered) {
+      log.info("Failed to register shortcut: openDevTools");
+      memoryStore.set("shortcutsOpenDevToolsRegisterFailed", true);
+    } else {
+      log.info("Registered shortcut: openDevTools");
+      memoryStore.set("shortcutsOpenDevToolsRegisterFailed", false);
+    }
+  } else {
+    memoryStore.set("shortcutsOpenDevToolsRegisterFailed", false);
   }
 
   log.info("Registered shortcuts");
