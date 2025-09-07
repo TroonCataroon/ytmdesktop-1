@@ -11,24 +11,24 @@ const store = new Store<StoreSchema>();
 const memoryStore = new MemoryStore<MemoryStoreSchema>();
 
 // Set up global error handlers for the renderer process
-window.addEventListener('error', (event) => {
-  console.error('Uncaught error in settings window:', event.error);
-  ipcRenderer.send('renderer:unhandledError', {
-    message: event.error?.message || 'Unknown error',
-    stack: event.error?.stack || '',
+window.addEventListener("error", event => {
+  console.error("Uncaught error in settings window:", event.error);
+  ipcRenderer.send("renderer:unhandledError", {
+    message: event.error?.message || "Unknown error",
+    stack: event.error?.stack || "",
     source: event.filename,
     line: event.lineno,
     column: event.colno,
-    window: 'settings'
+    window: "settings"
   });
 });
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection in settings window:', event.reason);
-  ipcRenderer.send('renderer:unhandledRejection', {
-    message: event.reason?.message || 'Unknown promise rejection',
-    stack: event.reason?.stack || '',
-    window: 'settings'
+window.addEventListener("unhandledrejection", event => {
+  console.error("Unhandled rejection in settings window:", event.reason);
+  ipcRenderer.send("renderer:unhandledRejection", {
+    message: event.reason?.message || "Unknown promise rejection",
+    stack: event.reason?.stack || "",
+    window: "settings"
   });
 });
 
@@ -68,4 +68,12 @@ contextBridge.exposeInMainWorld("ytmd", {
   isAppUpdateAvailable: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateAvailable"),
   isAppUpdateDownloaded: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateDownloaded"),
   getTrueFilePath: (file: File) => webUtils.getPathForFile(file)
+});
+
+// Also expose ipcRenderer directly for components that need it
+contextBridge.exposeInMainWorld("ipcRenderer", {
+  invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
+  send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
+  on: (channel: string, listener: (...args: unknown[]) => void) => ipcRenderer.on(channel, listener),
+  removeListener: (channel: string, listener: (...args: unknown[]) => void) => ipcRenderer.removeListener(channel, listener)
 });

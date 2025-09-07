@@ -3,6 +3,7 @@ import { ref } from "vue";
 import KeybindInput from "../../components/KeybindInput.vue";
 import YTMDSetting from "../../components/YTMDSetting.vue";
 import PluginSettings from "./components/PluginSettings.vue";
+import CrashReports from "./components/CrashReports.vue";
 import { StoreSchema, TrayIconStyle } from "~shared/store/schema";
 import { AuthToken } from "~shared/integrations/companion-server/types";
 import logo from "~assets/icons/ytmd.png";
@@ -36,6 +37,7 @@ const playback: StoreSchema["playback"] = await store.get("playback");
 const integrations: StoreSchema["integrations"] = await store.get("integrations");
 const shortcuts: StoreSchema["shortcuts"] = await store.get("shortcuts");
 const lastFM: StoreSchema["lastfm"] = await store.get("lastfm");
+const developer: StoreSchema["developer"] = await store.get("developer");
 
 const disableHardwareAcceleration = ref<boolean>(general.disableHardwareAcceleration);
 const hideToTrayOnClose = ref<boolean>(general.hideToTrayOnClose);
@@ -76,6 +78,10 @@ const shortcutOpenDevTools = ref<string>(shortcuts.openDevTools);
 const lastFMSessionKey = ref<string>(lastFM.sessionKey);
 const scrobblePercent = ref<number>(lastFM.scrobblePercent);
 
+const enableDevTools = ref<boolean>(developer.enableDevTools);
+const debugLoggingEnabled = ref<boolean>(developer.debugLoggingEnabled);
+const debugLoggingLevel = ref<string>(developer.debugLoggingLevel);
+
 store.onDidAnyChange(async newState => {
   disableHardwareAcceleration.value = newState.general.disableHardwareAcceleration;
   hideToTrayOnClose.value = newState.general.hideToTrayOnClose;
@@ -114,6 +120,10 @@ store.onDidAnyChange(async newState => {
   shortcutVolumeUp.value = newState.shortcuts.volumeUp;
   shortcutVolumeDown.value = newState.shortcuts.volumeDown;
   shortcutOpenDevTools.value = newState.shortcuts.openDevTools;
+
+  enableDevTools.value = newState.developer.enableDevTools;
+  debugLoggingEnabled.value = newState.developer.debugLoggingEnabled;
+  debugLoggingLevel.value = newState.developer.debugLoggingLevel;
 });
 
 const discordPresenceConnectionFailed = ref<boolean>(await memoryStore.get("discordPresenceConnectionFailed"));
@@ -186,6 +196,10 @@ async function settingsChanged() {
   store.set("shortcuts.volumeUp", shortcutVolumeUp.value);
   store.set("shortcuts.volumeDown", shortcutVolumeDown.value);
   store.set("shortcuts.openDevTools", shortcutOpenDevTools.value);
+
+  store.set("developer.enableDevTools", enableDevTools.value);
+  store.set("developer.debugLoggingEnabled", debugLoggingEnabled.value);
+  store.set("developer.debugLoggingLevel", debugLoggingLevel.value);
 }
 
 async function settingChangedRequiresRestart() {
@@ -285,6 +299,7 @@ window.ytmd.handleUpdateDownloaded(() => {
         <li :class="{ active: currentTab === 4 }" @click="changeTab(4)"><span class="material-symbols-outlined">wifi_tethering</span>Integrations</li>
         <li :class="{ active: currentTab === 5 }" @click="changeTab(5)"><span class="material-symbols-outlined">keyboard</span>Shortcuts</li>
         <li :class="{ active: currentTab === 6 }" @click="changeTab(6)"><span class="material-symbols-outlined">extension</span>Plugins</li>
+        <li :class="{ active: currentTab === 7 }" @click="changeTab(7)"><span class="material-symbols-outlined">developer_mode</span>Developer</li>
         <span class="push"></span>
         <li :class="{ active: currentTab === 99 }" @click="changeTab(99)"><span class="material-symbols-outlined">info</span>About</li>
       </ul>
@@ -548,6 +563,26 @@ window.ytmd.handleUpdateDownloaded(() => {
 
         <div v-if="currentTab === 6" class="plugins-tab">
           <PluginSettings />
+        </div>
+
+        <div v-if="currentTab === 7" class="developer-tab">
+          <YTMDSetting v-model="enableDevTools" type="checkbox" name="Enable Developer Tools" @change="settingsChanged" />
+          <YTMDSetting v-model="debugLoggingEnabled" type="checkbox" name="Enable Debug Logging" @change="settingsChanged" />
+          <YTMDSetting
+            v-model="debugLoggingLevel"
+            type="select"
+            name="Debug Logging Level"
+            :options="[
+              { value: 'error', label: 'Error' },
+              { value: 'warn', label: 'Warning' },
+              { value: 'info', label: 'Info' },
+              { value: 'verbose', label: 'Verbose' },
+              { value: 'debug', label: 'Debug' },
+              { value: 'silly', label: 'Silly' }
+            ]"
+            @change="settingsChanged"
+          />
+          <CrashReports />
         </div>
 
         <div v-if="currentTab === 99" class="about-tab">
