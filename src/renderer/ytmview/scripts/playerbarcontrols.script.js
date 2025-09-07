@@ -6,6 +6,33 @@
     return !!flag;
   }
 
+  // Helper function to safely set properties on elements
+  function safelySetProperty(element, property, value) {
+    try {
+      if (typeof element.set === 'function') {
+        element.set(property, value);
+      } else {
+        // Fallback for elements without .set() method
+        if (property === 'iconName') {
+          element.setAttribute('icon', value);
+        } else if (property.startsWith('data.')) {
+          // Handle nested property setting
+          const propPath = property.split('.');
+          let current = element;
+          for (let i = 0; i < propPath.length - 1; i++) {
+            if (!current[propPath[i]]) current[propPath[i]] = {};
+            current = current[propPath[i]];
+          }
+          current[propPath[propPath.length - 1]] = value;
+        } else {
+          element[property] = value;
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to set property ${property} on element:`, error);
+    }
+  }
+
   const ytmStore = window.__YTMD_HOOK__.ytmStore;
   const wizButtonShapeEnabled = isExperimentEnabled("web_wiz_button_shape");
 
@@ -72,10 +99,8 @@
       data: libraryButtonData
     };
   } else {
-    if (typeof libraryButton.set === 'function') {
-      libraryButton.set("iconName", "yt-sys-icons:library_add");
-      libraryButton.set("data", libraryButtonData);
-    }
+    safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
+    safelySetProperty(libraryButton, "data", libraryButtonData);
   }
   document
     .querySelector("ytmusic-app-layout>ytmusic-player-bar")
@@ -163,10 +188,8 @@
       data: playlistButtonData
     };
   } else {
-    if (typeof playlistButton.set === 'function') {
-      playlistButton.set("iconName", "yt-sys-icons:playlist_add");
-      playlistButton.set("data", playlistButtonData);
-    }
+    safelySetProperty(playlistButton, "iconName", "yt-sys-icons:playlist_add");
+    safelySetProperty(playlistButton, "data", playlistButtonData);
   }
   libraryButton.insertAdjacentElement("afterend", playlistButton);
 
@@ -182,9 +205,7 @@
   sleepTimerButton.classList.add("ytmusic-player-bar");
   sleepTimerButton.classList.add("ytmd-player-bar-control");
   sleepTimerButton.classList.add("sleep-timer-button");
-  if (typeof sleepTimerButton.set === 'function') {
-    sleepTimerButton.set("icon", "yt-sys-icons:stopwatch");
-  }
+  safelySetProperty(sleepTimerButton, "icon", "yt-sys-icons:stopwatch");
   sleepTimerButton.onclick = () => {
     sleepTimerButton.dispatchEvent(
       new CustomEvent("yt-action", {
@@ -559,18 +580,14 @@
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                if (typeof libraryButton.set === 'function') {
-                  libraryButton.set("data.toggled", libraryButtonData.toggled);
-                }
+                safelySetProperty(libraryButton, "data.toggled", libraryButtonData.toggled);
               }
             } else {
               libraryButtonData.toggled = false;
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                if (typeof libraryButton.set === 'function') {
-                  libraryButton.set("data.toggled", libraryButtonData.toggled);
-                }
+                safelySetProperty(libraryButton, "data.toggled", libraryButtonData.toggled);
               }
             }
 
@@ -580,17 +597,13 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  if (typeof libraryButton.set === 'function') {
-                    libraryButton.set("iconName", "yt-sys-icons:library_add");
-                  }
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  if (typeof libraryButton.set === 'function') {
-                    libraryButton.set("iconName", "yt-sys-icons:library_saved");
-                  }
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_saved");
                 } 
               }
             } else if (item.toggleMenuServiceItemRenderer.defaultIcon.iconType === "LIBRARY_ADD") {
@@ -599,17 +612,13 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  if (typeof libraryButton.set === 'function') {
-                    libraryButton.set("iconName", "yt-sys-icons:library_saved");
-                  }
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_saved");
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  if (typeof libraryButton.set === 'function') {
-                    libraryButton.set("iconName", "yt-sys-icons:library_add");
-                  }
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
                 }
               }
             }
