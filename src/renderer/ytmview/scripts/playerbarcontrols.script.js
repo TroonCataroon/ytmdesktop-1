@@ -72,8 +72,10 @@
       data: libraryButtonData
     };
   } else {
-    libraryButton.set("iconName", "yt-sys-icons:library_add");
-    libraryButton.set("data", libraryButtonData);
+    if (typeof libraryButton.set === 'function') {
+      libraryButton.set("iconName", "yt-sys-icons:library_add");
+      libraryButton.set("data", libraryButtonData);
+    }
   }
   document
     .querySelector("ytmusic-app-layout>ytmusic-player-bar")
@@ -161,8 +163,10 @@
       data: playlistButtonData
     };
   } else {
-    playlistButton.set("iconName", "yt-sys-icons:playlist_add");
-    playlistButton.set("data", playlistButtonData);
+    if (typeof playlistButton.set === 'function') {
+      playlistButton.set("iconName", "yt-sys-icons:playlist_add");
+      playlistButton.set("data", playlistButtonData);
+    }
   }
   libraryButton.insertAdjacentElement("afterend", playlistButton);
 
@@ -178,7 +182,9 @@
   sleepTimerButton.classList.add("ytmusic-player-bar");
   sleepTimerButton.classList.add("ytmd-player-bar-control");
   sleepTimerButton.classList.add("sleep-timer-button");
-  sleepTimerButton.set("icon", "yt-sys-icons:stopwatch");
+  if (typeof sleepTimerButton.set === 'function') {
+    sleepTimerButton.set("icon", "yt-sys-icons:stopwatch");
+  }
   sleepTimerButton.onclick = () => {
     sleepTimerButton.dispatchEvent(
       new CustomEvent("yt-action", {
@@ -553,14 +559,18 @@
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                libraryButton.set("data.toggled", libraryButtonData.toggled);
+                if (typeof libraryButton.set === 'function') {
+                  libraryButton.set("data.toggled", libraryButtonData.toggled);
+                }
               }
             } else {
               libraryButtonData.toggled = false;
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                libraryButton.set("data.toggled", libraryButtonData.toggled);
+                if (typeof libraryButton.set === 'function') {
+                  libraryButton.set("data.toggled", libraryButtonData.toggled);
+                }
               }
             }
 
@@ -570,13 +580,17 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  if (typeof libraryButton.set === 'function') {
+                    libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  }
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  if (typeof libraryButton.set === 'function') {
+                    libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  }
                 } 
               }
             } else if (item.toggleMenuServiceItemRenderer.defaultIcon.iconType === "LIBRARY_ADD") {
@@ -585,13 +599,17 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  if (typeof libraryButton.set === 'function') {
+                    libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  }
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  if (typeof libraryButton.set === 'function') {
+                    libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  }
                 }
               }
             }
