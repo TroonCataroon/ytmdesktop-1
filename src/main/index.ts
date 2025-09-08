@@ -1912,6 +1912,14 @@ app.on("ready", async () => {
     }
   });
 
+  ipcMain.on("ytmView:openDevTools", () => {
+    if (ytmView && store.get("developer.enableDevTools")) {
+      ytmView.webContents.openDevTools({
+        mode: "detach"
+      });
+    }
+  });
+
   ipcMain.handle("ytmView:getIntegrationScripts", event => {
     if (event.sender !== ytmView.webContents) return;
 

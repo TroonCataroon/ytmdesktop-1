@@ -67,7 +67,8 @@ contextBridge.exposeInMainWorld("ytmd", {
   handleUpdateDownloaded: (callback: (event: Electron.IpcRendererEvent) => void) => ipcRenderer.on("app:updateDownloaded", callback),
   isAppUpdateAvailable: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateAvailable"),
   isAppUpdateDownloaded: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateDownloaded"),
-  getTrueFilePath: (file: File) => webUtils.getPathForFile(file)
+  getTrueFilePath: (file: File) => webUtils.getPathForFile(file),
+  openDevTools: () => ipcRenderer.send("ytmView:openDevTools")
 });
 
 // Also expose ipcRenderer directly for components that need it

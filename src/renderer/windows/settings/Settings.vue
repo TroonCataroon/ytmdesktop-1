@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import KeybindInput from "../../components/KeybindInput.vue";
 import YTMDSetting from "../../components/YTMDSetting.vue";
 import PluginSettings from "./components/PluginSettings.vue";
@@ -80,7 +80,16 @@ const scrobblePercent = ref<number>(lastFM.scrobblePercent);
 
 const enableDevTools = ref<boolean>(developer.enableDevTools);
 const debugLoggingEnabled = ref<boolean>(developer.debugLoggingEnabled);
-const debugLoggingLevel = ref<string>(developer.debugLoggingLevel);
+
+// Map debug logging levels to indices for the select component
+const debugLoggingLevels = ["error", "warn", "info", "verbose", "debug", "silly"];
+const debugLoggingLevel = computed({
+  get: () => debugLoggingLevels.indexOf(developer.debugLoggingLevel),
+  set: (value: number) => {
+    const level = debugLoggingLevels[value] || "info";
+    store.set("developer.debugLoggingLevel", level);
+  }
+});
 
 store.onDidAnyChange(async newState => {
   disableHardwareAcceleration.value = newState.general.disableHardwareAcceleration;
@@ -123,7 +132,6 @@ store.onDidAnyChange(async newState => {
 
   enableDevTools.value = newState.developer.enableDevTools;
   debugLoggingEnabled.value = newState.developer.debugLoggingEnabled;
-  debugLoggingLevel.value = newState.developer.debugLoggingLevel;
 });
 
 const discordPresenceConnectionFailed = ref<boolean>(await memoryStore.get("discordPresenceConnectionFailed"));
@@ -199,7 +207,6 @@ async function settingsChanged() {
 
   store.set("developer.enableDevTools", enableDevTools.value);
   store.set("developer.debugLoggingEnabled", debugLoggingEnabled.value);
-  store.set("developer.debugLoggingLevel", debugLoggingLevel.value);
 }
 
 async function settingChangedRequiresRestart() {
@@ -263,6 +270,10 @@ async function logoutLastFM() {
   lastFMEnabled.value = false;
   lastFMSessionKey.value = null;
   await settingsChanged();
+}
+
+function openConsoleWindow() {
+  window.ytmd.openDevTools();
 }
 
 window.ytmd.handleCheckingForUpdate(() => {
@@ -572,16 +583,26 @@ window.ytmd.handleUpdateDownloaded(() => {
             v-model="debugLoggingLevel"
             type="select"
             name="Debug Logging Level"
-            :options="[
-              { value: 'error', label: 'Error' },
-              { value: 'warn', label: 'Warning' },
-              { value: 'info', label: 'Info' },
-              { value: 'verbose', label: 'Verbose' },
-              { value: 'debug', label: 'Debug' },
-              { value: 'silly', label: 'Silly' }
-            ]"
+            :options-map="{
+              0: 'Error',
+              1: 'Warning',
+              2: 'Info',
+              3: 'Verbose',
+              4: 'Debug',
+              5: 'Silly'
+            }"
             @change="settingsChanged"
           />
+          <div class="developer-actions">
+            <div class="action-group">
+              <h4>Console Window</h4>
+              <p class="description">Open the developer console to view logs and debug the application.</p>
+              <button class="btn-primary" :disabled="!enableDevTools" @click="openConsoleWindow">
+                <span class="material-symbols-outlined">terminal</span>
+                Show Console Window
+              </button>
+            </div>
+          </div>
           <CrashReports />
         </div>
 
@@ -932,5 +953,55 @@ button {
 .shortcuts-tab .shortcut-title .register-error {
   margin-left: 4px;
   color: #f44336;
+}
+
+.developer-actions {
+  margin: 24px 0;
+  padding: 16px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.action-group h4 {
+  margin: 0 0 8px 0;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.action-group .description {
+  margin: 0 0 16px 0;
+  color: #888;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
+.btn-primary:disabled {
+  background: #666;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary .material-symbols-outlined {
+  font-size: 18px;
 }
 </style>
