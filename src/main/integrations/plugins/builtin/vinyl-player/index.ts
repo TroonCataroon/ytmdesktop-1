@@ -153,11 +153,9 @@ export class VinylPlayerPlugin extends BasePlugin {
         skipTaskbar: true,
         show: false,
         webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          preload: app.isPackaged
-            ? path.join(__dirname, "vinyl-player-preload.js")
-            : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
+          nodeIntegration: true,
+          contextIsolation: false,
+          enableRemoteModule: true
         }
       }),
       isVisible: false
@@ -285,11 +283,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Send track info to the renderer
     window.webContents.send("vinyl-player:update-track", {
-      title: this.currentTrack?.title || "No Track Playing",
-      artist: this.currentTrack?.artist || "Unknown Artist",
+      title: this.currentTrack?.title || "",
+      artist: this.currentTrack?.artist || "",
       thumbnail: this.currentTrack?.thumbnail || "",
       isPlaying: this.isPlaying,
-      spinSpeed: this.settings.spinSpeed || 2
+      spinSpeed: this.settings.spinSpeed
     });
 
     // Show window if auto-show is enabled and a track is playing
