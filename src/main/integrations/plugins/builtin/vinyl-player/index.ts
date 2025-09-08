@@ -1,5 +1,5 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
-import { BrowserWindow, ipcMain, globalShortcut } from "electron";
+import { BrowserWindow, ipcMain, globalShortcut, app } from "electron";
 import path from "path";
 import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
 
@@ -164,7 +164,10 @@ export class VinylPlayerPlugin extends BasePlugin {
     const window = this.vinylWindow.window;
 
     // Load the vinyl player HTML
-    window.loadFile(path.join(__dirname, "vinyl-player.html"));
+    const htmlPath = app.isPackaged
+      ? path.join(__dirname, "vinyl-player.html")
+      : path.join(__dirname, "../../../../../src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
+    window.loadFile(htmlPath);
 
     // Handle window events
     window.on("closed", () => {
@@ -195,7 +198,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     if (!this.vinylWindow) {
       this.createVinylWindow();
     }
-    
+
     if (this.vinylWindow?.window) {
       this.vinylWindow.window.show();
       this.vinylWindow.isVisible = true;
