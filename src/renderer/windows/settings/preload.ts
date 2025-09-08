@@ -68,7 +68,18 @@ contextBridge.exposeInMainWorld("ytmd", {
   isAppUpdateAvailable: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateAvailable"),
   isAppUpdateDownloaded: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateDownloaded"),
   getTrueFilePath: (file: File) => webUtils.getPathForFile(file),
-  openDevTools: () => ipcRenderer.send("ytmView:openDevTools")
+  openDevTools: () => ipcRenderer.send("ytmView:openDevTools"),
+  
+  // Plugin management
+  getPlugins: async () => await ipcRenderer.invoke("plugins:getList"),
+  getPluginSettingsSchemas: async () => await ipcRenderer.invoke("plugins:getSettingsSchemas"),
+  togglePlugin: async (pluginId: string, enabled: boolean) => await ipcRenderer.invoke("plugins:toggle", pluginId, enabled),
+  getPluginSetting: (pluginId: string, key: string) => ipcRenderer.sendSync("plugins:getSetting", pluginId, key),
+  updatePluginSetting: async (pluginId: string, key: string, value: unknown) => await ipcRenderer.invoke("plugins:updateSetting", pluginId, key, value),
+  
+  // Vinyl player specific
+  showVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:show"),
+  hideVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:hide")
 });
 
 // Also expose ipcRenderer directly for components that need it

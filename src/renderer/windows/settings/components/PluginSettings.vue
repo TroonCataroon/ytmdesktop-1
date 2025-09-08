@@ -80,6 +80,22 @@
                 </select>
               </div>
             </div>
+            
+            <!-- Vinyl Player Test Section -->
+            <div v-if="plugin.id === 'vinyl-player' && plugin.enabled" class="vinyl-player-actions">
+              <h6>Test Vinyl Player</h6>
+              <p class="action-description">Open the vinyl player window to test your settings</p>
+              <div class="action-buttons">
+                <button class="action-btn primary" @click="showVinylPlayer">
+                  <span class="material-symbols-outlined">play_circle</span>
+                  Show Vinyl Player
+                </button>
+                <button class="action-btn secondary" @click="hideVinylPlayer">
+                  <span class="material-symbols-outlined">close</span>
+                  Hide Vinyl Player
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -123,54 +139,38 @@ onMounted(async () => {
 
 async function loadPlugins(): Promise<void> {
   try {
-    // This would call the main process to get plugins
-    // For now, we'll use mock data
+    // Get real plugins from main process
+    const pluginList = await window.ytmd.getPlugins();
+    plugins.value = pluginList;
+
+    // Load settings schemas
+    await loadPluginSettingsSchemas();
+  } catch (error) {
+    console.error("Failed to load plugins:", error);
+    // Fallback to showing at least the vinyl player
     plugins.value = [
-      {
-        id: "notification-enhancer",
-        name: "Notification Enhancer",
-        description: "Enhances notifications with additional information and styling",
-        version: "1.0.0",
-        author: "YTMDesktop Team",
-        enabled: false
-      },
-      {
-        id: "custom-themes",
-        name: "Custom Themes",
-        description: "Apply custom visual themes to the application",
-        version: "1.0.0",
-        author: "YTMDesktop Team",
-        enabled: false
-      },
-      {
-        id: "keyboard-shortcuts",
-        name: "Custom Keyboard Shortcuts",
-        description: "Add custom keyboard shortcuts for various actions",
-        version: "1.0.0",
-        author: "YTMDesktop Team",
-        enabled: false
-      },
       {
         id: "vinyl-player",
         name: "Vinyl Player",
         description: "Mini pop-out player with spinning vinyl record",
         version: "1.0.0",
         author: "YTMDesktop Team",
-        enabled: false
+        enabled: window.ytmd.store.get("integrations.vinylPlayerEnabled") || false
       }
     ];
-
-    // Load settings schemas
     await loadPluginSettingsSchemas();
-  } catch (error) {
-    console.error("Failed to load plugins:", error);
   }
 }
 
 async function loadPluginSettingsSchemas(): Promise<void> {
-  // This would call the main process to get settings schemas
-  // For now, we'll use mock data
-  pluginSettingsSchemas.value = {
+  try {
+    // Get real plugin settings schemas from main process
+    const schemas = await window.ytmd.getPluginSettingsSchemas();
+    pluginSettingsSchemas.value = schemas;
+  } catch (error) {
+    console.error("Failed to load plugin settings schemas:", error);
+    // Fallback with vinyl player schema
+    pluginSettingsSchemas.value = {
     "notification-enhancer": {
       showAlbumArt: {
         type: "boolean",
@@ -293,9 +293,19 @@ async function togglePlugin(pluginId: string): Promise<void> {
   try {
     const plugin = plugins.value.find(p => p.id === pluginId);
     if (plugin) {
-      // This would call the main process to toggle the plugin
-      plugin.enabled = !plugin.enabled;
-      console.log(`${plugin.enabled ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
+      if (pluginId === "vinyl-player") {
+        // For vinyl player, use the existing integration setting
+        const newState = !plugin.enabled;
+        window.ytmd.store.set("integrations.vinylPlayerEnabled", newState);
+        plugin.enabled = newState;
+        await window.ytmd.togglePlugin(pluginId, newState);
+        console.log(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
+      } else {
+        // For other plugins, use the plugin manager
+        await window.ytmd.togglePlugin(pluginId, !plugin.enabled);
+        plugin.enabled = !plugin.enabled;
+        console.log(`${plugin.enabled ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
+      }
     }
   } catch (error) {
     console.error("Failed to toggle plugin:", error);
@@ -311,15 +321,21 @@ function getPluginSettingsSchema(pluginId: string): Record<string, PluginSetting
 }
 
 function getPluginSetting(pluginId: string, key: string): unknown {
-  // This would get the actual setting value from the main process
-  // For now, return the default value
-  const schema = getPluginSettingsSchema(pluginId);
-  return schema[key]?.default;
+  try {
+    // Get the actual setting value from the store
+    return window.ytmd.getPluginSetting(pluginId, key);
+  } catch (error) {
+    console.error("Failed to get plugin setting:", error);
+    // Fallback to default value
+    const schema = getPluginSettingsSchema(pluginId);
+    return schema[key]?.default;
+  }
 }
 
 async function updatePluginSetting(pluginId: string, key: string, value: unknown): Promise<void> {
   try {
-    // This would call the main process to update the setting
+    // Update the setting in the store and notify the plugin
+    await window.ytmd.updatePluginSetting(pluginId, key, value);
     console.log(`Updated plugin setting: ${pluginId}.${key} = ${value}`);
   } catch (error) {
     console.error("Failed to update plugin setting:", error);
@@ -331,6 +347,24 @@ function toggleSettings(pluginId: string): void {
     expandedSettings.value = null;
   } else {
     expandedSettings.value = pluginId;
+  }
+}
+
+async function showVinylPlayer(): Promise<void> {
+  try {
+    await window.ytmd.showVinylPlayer();
+    console.log("Vinyl player window shown");
+  } catch (error) {
+    console.error("Failed to show vinyl player:", error);
+  }
+}
+
+async function hideVinylPlayer(): Promise<void> {
+  try {
+    await window.ytmd.hideVinylPlayer();
+    console.log("Vinyl player window hidden");
+  } catch (error) {
+    console.error("Failed to hide vinyl player:", error);
   }
 }
 </script>
@@ -562,6 +596,68 @@ function toggleSettings(pluginId: string): void {
 
 .no-plugins p {
   margin: 0;
+  font-size: 16px;
+}
+
+.vinyl-player-actions {
+  margin-top: 24px;
+  padding: 16px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #4caf50;
+}
+
+.vinyl-player-actions h6 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.action-description {
+  margin: 0 0 16px 0;
+  font-size: 12px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.action-btn.primary {
+  background: #4caf50;
+  color: white;
+}
+
+.action-btn.primary:hover {
+  background: #45a049;
+}
+
+.action-btn.secondary {
+  background: #555;
+  color: #ccc;
+}
+
+.action-btn.secondary:hover {
+  background: #666;
+}
+
+.action-btn .material-symbols-outlined {
   font-size: 16px;
 }
 </style>

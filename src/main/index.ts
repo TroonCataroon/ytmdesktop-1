@@ -1920,6 +1920,53 @@ app.on("ready", async () => {
     }
   });
 
+  // Plugin management IPC handlers
+  ipcMain.handle("plugins:getList", () => {
+    return pluginManager.getAllPlugins();
+  });
+
+  ipcMain.handle("plugins:getSettingsSchemas", () => {
+    return pluginManager.getAllPluginSettingsSchemas();
+  });
+
+  ipcMain.handle("plugins:toggle", (event, pluginId: string, enabled: boolean) => {
+    if (enabled) {
+      return pluginManager.enablePlugin(pluginId);
+    } else {
+      return pluginManager.disablePlugin(pluginId);
+    }
+  });
+
+  ipcMain.on("plugins:getSetting", (event, pluginId: string, key: string) => {
+    try {
+      const setting = pluginManager.getPluginSetting(pluginId, key);
+      event.returnValue = setting;
+    } catch {
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.handle("plugins:updateSetting", (event, pluginId: string, key: string, value: unknown) => {
+    return pluginManager.updatePluginSetting(pluginId, key, value);
+  });
+
+  // Vinyl player specific handlers
+  ipcMain.handle("vinyl-player:show", () => {
+    const vinylPlayerPlugin = pluginManager.getPlugin("vinyl-player");
+    if (vinylPlayerPlugin && vinylPlayerPlugin.enabled && "showVinylWindow" in vinylPlayerPlugin) {
+      return (vinylPlayerPlugin as { showVinylWindow: () => boolean }).showVinylWindow();
+    }
+    return false;
+  });
+
+  ipcMain.handle("vinyl-player:hide", () => {
+    const vinylPlayerPlugin = pluginManager.getPlugin("vinyl-player");
+    if (vinylPlayerPlugin && vinylPlayerPlugin.enabled && "hideVinylWindow" in vinylPlayerPlugin) {
+      return (vinylPlayerPlugin as { hideVinylWindow: () => boolean }).hideVinylWindow();
+    }
+    return false;
+  });
+
   ipcMain.handle("ytmView:getIntegrationScripts", event => {
     if (event.sender !== ytmView.webContents) return;
 

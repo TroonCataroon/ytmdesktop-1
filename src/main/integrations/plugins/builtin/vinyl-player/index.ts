@@ -190,6 +190,29 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
   }
 
+  // Public methods for external control
+  public showVinylWindow(): boolean {
+    if (!this.vinylWindow) {
+      this.createVinylWindow();
+    }
+    
+    if (this.vinylWindow?.window) {
+      this.vinylWindow.window.show();
+      this.vinylWindow.isVisible = true;
+      return true;
+    }
+    return false;
+  }
+
+  public hideVinylWindow(): boolean {
+    if (this.vinylWindow?.window) {
+      this.vinylWindow.window.hide();
+      this.vinylWindow.isVisible = false;
+      return true;
+    }
+    return false;
+  }
+
   private setupPlayerStateListener(): void {
     // Listen to actual player state changes
     playerStateStore.addEventListener((state: PlayerState) => {

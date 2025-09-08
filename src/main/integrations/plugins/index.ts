@@ -87,10 +87,6 @@ export class PluginManager {
     return this.plugins.get(pluginId);
   }
 
-  getAllPlugins(): BasePlugin[] {
-    return Array.from(this.plugins.values());
-  }
-
   getEnabledPlugins(): BasePlugin[] {
     return Array.from(this.enabledPlugins).map(id => this.plugins.get(id)!);
   }
@@ -117,6 +113,58 @@ export class PluginManager {
     }
 
     return (plugin.constructor as typeof BasePlugin).getSettingsSchema?.() || null;
+  }
+
+  getAllPlugins(): Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> {
+    const plugins: Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> = [];
+    
+    this.plugins.forEach((plugin) => {
+      plugins.push({
+        id: plugin.id,
+        name: plugin.name,
+        description: plugin.description,
+        version: plugin.version,
+        author: plugin.author,
+        enabled: plugin.enabled
+      });
+    });
+    
+    return plugins;
+  }
+
+  getAllPluginSettingsSchemas(): Record<string, PluginSettings> {
+    const schemas: Record<string, PluginSettings> = {};
+    
+    this.plugins.forEach((plugin) => {
+      const schema = (plugin.constructor as typeof BasePlugin).getSettingsSchema?.();
+      if (schema) {
+        schemas[plugin.id] = schema;
+      }
+    });
+    
+    return schemas;
+  }
+
+  getPluginSetting(pluginId: string, key: string): unknown {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      throw new Error(`Plugin ${pluginId} not found`);
+    }
+
+    return plugin.currentSettings[key];
+  }
+
+  updatePluginSetting(pluginId: string, key: string, value: unknown): boolean {
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      console.warn(`Plugin ${pluginId} not found`);
+      return false;
+    }
+
+    const newSettings = { ...plugin.currentSettings };
+    newSettings[key] = value;
+    plugin.updateSettings(newSettings);
+    return true;
   }
 
   // Lifecycle methods
