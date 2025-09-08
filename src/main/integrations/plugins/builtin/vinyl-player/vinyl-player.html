@@ -81,7 +81,32 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: conic-gradient(from 0deg, #1a1a1a, #333, #1a1a1a, #333, #1a1a1a, #333);
+            background: 
+                radial-gradient(circle at center, 
+                    #000 15%, 
+                    #111 16%, 
+                    #000 17%, 
+                    #111 18%, 
+                    #000 19%, 
+                    #111 20%, 
+                    #000 21%, 
+                    #111 22%, 
+                    #000 23%, 
+                    #111 24%, 
+                    #000 25%, 
+                    #222 26%, 
+                    #000 70%, 
+                    #111 71%, 
+                    #000 72%, 
+                    #111 73%, 
+                    #000 74%, 
+                    #111 75%, 
+                    #000 76%, 
+                    #111 77%, 
+                    #000 78%, 
+                    #111 79%, 
+                    #000 80%, 
+                    #333 100%);
             position: relative;
             animation: spin 3s linear infinite;
             box-shadow: 
@@ -109,14 +134,15 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 15%;
-            height: 15%;
-            background: radial-gradient(circle, #ffd700, #b8860b);
+            width: 8%;
+            height: 8%;
+            background: radial-gradient(circle, #333, #111);
             border-radius: 50%;
-            border: 2px solid #333;
+            border: 1px solid #000;
             box-shadow: 
-                inset 0 0 5px rgba(0,0,0,0.5),
-                0 0 5px rgba(255,215,0,0.3);
+                inset 0 0 3px rgba(0,0,0,0.8),
+                0 0 2px rgba(0,0,0,0.5);
+            z-index: 10;
         }
 
         .album-art {
@@ -124,17 +150,32 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 60%;
-            height: 60%;
+            width: 35%;
+            height: 35%;
             border-radius: 50%;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            border: 3px solid #333;
+            background-color: #444;
+            border: 2px solid #666;
             box-shadow: 
                 0 0 15px rgba(0,0,0,0.7),
                 inset 0 0 10px rgba(0,0,0,0.3);
             transition: all 0.3s ease;
+            z-index: 5;
+        }
+        
+        /* Vinyl label background */
+        .album-art::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: linear-gradient(45deg, #8B0000, #CD0000, #8B0000, #CD0000);
+            border-radius: 50%;
+            z-index: -1;
         }
 
         .vinyl-grooves {
@@ -342,7 +383,7 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
+        // Use the exposed API from preload script
 
         // DOM elements
         const trackTitle = document.getElementById('track-title');
@@ -400,20 +441,20 @@
 
         // Event listeners
         playPauseBtn.addEventListener('click', () => {
-            ipcRenderer.send('vinyl-player:play-pause');
+            window.vinylPlayerAPI.send('vinyl-player:play-pause');
         });
 
         closeBtn.addEventListener('click', () => {
-            ipcRenderer.send('vinyl-player:close');
+            window.vinylPlayerAPI.send('vinyl-player:close');
         });
 
         // Listen for track updates from main process
-        ipcRenderer.on('vinyl-player:update-track', (event, track) => {
+        window.vinylPlayerAPI.onTrackUpdate((track) => {
             updateTrackInfo(track);
         });
 
         // Handle settings changes
-        ipcRenderer.on('vinyl-player:update-settings', (event, settings) => {
+        window.vinylPlayerAPI.onSettingsUpdate((settings) => {
             if (settings.showControls !== undefined) {
                 controls.style.display = settings.showControls ? 'flex' : 'none';
             }

@@ -153,9 +153,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         skipTaskbar: true,
         show: false,
         webPreferences: {
-          nodeIntegration: true,
-          contextIsolation: false,
-          enableRemoteModule: true
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: app.isPackaged
+            ? path.join(__dirname, "vinyl-player-preload.js")
+            : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
         }
       }),
       isVisible: false
@@ -166,7 +168,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Load the vinyl player HTML
     const htmlPath = app.isPackaged
       ? path.join(__dirname, "vinyl-player.html")
-      : path.join(__dirname, "../../../../../src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
+      : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
     window.loadFile(htmlPath);
 
     // Handle window events
@@ -200,8 +202,10 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
 
     if (this.vinylWindow?.window) {
-      this.vinylWindow.window.show();
-      this.vinylWindow.isVisible = true;
+      if (!this.vinylWindow.isVisible) {
+        this.vinylWindow.window.show();
+        this.vinylWindow.isVisible = true;
+      }
       return true;
     }
     return false;
@@ -209,8 +213,10 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   public hideVinylWindow(): boolean {
     if (this.vinylWindow?.window) {
-      this.vinylWindow.window.hide();
-      this.vinylWindow.isVisible = false;
+      if (this.vinylWindow.isVisible) {
+        this.vinylWindow.window.hide();
+        this.vinylWindow.isVisible = false;
+      }
       return true;
     }
     return false;
@@ -279,11 +285,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Send track info to the renderer
     window.webContents.send("vinyl-player:update-track", {
-      title: this.currentTrack?.title || "",
-      artist: this.currentTrack?.artist || "",
+      title: this.currentTrack?.title || "No Track Playing",
+      artist: this.currentTrack?.artist || "Unknown Artist",
       thumbnail: this.currentTrack?.thumbnail || "",
       isPlaying: this.isPlaying,
-      spinSpeed: this.settings.spinSpeed
+      spinSpeed: this.settings.spinSpeed || 2
     });
 
     // Show window if auto-show is enabled and a track is playing
@@ -292,34 +298,8 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
   }
 
-  private showVinylWindow(): void {
-    if (!this.vinylWindow?.window) {
-      return;
-    }
-
-    const window = this.vinylWindow.window;
-
-    if (!this.vinylWindow.isVisible) {
-      window.show();
-      this.vinylWindow.isVisible = true;
-    }
-  }
-
-  private hideVinylWindow(): void {
-    if (!this.vinylWindow?.window) {
-      return;
-    }
-
-    const window = this.vinylWindow.window;
-
-    if (this.vinylWindow.isVisible) {
-      window.hide();
-      this.vinylWindow.isVisible = false;
-    }
-  }
-
   // Public methods for external control
-  toggleWindow(): void {
+  public toggleWindow(): void {
     if (this.vinylWindow?.isVisible) {
       this.hideVinylWindow();
     } else {
