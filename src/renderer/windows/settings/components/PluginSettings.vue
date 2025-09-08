@@ -80,7 +80,7 @@
                 </select>
               </div>
             </div>
-            
+
             <!-- Vinyl Player Test Section -->
             <div v-if="plugin.id === 'vinyl-player' && plugin.enabled" class="vinyl-player-actions">
               <h6>Test Vinyl Player</h6>
@@ -171,122 +171,52 @@ async function loadPluginSettingsSchemas(): Promise<void> {
     console.error("Failed to load plugin settings schemas:", error);
     // Fallback with vinyl player schema
     pluginSettingsSchemas.value = {
-    "notification-enhancer": {
-      showAlbumArt: {
-        type: "boolean",
-        label: "Show Album Art",
-        description: "Include album artwork in notifications",
-        default: true
-      },
-      showProgress: {
-        type: "boolean",
-        label: "Show Progress Bar",
-        description: "Display song progress in notifications",
-        default: false
-      },
-      customDuration: {
-        type: "number",
-        label: "Notification Duration (ms)",
-        description: "How long to show notifications",
-        default: 5000
-      },
-      notificationStyle: {
-        type: "select",
-        label: "Notification Style",
-        description: "Choose the visual style for notifications",
-        default: "default",
-        options: [
-          { value: "default", label: "Default" },
-          { value: "minimal", label: "Minimal" },
-          { value: "detailed", label: "Detailed" }
-        ]
+      "vinyl-player": {
+        windowSize: {
+          type: "number",
+          label: "Window Size",
+          description: "Size of the vinyl player window in pixels",
+          default: 200
+        },
+        alwaysOnTop: {
+          type: "boolean",
+          label: "Always On Top",
+          description: "Keep the vinyl player window above other windows",
+          default: true
+        },
+        autoShow: {
+          type: "boolean",
+          label: "Auto Show",
+          description: "Automatically show the vinyl player when a song starts",
+          default: false
+        },
+        spinSpeed: {
+          type: "number",
+          label: "Spin Speed",
+          description: "Speed of the vinyl record rotation (1-5)",
+          default: 2
+        },
+        showControls: {
+          type: "boolean",
+          label: "Show Controls",
+          description: "Show play/pause controls on the vinyl player",
+          default: true
+        },
+        opacity: {
+          type: "number",
+          label: "Opacity",
+          description: "Transparency of the vinyl player window (0.1-1.0)",
+          default: 0.9
+        },
+        enableKeyboardShortcuts: {
+          type: "boolean",
+          label: "Enable Keyboard Shortcuts",
+          description: "Use Alt+V to toggle, Alt+Shift+V to show vinyl player",
+          default: true
+        }
       }
-    },
-    "custom-themes": {
-      selectedTheme: {
-        type: "select",
-        label: "Selected Theme",
-        description: "Choose a theme to apply",
-        default: "default",
-        options: [
-          { value: "default", label: "Default" },
-          { value: "dark-blue", label: "Dark Blue" },
-          { value: "green-nature", label: "Green Nature" },
-          { value: "purple-dream", label: "Purple Dream" }
-        ]
-      },
-      autoSwitch: {
-        type: "boolean",
-        label: "Auto Switch Themes",
-        description: "Automatically switch themes based on time of day",
-        default: false
-      },
-      darkModeOnly: {
-        type: "boolean",
-        label: "Dark Mode Only",
-        description: "Only apply themes in dark mode",
-        default: true
-      },
-      customCSS: {
-        type: "string",
-        label: "Custom CSS",
-        description: "Add your own custom CSS rules",
-        default: ""
-      }
-    },
-    "keyboard-shortcuts": {
-      enableGlobalShortcuts: {
-        type: "boolean",
-        label: "Enable Global Shortcuts",
-        description: "Allow shortcuts to work even when app is not focused",
-        default: true
-      }
-    },
-    "vinyl-player": {
-      windowSize: {
-        type: "number",
-        label: "Window Size",
-        description: "Size of the vinyl player window in pixels",
-        default: 200
-      },
-      alwaysOnTop: {
-        type: "boolean",
-        label: "Always On Top",
-        description: "Keep the vinyl player window above other windows",
-        default: true
-      },
-      autoShow: {
-        type: "boolean",
-        label: "Auto Show",
-        description: "Automatically show the vinyl player when a song starts",
-        default: false
-      },
-      spinSpeed: {
-        type: "number",
-        label: "Spin Speed",
-        description: "Speed of the vinyl record rotation (1-5)",
-        default: 2
-      },
-      showControls: {
-        type: "boolean",
-        label: "Show Controls",
-        description: "Show play/pause controls on the vinyl player",
-        default: true
-      },
-      opacity: {
-        type: "number",
-        label: "Opacity",
-        description: "Transparency of the vinyl player window (0.1-1.0)",
-        default: 0.9
-      },
-      enableKeyboardShortcuts: {
-        type: "boolean",
-        label: "Enable Keyboard Shortcuts",
-        description: "Use Alt+V to toggle, Alt+Shift+V to show vinyl player",
-        default: true
-      }
-    }
-  };
+    };
+  }
 }
 
 async function togglePlugin(pluginId: string): Promise<void> {
