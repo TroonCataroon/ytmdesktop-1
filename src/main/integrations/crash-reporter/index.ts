@@ -3,6 +3,8 @@ import fs from "fs/promises";
 import { app } from "electron";
 import log from "electron-log";
 import os from "os";
+// Importing Sentry as a type only to avoid a circular dependency
+import type SentryIntegration from "../sentry";
 
 export interface CrashReport {
   timestamp: string;
@@ -51,11 +53,13 @@ export default class CrashReporter {
   private unresponsiveTimeout: NodeJS.Timeout | null = null;
   private lastHeartbeat = Date.now();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private sentryIntegration: SentryIntegration | null = null;
 
-  constructor() {
+  constructor(sentryIntegration?: SentryIntegration) {
     this.crashReportsDir = path.join(app.getPath("userData"), "crash-reports");
     this.ensureCrashReportsDir();
     this.startHeartbeatMonitoring();
+    this.sentryIntegration = sentryIntegration || null;
   }
 
   private async ensureCrashReportsDir() {
@@ -194,6 +198,14 @@ export default class CrashReporter {
   public async reportCrash(error: Error, additionalInfo?: Record<string, unknown>) {
     log.error("Application crash detected:", error);
     try {
+      // Send crash to Sentry if available
+      if (this.sentryIntegration) {
+        this.sentryIntegration.captureException(error, { 
+          ...additionalInfo,
+          crash_report_type: "crash" 
+        });
+      }
+      
       const reportPath = await this.generateCrashReport("crash", error, additionalInfo);
       return reportPath;
     } catch (reportError) {
@@ -205,10 +217,21 @@ export default class CrashReporter {
   public async reportUnresponsive(duration: number) {
     log.warn(`Application unresponsive for ${duration}ms`);
     try {
-      const reportPath = await this.generateCrashReport("unresponsive", undefined, {
+      const additionalInfo = {
         unresponsiveDuration: duration,
         lastHeartbeat: new Date(this.lastHeartbeat).toISOString()
-      });
+      };
+      
+      // Report to Sentry if available
+      if (this.sentryIntegration) {
+        this.sentryIntegration.captureMessage(
+          `Application unresponsive for ${duration}ms`,
+          'warning',
+          additionalInfo
+        );
+      }
+      
+      const reportPath = await this.generateCrashReport("unresponsive", undefined, additionalInfo);
       return reportPath;
     } catch (error) {
       log.error("Failed to generate unresponsive report:", error);
@@ -219,6 +242,14 @@ export default class CrashReporter {
   public async reportError(error: Error, context: string) {
     log.error(`Application error in ${context}:`, error);
     try {
+      // Send error to Sentry if available
+      if (this.sentryIntegration) {
+        this.sentryIntegration.captureException(error, { 
+          context,
+          crash_report_type: "error" 
+        });
+      }
+      
       const reportPath = await this.generateCrashReport("error", error, { context });
       return reportPath;
     } catch (reportError) {
