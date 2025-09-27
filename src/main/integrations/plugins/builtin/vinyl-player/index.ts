@@ -69,6 +69,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setMinimumSize(size, size);
         window.setMaximumSize(size, size);
       }
+
+      // Send updated settings to the vinyl player window
+      window.webContents.send("vinyl-player:update-settings", {
+        showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls
+      });
     }
   }
 
@@ -153,9 +158,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         skipTaskbar: true,
         show: false,
         webPreferences: {
-          nodeIntegration: true,
-          contextIsolation: false,
-          enableRemoteModule: true
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: app.isPackaged
+            ? path.join(__dirname, "vinyl-player-preload.js")
+            : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
         }
       }),
       isVisible: false
@@ -182,6 +189,17 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Make window draggable
     window.setMovable(true);
+
+    // Set initial window opacity
+    window.setOpacity(this.settings.opacity as number);
+
+    // Send initial settings to the vinyl player window once it's ready
+    window.webContents.on("did-finish-load", () => {
+      window.webContents.send("vinyl-player:update-settings", {
+        showControls: this.settings.showControls as boolean
+      });
+      this.updateVinylDisplay();
+    });
 
     console.log("Vinyl player window created");
   }

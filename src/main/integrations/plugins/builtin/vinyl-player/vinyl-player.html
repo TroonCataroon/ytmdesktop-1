@@ -510,7 +510,8 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
+        // Use the exposed API from the preload script
+        const { ipcRenderer } = window.electron;
 
         // DOM elements
         const trackTitle = document.getElementById('track-title');

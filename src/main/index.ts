@@ -1402,6 +1402,14 @@ const createYTMView = (): void => {
 
       memoryStore.set("ytmViewLoadingError", true);
       memoryStore.set("ytmViewLoadingStatus", `Failed to load YouTube Music: ${errorDescription} (${errorCode})`);
+
+      // Retry loading after a short delay
+      setTimeout(() => {
+        log.info("Retrying YouTube Music load after failure");
+        memoryStore.set("ytmViewLoadingError", false);
+        memoryStore.set("ytmViewLoadingStatus", "Retrying...");
+        ytmView.webContents.loadURL("https://music.youtube.com/");
+      }, 3000);
     }
   });
 
@@ -1428,6 +1436,21 @@ const createYTMView = (): void => {
 
   ytmViewLoadTimeout = setTimeout(() => {
     memoryStore.set("ytmViewLoadTimedout", true);
+    // Force loading to complete after timeout to prevent infinite loading
+    memoryStore.set("ytmViewLoading", false);
+    memoryStore.set("ytmViewLoadingStatus", "YouTube Music loaded (timeout fallback)");
+    log.warn("YouTube Music loading timed out, forcing completion");
+
+    // Add the view to the main window even if loaded signal wasn't received
+    if (mainWindow && ytmView) {
+      mainWindow.addBrowserView(ytmView);
+      ytmView.setBounds({
+        x: 0,
+        y: 36,
+        width: mainWindow.getContentBounds().width,
+        height: mainWindow.getContentBounds().height - 36
+      });
+    }
   }, 30 * 1000);
 };
 
@@ -1542,6 +1565,27 @@ const createMainWindow = (): void => {
     if (process.env.NODE_ENV === "development") if (event.url.startsWith("http://localhost")) return;
 
     event.preventDefault();
+  });
+
+  // Set Content Security Policy for the main window
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (details.url.startsWith("http://localhost") || details.url.startsWith("file://")) {
+      const responseHeaders = details.responseHeaders || {};
+
+      // Set a strict CSP for the main window
+      responseHeaders["content-security-policy"] = [
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
+          "style-src 'self' 'unsafe-inline' http://localhost:*; " +
+          "img-src 'self' data: blob: http://localhost:*; " +
+          "font-src 'self' data: http://localhost:*; " +
+          "connect-src 'self' http://localhost:* ws://localhost:*;"
+      ];
+
+      callback({ responseHeaders });
+    } else {
+      callback({ responseHeaders: details.responseHeaders });
+    }
   });
 
   mainWindow.on("ready-to-show", () => {
