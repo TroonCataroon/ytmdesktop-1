@@ -34,6 +34,13 @@ export class VinylPlayerPlugin extends BasePlugin {
         opacity: 0.9
       }
     });
+
+    // Initialize with default track
+    this.currentTrack = {
+      title: "No track playing",
+      artist: "Unknown Artist",
+      thumbnail: ""
+    };
   }
 
   onEnable(): void {
@@ -299,18 +306,27 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const window = this.vinylWindow.window;
 
-    // Send track info to the renderer
-    window.webContents.send("vinyl-player:update-track", {
-      title: this.currentTrack?.title || "",
-      artist: this.currentTrack?.artist || "",
-      thumbnail: this.currentTrack?.thumbnail || "",
-      isPlaying: this.isPlaying,
-      spinSpeed: this.settings.spinSpeed
-    });
+    try {
+      // Send track info to the renderer
+      window.webContents.send("vinyl-player:update-track", {
+        title: this.currentTrack?.title || "No track playing",
+        artist: this.currentTrack?.artist || "Unknown Artist",
+        thumbnail: this.currentTrack?.thumbnail || "",
+        isPlaying: this.isPlaying,
+        spinSpeed: this.settings.spinSpeed
+      });
 
-    // Show window if auto-show is enabled and a track is playing
-    if (this.settings.autoShow && this.isPlaying && !this.vinylWindow.isVisible) {
-      this.showVinylWindow();
+      // Send settings to the renderer
+      window.webContents.send("vinyl-player:update-settings", {
+        showControls: this.settings.showControls
+      });
+
+      // Show window if auto-show is enabled and a track is playing
+      if (this.settings.autoShow && this.isPlaying && !this.vinylWindow.isVisible) {
+        this.showVinylWindow();
+      }
+    } catch (error) {
+      console.error("Error updating vinyl display:", error);
     }
   }
 

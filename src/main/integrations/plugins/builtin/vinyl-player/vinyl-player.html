@@ -533,10 +533,14 @@
 
         // Update track info
         function updateTrackInfo(track) {
+            if (!track) return; // Guard against undefined track
+            
+            // Make a copy of currentTrack before updating
+            const prevTrack = { ...currentTrack };
             currentTrack = { ...currentTrack, ...track };
             
             // Add loading animation for new tracks
-            if (track.title !== currentTrack.title) {
+            if (track.title && prevTrack.title && track.title !== prevTrack.title) {
                 trackTitle.classList.add('loading');
                 setTimeout(() => trackTitle.classList.remove('loading'), 1000);
             }
@@ -606,7 +610,7 @@
 
         // Handle settings changes
         ipcRenderer.on('vinyl-player:update-settings', (event, settings) => {
-            if (settings.showControls !== undefined) {
+            if (settings && settings.showControls !== undefined) {
                 controls.style.display = settings.showControls ? 'flex' : 'none';
             }
         });
