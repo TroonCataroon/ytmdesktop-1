@@ -54,6 +54,7 @@ export class PluginManager {
     try {
       plugin.onEnable();
       this.enabledPlugins.add(pluginId);
+      plugin.setEnabled(true);
       console.log(`Plugin ${pluginId} enabled successfully`);
       return true;
     } catch (error) {
@@ -77,6 +78,7 @@ export class PluginManager {
     try {
       plugin.onDisable();
       this.enabledPlugins.delete(pluginId);
+      plugin.setEnabled(false);
       console.log(`Plugin ${pluginId} disabled successfully`);
       return true;
     } catch (error) {
@@ -117,10 +119,10 @@ export class PluginManager {
     return (plugin.constructor as typeof BasePlugin).getSettingsSchema?.() || null;
   }
 
-  getAllPlugins(): Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> {
-    const plugins: Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> = [];
-    
-    this.plugins.forEach((plugin) => {
+  getAllPlugins(): Array<{ id: string; name: string; description: string; version: string; author: string; enabled: boolean }> {
+    const plugins: Array<{ id: string; name: string; description: string; version: string; author: string; enabled: boolean }> = [];
+
+    this.plugins.forEach(plugin => {
       plugins.push({
         id: plugin.id,
         name: plugin.name,
@@ -130,20 +132,20 @@ export class PluginManager {
         enabled: plugin.enabled
       });
     });
-    
+
     return plugins;
   }
 
   getAllPluginSettingsSchemas(): Record<string, PluginSettings> {
     const schemas: Record<string, PluginSettings> = {};
-    
-    this.plugins.forEach((plugin) => {
+
+    this.plugins.forEach(plugin => {
       const schema = (plugin.constructor as typeof BasePlugin).getSettingsSchema?.();
       if (schema) {
         schemas[plugin.id] = schema;
       }
     });
-    
+
     return schemas;
   }
 

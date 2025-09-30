@@ -59,6 +59,10 @@ export abstract class BasePlugin {
     return this.settings;
   }
 
+  setEnabled(enabled: boolean): void {
+    this.config.enabled = enabled;
+  }
+
   // Settings management
   updateSettings(newSettings: Record<string, unknown>): void {
     this.settings = { ...this.settings, ...newSettings };
