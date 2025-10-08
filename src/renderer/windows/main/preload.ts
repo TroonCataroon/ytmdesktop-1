@@ -48,8 +48,17 @@ contextBridge.exposeInMainWorld("ytmd", {
     onStateChanged: (callback: (newState: MemoryStoreSchema, oldState: MemoryStoreSchema) => void) => memoryStore.onStateChanged(callback)
   },
   restartApplicationForUpdate: () => ipcRenderer.send("app:restartApplicationForUpdate"),
+  checkForUpdates: () => ipcRenderer.send("app:checkForUpdates"),
   reportError: (error: Error) => ipcRenderer.send('renderer:reportError', {
     message: error.message,
     stack: error.stack
   })
+});
+
+// Also expose ipcRenderer directly for components that need it
+contextBridge.exposeInMainWorld("ipcRenderer", {
+  invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
+  send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
+  on: (channel: string, listener: (...args: unknown[]) => void) => ipcRenderer.on(channel, listener),
+  removeListener: (channel: string, listener: (...args: unknown[]) => void) => ipcRenderer.removeListener(channel, listener)
 });

@@ -31,7 +31,8 @@ const config: ForgeConfig = {
       "./src/assets/icons/controls/pause-button.png",
       "./src/assets/icons/controls/play-button.png",
       "./src/assets/icons/controls/play-next-button.png",
-      "./src/assets/icons/controls/play-previous-button.png"
+      "./src/assets/icons/controls/play-previous-button.png",
+      "./src/assets/icons/vinyl"
     ],
     protocols: [
       {
@@ -45,7 +46,11 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      iconUrl: `https://raw.githubusercontent.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`
+      iconUrl: `https://raw.githubusercontent.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`,
+      loadingGif: "./src/assets/icons/ytmd_installer.gif",
+      setupIcon: "./src/assets/icons/ytmd.ico",
+      remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/${process.env.YTMD_UPDATE_FEED_REPOSITORY ?? "ytmdesktop"}/releases`,
+      remoteToken: process.env.GITHUB_TOKEN,
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({

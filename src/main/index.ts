@@ -297,6 +297,7 @@ function shouldDisableUpdates() {
   // macOS can't have auto updates without a code signature
   // linux is not supported on the update server https://github.com/ytmdesktop/ytmdesktop/issues/1247 (hanging issue resolved)
   if (process.platform !== "win32") return true;
+  return false;
 }
 
 // Configure the autoupdater
@@ -305,45 +306,168 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
   const updateServer = "https://update.electronjs.org";
   const updateFeed = `${updateServer}/${YTMD_UPDATE_FEED_OWNER}/${YTMD_UPDATE_FEED_REPOSITORY}/${process.platform}-${process.arch}/${app.getVersion()}`;
 
+  // Store update check interval preference
+  const updateCheckIntervalMinutes = store.get("updates.checkIntervalMinutes", 60);
+  
+  // Initialize update progress tracking
+  memoryStore.set("updateProgress", 0);
+  memoryStore.set("updateStatus", "idle");
+
   autoUpdater.setFeedURL({
     url: updateFeed
   });
+
   autoUpdater.on("checking-for-update", () => {
+    log.info("Checking for application updates");
+    memoryStore.set("updateStatus", "checking");
     if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Checking for updates...");
     if (settingsWindow) settingsWindow.webContents.send("app:checkingForUpdates");
+    if (mainWindow) mainWindow.webContents.send("app:checkingForUpdates");
+    
+    // Track update check in Sentry if enabled
+    if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateCheck) {
+      sentryIntegration.captureMessage("Auto-update check started", "info", {
+        currentVersion: app.getVersion(),
+        isStartupCheck: appLaunchUpdateCheck
+      });
+    }
   });
-  autoUpdater.on("update-available", () => {
-    log.info("Application update available");
+
+  autoUpdater.on("update-available", (info) => {
+    log.info("Application update available", info);
     memoryStore.set("appUpdateAvailable", true);
+    memoryStore.set("updateStatus", "downloading");
+    memoryStore.set("updateInfo", info);
     appUpdateAvailable = true;
     if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Downloading update...");
-    if (settingsWindow) settingsWindow.webContents.send("app:updateAvailable");
+    if (settingsWindow) settingsWindow.webContents.send("app:updateAvailable", info);
+    if (mainWindow) mainWindow.webContents.send("app:updateAvailable", info);
+    
+    // Show notification if not in startup sequence
+    if (!appLaunchUpdateCheck) {
+      const updateNotification = new Notification({
+        title: "Update Available",
+        body: `Version ${info?.version || "newer"} is available. Downloading update...`,
+        icon: getIconPath("ytmd.png")
+      });
+      updateNotification.show();
+    }
+    
+    // Track update available in Sentry if enabled
+    if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateAvailable) {
+      sentryIntegration.captureMessage("Auto-update available", "info", {
+        currentVersion: app.getVersion(),
+        newVersion: info?.version || "unknown",
+        isStartupCheck: appLaunchUpdateCheck
+      });
+    }
   });
-  autoUpdater.on("update-not-available", () => {
+
+  autoUpdater.on("update-not-available", (info) => {
+    log.info("No application updates available", info);
+    memoryStore.set("updateStatus", "idle");
     if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
-    if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable");
+    if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable", info);
+    if (mainWindow) mainWindow.webContents.send("app:updateNotAvailable", info);
+    
+    // Store the last check time
+    store.set("updates.lastChecked", Date.now());
   });
-  autoUpdater.on("update-downloaded", () => {
-    log.info("Application update downloaded");
+
+  // Add download progress tracking
+  autoUpdater.on("download-progress", (progressObj) => {
+    log.debug("Update download progress", progressObj);
+    memoryStore.set("updateProgress", progressObj.percent || 0);
+    if (settingsWindow) settingsWindow.webContents.send("app:updateDownloadProgress", progressObj);
+    if (mainWindow) mainWindow.webContents.send("app:updateDownloadProgress", progressObj);
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    log.info("Application update downloaded", info);
     appUpdateDownloaded = true;
     memoryStore.set("appUpdateDownloaded", true);
-    if (appLaunchUpdateCheck) autoUpdater.quitAndInstall();
-    if (settingsWindow) settingsWindow.webContents.send("app:updateDownloaded");
+    memoryStore.set("updateStatus", "ready");
+    memoryStore.set("updateProgress", 100);
+    
+    // Auto-install if during startup sequence
+    if (appLaunchUpdateCheck) {
+      log.info("Auto-installing update during startup sequence");
+      autoUpdater.quitAndInstall(false, true);
+    } else {
+      // Show notification with install options
+      const updateNotification = new Notification({
+        title: "Update Ready",
+        body: `Version ${info?.version || "newer"} has been downloaded and is ready to install.`,
+        icon: getIconPath("ytmd.png")
+      });
+      updateNotification.show();
+      
+      // Notify windows
+      if (settingsWindow) settingsWindow.webContents.send("app:updateDownloaded", info);
+      if (mainWindow) mainWindow.webContents.send("app:updateDownloaded", info);
+    }
+    
+    // Track update downloaded in Sentry if enabled
+    if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateDownloaded) {
+      sentryIntegration.captureMessage("Auto-update downloaded", "info", {
+        currentVersion: app.getVersion(),
+        newVersion: info?.version || "unknown",
+        autoInstall: appLaunchUpdateCheck
+      });
+    }
   });
-  autoUpdater.on("error", () => {
+
+  autoUpdater.on("error", (error) => {
+    log.error("Update error", error);
+    memoryStore.set("updateStatus", "error");
+    memoryStore.set("updateError", error?.toString() || "Unknown error");
     if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
-    if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable");
+    if (settingsWindow) settingsWindow.webContents.send("app:updateError", error);
+    if (mainWindow) mainWindow.webContents.send("app:updateError", error);
+    
+    // Show error notification if not in startup sequence
+    if (!appLaunchUpdateCheck) {
+      const errorNotification = new Notification({
+        title: "Update Error",
+        body: `Failed to check for updates: ${error?.message || "Unknown error"}`,
+        icon: getIconPath("ytmd.png")
+      });
+      errorNotification.show();
+    }
+    
+    // Track update error in Sentry if enabled
+    if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateError) {
+      sentryIntegration.captureException(error instanceof Error ? error : new Error(error?.toString() || "Unknown update error"), {
+        currentVersion: app.getVersion(),
+        isStartupCheck: appLaunchUpdateCheck,
+        updateStatus: memoryStore.get("updateStatus")
+      });
+    }
   });
+  
   log.info("Setup application updater");
 
+  // Set up periodic update checking based on user preference
   setInterval(
     () => {
-      autoUpdater.checkForUpdates();
+      // Only check for updates if not already downloading or ready to install
+      const currentStatus = memoryStore.get("updateStatus");
+      if (currentStatus !== "downloading" && currentStatus !== "ready") {
+        log.info("Running scheduled update check");
+        autoUpdater.checkForUpdates().catch(error => {
+          log.error("Scheduled update check failed:", error);
+        });
+      }
     },
-    1000 * 60 * 15
+    1000 * 60 * updateCheckIntervalMinutes
   );
 } else {
   memoryStore.set("autoUpdaterDisabled", true);
+  log.info("Auto-updater disabled", {
+    isPackaged: app.isPackaged,
+    shouldDisable: shouldDisableUpdates(),
+    disableFlag: YTMD_DISABLE_UPDATES
+  });
 }
 
 function getIconPath(icon: string) {
@@ -381,6 +505,13 @@ const store = new Conf<StoreSchema>({
       showNotificationOnSongChange: false,
       startOnBoot: false,
       startMinimized: false
+    },
+    updates: {
+      checkIntervalMinutes: 60,
+      checkOnStartup: true,
+      autoInstall: false,
+      betaChannel: false,
+      lastChecked: 0
     },
     appearance: {
       alwaysShowVolumeSlider: false,
@@ -458,6 +589,18 @@ const store = new Conf<StoreSchema>({
     ">=2.0.7": store => {
       if (!store.has("appearance.trayIconStyle")) {
         store.set("appearance.trayIconStyle", 0);
+      }
+    },
+    ">=2.0.10": store => {
+      // Add new updates settings
+      if (!store.has("updates")) {
+        store.set("updates", {
+          checkIntervalMinutes: 60,
+          checkOnStartup: true,
+          autoInstall: false,
+          betaChannel: false,
+          lastChecked: Date.now()
+        });
       }
     }
   }
@@ -2099,22 +2242,47 @@ app.on("ready", async () => {
   });
 
   ipcMain.on("app:checkForUpdates", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
 
-    // autoUpdater downloads automatically and calling checkForUpdates causes duplicate install
-    if (!appUpdateAvailable || !appUpdateDownloaded) {
-      autoUpdater.checkForUpdates();
+    // Store the last check time
+    store.set("updates.lastChecked", Date.now());
+    
+    // Only check if not already downloading or ready to install
+    const currentStatus = memoryStore.get("updateStatus");
+    if (currentStatus !== "downloading" && currentStatus !== "ready") {
+      log.info("Manual update check triggered");
+      autoUpdater.checkForUpdates().catch(error => {
+        log.error("Manual update check failed:", error);
+      });
+    } else {
+      log.info("Update check skipped - update already in progress");
+      // Notify the sender of the current status
+      event.sender.send(`app:${currentStatus === "downloading" ? "updateAvailable" : "updateDownloaded"}`);
     }
   });
 
+  ipcMain.handle("app:getUpdateStatus", event => {
+    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+
+    return {
+      status: memoryStore.get("updateStatus", "idle"),
+      progress: memoryStore.get("updateProgress", 0),
+      info: memoryStore.get("updateInfo"),
+      error: memoryStore.get("updateError"),
+      isAvailable: appUpdateAvailable,
+      isDownloaded: appUpdateDownloaded,
+      lastChecked: store.get("updates.lastChecked", 0)
+    };
+  });
+
   ipcMain.handle("app:isUpdateAvailable", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
 
     return appUpdateAvailable;
   });
 
   ipcMain.handle("app:isUpdateDownloaded", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
 
     return appUpdateDownloaded;
   });
@@ -2122,9 +2290,52 @@ app.on("ready", async () => {
   ipcMain.on("app:restartApplicationForUpdate", event => {
     if (mainWindow && event.sender !== mainWindow.webContents && settingsWindow && event.sender !== settingsWindow.webContents) return;
 
+    if (!appUpdateDownloaded) {
+      log.warn("Attempted to restart for update, but no update is downloaded");
+      return;
+    }
+
+    log.info("Restarting application to install update");
+    
+    // Save state before quitting
+    try {
+      saveState();
+    } catch (error) {
+      log.error("Failed to save state before update:", error);
+    }
+
     // Electron explicitly will not call before-quit until after all the windows have closed, requiring us to have set that the application is quitting before hand
     applicationQuitting = true;
-    autoUpdater.quitAndInstall();
+    autoUpdater.quitAndInstall(false, store.get("updates.autoInstall", false));
+  });
+  
+  ipcMain.handle("app:getUpdateSettings", event => {
+    if (event.sender !== settingsWindow.webContents) return;
+    
+    return store.get("updates");
+  });
+  
+  ipcMain.on("app:updateSettings", (event, settings) => {
+    if (event.sender !== settingsWindow.webContents) return;
+    
+    // Validate and update settings
+    if (typeof settings === 'object') {
+      if (typeof settings.checkIntervalMinutes === 'number') {
+        store.set("updates.checkIntervalMinutes", Math.max(15, settings.checkIntervalMinutes));
+      }
+      
+      if (typeof settings.checkOnStartup === 'boolean') {
+        store.set("updates.checkOnStartup", settings.checkOnStartup);
+      }
+      
+      if (typeof settings.autoInstall === 'boolean') {
+        store.set("updates.autoInstall", settings.autoInstall);
+      }
+      
+      if (typeof settings.betaChannel === 'boolean') {
+        store.set("updates.betaChannel", settings.betaChannel);
+      }
+    }
   });
 
   log.info("Setup IPC handlers");

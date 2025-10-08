@@ -307,20 +307,18 @@
         }
 
         /* Stylus/needle effect */
-        .vinyl-record::after {
-            content: '';
+        .tonearm {
             position: absolute;
             top: 15%;
             right: -10px;
-            width: 4px;
-            height: 40px;
-            background: linear-gradient(180deg, #c0c0c0 0%, #808080 50%, #404040 100%);
-            border-radius: 2px;
+            width: 100px;
+            height: 100px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: top right;
             transform: rotate(25deg);
-            box-shadow: 
-                2px 2px 8px rgba(0,0,0,0.4),
-                inset 0 0 2px rgba(255,255,255,0.3);
             z-index: 10;
+            pointer-events: none;
         }
 
         .controls {
@@ -501,6 +499,7 @@
                 <div class="vinyl-reflections"></div>
                 <div class="record-texture"></div>
             </div>
+            <div class="tonearm" id="tonearm"></div>
         </div>
 
         <div class="controls" id="controls">
@@ -519,6 +518,7 @@
         const albumArt = document.getElementById('album-art');
         const vinylDisc = document.getElementById('vinyl-disc');
         const vinylGrooves = document.getElementById('vinyl-grooves');
+        const tonearm = document.getElementById('tonearm');
         const playPauseBtn = document.getElementById('play-pause-btn');
         const closeBtn = document.getElementById('close-btn');
         const controls = document.getElementById('controls');
@@ -612,6 +612,17 @@
         ipcRenderer.on('vinyl-player:update-settings', (event, settings) => {
             if (settings && settings.showControls !== undefined) {
                 controls.style.display = settings.showControls ? 'flex' : 'none';
+            }
+            if (settings && settings.assets) {
+                if (settings.assets.record) {
+                    // Use record SVG as background texture (optional; we keep gradients as fallback)
+                    vinylDisc.style.backgroundImage = `url(${settings.assets.record})`;
+                    vinylDisc.style.backgroundSize = 'cover';
+                    vinylDisc.style.backgroundRepeat = 'no-repeat';
+                }
+                if (settings.assets.tonearm) {
+                    tonearm.style.backgroundImage = `url(${settings.assets.tonearm})`;
+                }
             }
         });
 

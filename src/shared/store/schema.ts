@@ -15,6 +15,13 @@ export type StoreSchema = {
     startOnBoot: boolean;
     startMinimized: boolean;
   };
+  updates: {
+    checkIntervalMinutes: number;
+    checkOnStartup: boolean;
+    autoInstall: boolean;
+    betaChannel: boolean;
+    lastChecked: number;
+  };
   appearance: {
     alwaysShowVolumeSlider: boolean;
     customCSSEnabled: boolean;
@@ -90,4 +97,12 @@ export type MemoryStoreSchema = {
   ytmViewUnresponsive: boolean;
   appUpdateAvailable: boolean;
   appUpdateDownloaded: boolean;
+  updateStatus: 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
+  updateProgress: number;
+  updateInfo: {
+    version: string;
+    releaseDate: string;
+    releaseNotes?: string;
+  } | null;
+  updateError: string | null;
 };

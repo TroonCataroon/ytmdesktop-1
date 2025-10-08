@@ -16,7 +16,9 @@
     "lint:fix": "eslint --ext .ts,.tsx,.vue .",
     "prettier": "prettier --check *.{ts,tsx,vue}",
     "prettier:fix": "prettier --write *.{ts,tsx,vue}",
-    "postinstall": "husky install"
+    "postinstall": "husky install",
+    "analyze-branches": "node scripts/analyze-branches.js",
+    "cleanup-branches": "node scripts/cleanup-branches.js"
   },
   "keywords": [],
   "author": {
