@@ -85,8 +85,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
       // Send updated settings to the vinyl player window
       window.webContents.send("vinyl-player:update-settings", {
-        showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls,
-        assets: this.getAssetUrls()
+        showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls
       });
     }
   }
@@ -210,8 +209,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Send initial settings to the vinyl player window once it's ready
     window.webContents.on("did-finish-load", () => {
       window.webContents.send("vinyl-player:update-settings", {
-        showControls: this.settings.showControls as boolean,
-        assets: this.getAssetUrls()
+        showControls: this.settings.showControls as boolean
       });
       this.updateVinylDisplay();
     });
@@ -326,8 +324,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
       // Send settings to the renderer
       window.webContents.send("vinyl-player:update-settings", {
-        showControls: Boolean(this.settings.showControls),
-        assets: this.getAssetUrls()
+        showControls: Boolean(this.settings.showControls)
       });
 
       // Show window if auto-show is enabled and a track is playing
@@ -391,32 +388,6 @@ export class VinylPlayerPlugin extends BasePlugin {
         description: "Transparency of the vinyl player window (0.1-1.0)",
         default: 0.9
       }
-    };
-  }
-
-  private getAssetUrls(): { record: string; label: string; tonearm: string } {
-    const baseDev = path.join(process.cwd(), "src/assets");
-    const baseProd = process.resourcesPath;
-    const recordPath = app.isPackaged
-      ? path.join(baseProd, "vinyl/vinyl-record.svg")
-      : path.join(baseDev, "icons/vinyl/vinyl-record.svg");
-    const labelPath = app.isPackaged
-      ? path.join(baseProd, "vinyl/label.svg")
-      : path.join(baseDev, "icons/vinyl/label.svg");
-    const tonearmPath = app.isPackaged
-      ? path.join(baseProd, "vinyl/tonearm.svg")
-      : path.join(baseDev, "icons/vinyl/tonearm.svg");
-
-    const toFileUrl = (p: string): string => {
-      let normalized = p.replace(/\\/g, "/");
-      if (!normalized.startsWith("/")) normalized = "/" + normalized;
-      return "file://" + normalized;
-    };
-
-    return {
-      record: toFileUrl(recordPath),
-      label: toFileUrl(labelPath),
-      tonearm: toFileUrl(tonearmPath)
     };
   }
 }
