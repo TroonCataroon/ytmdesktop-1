@@ -4,7 +4,7 @@
  */
 export const SENTRY_CONFIG = {
   // Your Sentry DSN (Data Source Name)
-  dsn: 'https://your-sentry-dsn@sentry.io/your-project',
+  dsn: 'https://966ef4683bb2992779007f1d58efb39a@o4509782535503872.ingest.us.sentry.io/4510093679460352',
   
   // Environment (production, staging, development)
   environment: process.env.NODE_ENV || 'development',
@@ -16,7 +16,7 @@ export const SENTRY_CONFIG = {
   enableTracing: true,
   
   // The percentage of transactions to track (0.0 to 1.0)
-  tracesSampleRate: 0.2,
+  tracesSampleRate: 1.0,
   
   // Maximum breadcrumbs to record
   maxBreadcrumbs: 50,

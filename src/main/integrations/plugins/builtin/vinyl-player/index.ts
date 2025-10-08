@@ -8,14 +8,18 @@ interface VinylPlayerWindow {
   isVisible: boolean;
 }
 
+interface TrackInfo {
+  title: string;
+  artist: string;
+  thumbnail: string;
+  isPlaying: boolean;
+  spinSpeed: number;
+}
+
 export class VinylPlayerPlugin extends BasePlugin {
   private vinylWindow: VinylPlayerWindow | null = null;
   private isPlaying = false;
-  private currentTrack: {
-    title: string;
-    artist: string;
-    thumbnail: string;
-  } | null = null;
+  private currentTrack: TrackInfo | null = null;
 
   constructor() {
     super({
@@ -37,9 +41,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Initialize with default track
     this.currentTrack = {
-      title: "No track playing",
-      artist: "Unknown Artist",
-      thumbnail: ""
+      title: 'No track playing',
+      artist: 'Unknown Artist',
+      thumbnail: '',
+      isPlaying: false,
+      spinSpeed: 1
     };
   }
 
@@ -257,12 +263,12 @@ export class VinylPlayerPlugin extends BasePlugin {
     const isPlaying = state.trackState === VideoState.Playing;
 
     if (hasVideo && state.videoDetails) {
-      const track = {
-        title: state.videoDetails.title || "Unknown Title",
-        artist: state.videoDetails.author || "Unknown Artist",
+      const track: TrackInfo = {
+        title: state.videoDetails.title || 'Unknown Title',
+        artist: state.videoDetails.author || 'Unknown Artist',
         thumbnail: this.getBestThumbnail(state.videoDetails.thumbnails),
-        isPlaying: isPlaying,
-        spinSpeed: this.settings.spinSpeed as number
+        isPlaying,
+        spinSpeed: Number(this.settings.spinSpeed ?? 1)
       };
 
       // Only update if track info has changed
@@ -273,11 +279,11 @@ export class VinylPlayerPlugin extends BasePlugin {
     } else {
       // No video playing
       this.currentTrack = {
-        title: "No track playing",
-        artist: "",
-        thumbnail: "",
+        title: 'No track playing',
+        artist: '',
+        thumbnail: '',
         isPlaying: false,
-        spinSpeed: this.settings.spinSpeed as number
+        spinSpeed: Number(this.settings.spinSpeed ?? 1)
       };
       this.updateVinylDisplay();
     }
@@ -313,16 +319,16 @@ export class VinylPlayerPlugin extends BasePlugin {
         artist: this.currentTrack?.artist || "Unknown Artist",
         thumbnail: this.currentTrack?.thumbnail || "",
         isPlaying: this.isPlaying,
-        spinSpeed: this.settings.spinSpeed
+        spinSpeed: Number(this.settings.spinSpeed ?? 1)
       });
 
       // Send settings to the renderer
       window.webContents.send("vinyl-player:update-settings", {
-        showControls: this.settings.showControls
+        showControls: Boolean(this.settings.showControls)
       });
 
       // Show window if auto-show is enabled and a track is playing
-      if (this.settings.autoShow && this.isPlaying && !this.vinylWindow.isVisible) {
+      if (Boolean(this.settings.autoShow) && this.isPlaying && !this.vinylWindow.isVisible) {
         this.showVinylWindow();
       }
     } catch (error) {

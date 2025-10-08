@@ -1,10 +1,11 @@
 import { Client } from '@notionhq/client';
-import { BaseIntegration } from '../base-integration';
+import BaseIntegration from '../base-integration';
 import { NOTION_CONFIG } from '../../../shared/notion.config';
 import log from 'electron-log';
 import Conf from 'conf';
 import { StoreSchema } from '../../../shared/store/schema';
 import MemoryStore from '../../memory-store';
+import type { BlockObjectRequest } from '@notionhq/client/build/src/api-endpoints';
 import type { MemoryStoreSchema } from '../../../shared/store/schema';
 
 /**
@@ -73,7 +74,10 @@ export default class NotionIntegration extends BaseIntegration {
 
     try {
       // Get API key from store or config
-      const apiKey = this.store.get('integrations.notionApiKey') || NOTION_CONFIG.apiKey;
+      const storedKey = this.store?.get('integrations.notionApiKey');
+      const apiKey = typeof storedKey === 'string' && storedKey.trim().length > 0
+        ? storedKey
+        : NOTION_CONFIG.apiKey;
       
       if (!apiKey) {
         log.warn('Notion integration not enabled: missing API key');
@@ -358,12 +362,20 @@ export default class NotionIntegration extends BaseIntegration {
     }
 
     try {
-      const response = await this.notion.databases.query({
+      const databasesClient = this.notion.databases as unknown as {
+        query?: (args: { database_id: string; page_size?: number }) => Promise<{ results: unknown[] }>;
+      };
+
+      if (typeof databasesClient.query !== 'function') {
+        log.warn('Notion SDK does not expose databases.query in this version');
+        return [];
+      }
+
+      const response = await databasesClient.query({
         database_id: databaseId,
         page_size: NOTION_CONFIG.sync.pageLimit
       });
 
-      // Cast results to Record<string, unknown>[]
       return response.results as Record<string, unknown>[];
     } catch (error) {
       log.error(`Failed to query Notion database ${databaseId}:`, error);
@@ -376,16 +388,12 @@ export default class NotionIntegration extends BaseIntegration {
    * @param markdown Markdown content
    * @returns Array of Notion blocks
    */
-  private convertMarkdownToBlocks(markdown: string): Record<string, unknown>[] {
-    // This is a simplified conversion - in a real implementation, you'd want to use
-    // a proper markdown parser to convert to Notion blocks
-    
-    const blocks = [];
+  private convertMarkdownToBlocks(markdown: string): BlockObjectRequest[] {
+    const blocks: BlockObjectRequest[] = [];
     const paragraphs = markdown.split('\n\n');
-    
+
     for (const paragraph of paragraphs) {
       if (paragraph.startsWith('# ')) {
-        // Heading 1
         blocks.push({
           object: 'block',
           type: 'heading_1',
@@ -400,8 +408,10 @@ export default class NotionIntegration extends BaseIntegration {
             ]
           }
         });
-      } else if (paragraph.startsWith('## ')) {
-        // Heading 2
+        continue;
+      }
+
+      if (paragraph.startsWith('## ')) {
         blocks.push({
           object: 'block',
           type: 'heading_2',
@@ -416,8 +426,10 @@ export default class NotionIntegration extends BaseIntegration {
             ]
           }
         });
-      } else if (paragraph.startsWith('### ')) {
-        // Heading 3
+        continue;
+      }
+
+      if (paragraph.startsWith('### ')) {
         blocks.push({
           object: 'block',
           type: 'heading_3',
@@ -432,25 +444,46 @@ export default class NotionIntegration extends BaseIntegration {
             ]
           }
         });
-      } else {
-        // Regular paragraph
-        blocks.push({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [
-              {
-                type: 'text',
-                text: {
-                  content: paragraph
-                }
-              }
-            ]
-          }
-        });
+        continue;
       }
+
+      if (paragraph.startsWith('- ')) {
+        const items = paragraph.split('\n');
+        for (const item of items) {
+          blocks.push({
+            object: 'block',
+            type: 'bulleted_list_item',
+            bulleted_list_item: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: item.substring(2)
+                  }
+                }
+              ]
+            }
+          });
+        }
+        continue;
+      }
+
+      blocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: paragraph
+              }
+            }
+          ]
+        }
+      });
     }
-    
+
     return blocks;
   }
 }

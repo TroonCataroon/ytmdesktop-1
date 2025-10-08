@@ -12,15 +12,10 @@ import { contextBridge, ipcRenderer, webFrame } from "electron";
 import Store from "../store-ipc/store";
 import { StoreSchema } from "~shared/store/schema";
 
-// @ts-expect-error: Importing raw script as string for injection
 import playerBarControlsScript from "./scripts/playerbarcontrols.script?raw";
-// @ts-expect-error: Importing raw script as string for injection
 import hookPlayerApiEventsScript from "./scripts/hookplayerapievents.script?raw";
-// @ts-expect-error: Importing raw script as string for injection
 import getPlaylistsScript from "./scripts/getplaylists.script?raw";
-// @ts-expect-error: Importing raw script as string for injection
 import toggleLikeScript from "./scripts/togglelike.script?raw";
-// @ts-expect-error: Importing raw script as string for injection
 import toggleDislikeScript from "./scripts/toggledislike.script?raw";
 
 const store = new Store<StoreSchema>();
@@ -180,8 +175,10 @@ async function hookPlayerApiEvents() {
 }
 
 function overrideHistoryButtonDisplay() {
-  // @ts-expect-error Style is reported as readonly but this still works
-  document.querySelector<HTMLElement>("#history-link .history-button").style = "display: inline-block !important;";
+  const historyButton = document.querySelector<HTMLElement>("#history-link .history-button");
+  if (historyButton) {
+    historyButton.setAttribute('style', 'display: inline-block !important;');
+  }
 }
 
 function getYTMTextRun(runs: { text: string }[]) {

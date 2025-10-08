@@ -14,7 +14,6 @@ export default class LastFM extends BaseIntegration {
   private store: Conf<StoreSchema>;
   private memoryStore: MemoryStore<MemoryStoreSchema>;
 
-  private isEnabled = false;
 
   private possibleVideoIds: string[] | null;
   private lastfmDetails: StoreSchema["lastfm"] = null;

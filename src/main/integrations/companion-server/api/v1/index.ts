@@ -2,7 +2,7 @@ import { BrowserView, BrowserWindow, ipcMain } from "electron";
 import Conf from "conf";
 import { FastifyPluginCallback, FastifyPluginOptions } from "fastify";
 import { StoreSchema } from "~shared/store/schema";
-import playerStateStore, { PlayerState, RepeatMode } from "../../../../player-state-store";
+import playerStateStore, { PlayerState, RepeatMode, VideoDetails } from "../../../../player-state-store";
 import {
   createAuthToken,
   getIsTemporaryAuthCodeValidAndRemove,
@@ -582,6 +582,33 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
 
   // Get the player state
   fastify.get("/player/state", async request => {
+    type PlayerStatePayload = {
+      video: PlayerState["videoDetails"];
+      full: {
+        author: string;
+        channelId: string;
+        title: string;
+        album: string | null;
+        albumId: string | null;
+        likeStatus: PlayerState['videoDetails']['likeStatus'];
+        thumbnails: PlayerState['videoDetails']['thumbnails'];
+        durationSeconds: number;
+        id: string;
+        isLive: boolean;
+        videoType: PlayerState['videoDetails']['videoType'];
+      };
+    };
+
+    type PlayerStateResponse = {
+      status: PlayerState['trackState'] | 'UNKNOWN';
+      state: PlayerStatePayload | null;
+      queue: PlayerState['queue'] | null;
+      progress: number;
+      volume: number;
+      muted: boolean;
+      adPlaying: boolean;
+    };
+
     const token = parseToken(request);
     await validateToken(token, getStore());
 
@@ -589,8 +616,8 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
 
     // Add null checks to ensure the response doesn't cause errors
     if (!state) {
-      return {
-        status: "UNKNOWN",
+      const fallback: PlayerStateResponse = {
+        status: 'UNKNOWN',
         state: null,
         queue: null,
         progress: 0,
@@ -598,9 +625,10 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
         muted: false,
         adPlaying: false
       };
+      return fallback;
     }
 
-    const data = {
+    const data: PlayerStateResponse = {
       status: state.trackState,
       state: state.videoDetails
         ? {
@@ -609,8 +637,8 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
               author: state.videoDetails.author,
               channelId: state.videoDetails.channelId,
               title: state.videoDetails.title,
-              album: state.videoDetails.album,
-              albumId: state.videoDetails.albumId,
+              album: state.videoDetails.album ?? null,
+              albumId: state.videoDetails.albumId ?? null,
               likeStatus: state.videoDetails.likeStatus,
               thumbnails: state.videoDetails.thumbnails,
               durationSeconds: state.videoDetails.durationSeconds,

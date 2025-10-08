@@ -1,5 +1,5 @@
 import * as Figma from 'figma-js';
-import { BaseIntegration } from '../base-integration';
+import BaseIntegration from '../base-integration';
 import { FIGMA_CONFIG } from '../../../shared/figma.config';
 import log from 'electron-log';
 import fs from 'fs/promises';
@@ -73,7 +73,10 @@ export default class FigmaIntegration extends BaseIntegration {
 
     try {
       // Get API key from store or config
-      const personalAccessToken = this.store.get('integrations.figmaPersonalAccessToken') || FIGMA_CONFIG.personalAccessToken;
+      const storedToken = this.store?.get('integrations.figmaPersonalAccessToken');
+      const personalAccessToken = typeof storedToken === 'string' && storedToken.trim().length > 0
+        ? storedToken
+        : FIGMA_CONFIG.personalAccessToken;
       
       if (!personalAccessToken) {
         log.warn('Figma integration not enabled: missing personal access token');
@@ -141,13 +144,13 @@ export default class FigmaIntegration extends BaseIntegration {
     }
 
     try {
-      const response = await this.client.teamProjects({ teamId: FIGMA_CONFIG.teamId });
+      const response = await this.client.teamProjects(FIGMA_CONFIG.teamId);
       
       const projects = response.data.projects;
       const files: FigmaFile[] = [];
       
       for (const project of projects) {
-        const filesResponse = await this.client.projectFiles({ projectId: project.id });
+        const filesResponse = await this.client.projectFiles(project.id);
         
         for (const file of filesResponse.data.files) {
           const figmaFile: FigmaFile = {
@@ -241,13 +244,22 @@ export default class FigmaIntegration extends BaseIntegration {
 
     try {
       // Get components to export
-      const componentsResponse = nodeIds 
-        ? await this.client.fileNodes({ fileId: fileKey, ids: nodeIds }) 
+      const componentsResponse = nodeIds && nodeIds.length > 0
+        ? await this.client.fileNodes(fileKey, { ids: nodeIds })
         : await this.client.file(fileKey);
       
-      const components = nodeIds 
-        ? Object.values(componentsResponse.data.nodes).map(node => node.document) 
-        : this.findExportableComponents(componentsResponse.data.document);
+      let components: Figma.Node[] = [];
+
+      if (nodeIds && nodeIds.length > 0) {
+        const nodesResponse = componentsResponse.data as Figma.FileNodesResponse;
+        const nodes = Object.values(nodesResponse.nodes ?? {});
+        components = nodes
+          .map(node => ('document' in node ? node.document : null))
+          .filter((node): node is Figma.Node => node !== null);
+      } else {
+        const fileResponse = componentsResponse.data as Figma.FileResponse;
+        components = this.findExportableComponents(fileResponse.document);
+      }
       
       if (!components.length) {
         log.warn('No exportable components found in Figma file');
@@ -463,21 +475,20 @@ export default class FigmaIntegration extends BaseIntegration {
    * @param node Figma document node
    * @returns Array of exportable components
    */
-  private findExportableComponents(node: Record<string, unknown>): Record<string, unknown>[] {
-    const components: Record<string, unknown>[] = [];
-    
-    // Check if node is a component
+  private findExportableComponents(node: Figma.Node): Figma.Node[] {
+    const components: Figma.Node[] = [];
+
     if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
       components.push(node);
     }
-    
-    // Check if node has children
-    if (node.children && Array.isArray(node.children)) {
-      for (const child of node.children) {
+
+    const withChildren = node as Figma.Node & { children?: Figma.Node[] };
+    if (Array.isArray(withChildren.children)) {
+      for (const child of withChildren.children) {
         components.push(...this.findExportableComponents(child));
       }
     }
-    
+
     return components;
   }
 }

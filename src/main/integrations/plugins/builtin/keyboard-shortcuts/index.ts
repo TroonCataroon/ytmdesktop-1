@@ -40,7 +40,7 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     console.log("Keyboard Shortcuts settings changed:", newSettings);
 
-    if (newSettings.shortcuts !== this.settings.shortcuts) {
+    if (newSettings.shortcuts !== undefined) {
       this.unregisterShortcuts();
       this.loadCustomShortcuts();
       this.registerShortcuts();
@@ -48,7 +48,19 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
   }
 
   private loadCustomShortcuts(): void {
-    this.customShortcuts = this.settings.shortcuts || [];
+    const rawShortcuts = this.settings.shortcuts;
+    if (Array.isArray(rawShortcuts)) {
+      this.customShortcuts = rawShortcuts as CustomShortcut[];
+    } else if (typeof rawShortcuts === 'string') {
+      try {
+        const parsed = JSON.parse(rawShortcuts);
+        this.customShortcuts = Array.isArray(parsed) ? (parsed as CustomShortcut[]) : [];
+      } catch {
+        this.customShortcuts = [];
+      }
+    } else {
+      this.customShortcuts = [];
+    }
   }
 
   private registerShortcuts(): void {
@@ -127,7 +139,7 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
   // Public methods for managing shortcuts
   addShortcut(shortcut: CustomShortcut): void {
     this.customShortcuts.push(shortcut);
-    this.updateSettings();
+    this.persistSettings();
 
     if (shortcut.enabled) {
       this.registerShortcut(shortcut);
@@ -139,12 +151,14 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
     if (index !== -1) {
       this.customShortcuts.splice(index, 1);
       this.registeredShortcuts.delete(shortcutId);
-      this.updateSettings();
+      this.persistSettings();
     }
   }
 
-  private updateSettings(): void {
-    this.settings.shortcuts = this.customShortcuts;
+  private persistSettings(): void {
+    this.updateSettings({
+      shortcuts: this.customShortcuts
+    });
   }
 
   static getSettingsSchema(): PluginSettings {

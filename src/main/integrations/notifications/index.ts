@@ -1,6 +1,5 @@
 import { Notification, NotificationConstructorOptions, nativeImage } from "electron";
-import playerStateStore, { PlayerState, Thumbnail, VideoDetails, VideoState } from "../../player-state-store";
-import IIntegration from "../integration";
+import { PlayerState, Thumbnail, VideoDetails, VideoState } from "../../player-state-store";
 import BaseIntegration from "../base-integration";
 import https from "https";
 import log from "electron-log";

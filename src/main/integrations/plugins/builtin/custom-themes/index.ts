@@ -22,7 +22,8 @@ export class CustomThemesPlugin extends BasePlugin {
 
   onEnable(): void {
     console.log("Custom Themes Plugin enabled");
-    this.applyTheme(this.settings.selectedTheme);
+    const selectedTheme = typeof this.settings.selectedTheme === 'string' ? this.settings.selectedTheme : 'default';
+    this.applyTheme(selectedTheme);
   }
 
   onDisable(): void {
@@ -33,12 +34,14 @@ export class CustomThemesPlugin extends BasePlugin {
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     console.log("Custom Themes settings changed:", newSettings);
 
-    if (newSettings.selectedTheme !== this.settings.selectedTheme) {
-      this.applyTheme(newSettings.selectedTheme);
+    if (newSettings.selectedTheme !== undefined) {
+      const themeName = typeof newSettings.selectedTheme === 'string' ? newSettings.selectedTheme : String(newSettings.selectedTheme);
+      this.applyTheme(themeName);
     }
 
-    if (newSettings.customCSS !== this.settings.customCSS) {
-      this.applyCustomCSS(newSettings.customCSS);
+    if (newSettings.customCSS !== undefined) {
+      const cssValue = typeof newSettings.customCSS === 'string' ? newSettings.customCSS : String(newSettings.customCSS ?? '');
+      this.applyCustomCSS(cssValue);
     }
   }
 

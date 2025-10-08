@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/electron/main';
 import { app } from 'electron';
-import { BaseIntegration } from '../../integrations/base-integration';
+import BaseIntegration from '../../integrations/base-integration';
 import { SENTRY_CONFIG } from '../../../shared/sentry.config';
 import log from 'electron-log';
 
@@ -9,8 +9,6 @@ import log from 'electron-log';
  * Tracks errors and exceptions in the main Electron process
  */
 export default class SentryIntegration extends BaseIntegration {
-  private enabled = false;
-
   constructor() {
     super();
     this.initialize();
@@ -29,8 +27,6 @@ export default class SentryIntegration extends BaseIntegration {
         release: SENTRY_CONFIG.release,
         
         // Electron specific options
-        enableNative: true,
-        
         // Performance monitoring
         enableTracing: SENTRY_CONFIG.enableTracing,
         tracesSampleRate: SENTRY_CONFIG.tracesSampleRate,
@@ -76,7 +72,7 @@ export default class SentryIntegration extends BaseIntegration {
   }
 
   enable(): void {
-    if (this.enabled) {
+    if (this.isEnabled) {
       return;
     }
     
@@ -91,7 +87,7 @@ export default class SentryIntegration extends BaseIntegration {
       if (client) {
         client.getOptions().enabled = true;
       }
-      this.enabled = true;
+      this.isEnabled = true;
       log.info('Sentry integration enabled in main process');
     } catch (error) {
       log.error('Failed to enable Sentry in main process:', error);
@@ -99,17 +95,16 @@ export default class SentryIntegration extends BaseIntegration {
   }
 
   disable(): void {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return;
     }
 
     try {
-      // Use direct option setting instead of through hub
       const client = Sentry.getClient();
       if (client) {
         client.getOptions().enabled = false;
       }
-      this.enabled = false;
+      super.disable();
       log.info('Sentry integration disabled in main process');
     } catch (error) {
       log.error('Failed to disable Sentry in main process:', error);
@@ -122,7 +117,7 @@ export default class SentryIntegration extends BaseIntegration {
    * @param context Additional context information
    */
   captureException(error: Error, context?: Record<string, unknown>): string | null {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return null;
     }
 
@@ -143,7 +138,7 @@ export default class SentryIntegration extends BaseIntegration {
    * @param context Additional context information
    */
   captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, unknown>): string | null {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return null;
     }
 
@@ -163,7 +158,7 @@ export default class SentryIntegration extends BaseIntegration {
    * @param breadcrumb The breadcrumb to add
    */
   addBreadcrumb(breadcrumb: Sentry.Breadcrumb): void {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return;
     }
 
@@ -180,7 +175,7 @@ export default class SentryIntegration extends BaseIntegration {
    * @param value Tag value
    */
   setTag(key: string, value: string): void {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return;
     }
 
@@ -196,7 +191,7 @@ export default class SentryIntegration extends BaseIntegration {
    * @param user User information object
    */
   setUser(user: Sentry.User | null): void {
-    if (!this.enabled) {
+    if (!this.isEnabled) {
       return;
     }
 

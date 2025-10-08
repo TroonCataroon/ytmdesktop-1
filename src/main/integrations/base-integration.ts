@@ -1,16 +1,31 @@
-import IIntegration from "./integration";
 import { EventEmitter } from "events";
-import { PlayerState } from "../player-state-store";
-import playerStateStore from "../player-state-store";
 import log from "electron-log";
+
+import playerStateStore, { PlayerState } from "../player-state-store";
+import IIntegration from "./integration";
+
+type EventListener = (...args: unknown[]) => void;
+type PlayerStateListener = (state: PlayerState) => void;
+
+type RegisteredListener =
+  | {
+      kind: "playerState";
+      listener: PlayerStateListener;
+    }
+  | {
+      kind: "eventEmitter";
+      emitter: EventEmitter;
+      event: string | symbol;
+      listener: EventListener;
+    };
 
 /**
  * Base class for integrations that provides common functionality
  * like event listener management and safer state handling
  */
 export default abstract class BaseIntegration implements IIntegration {
-  protected eventListeners: Map<string, Set<(...args: any[]) => void>> = new Map();
-  protected isEnabled: boolean = false;
+  protected isEnabled = false;
+  private readonly registeredListeners = new Set<RegisteredListener>();
 
   /**
    * Register an event listener with automatic cleanup
@@ -20,62 +35,68 @@ export default abstract class BaseIntegration implements IIntegration {
    */
   protected registerEventListener<T extends EventEmitter>(
     emitter: T,
-    event: string,
-    listener: (...args: any[]) => void
+    event: string | symbol,
+    listener: EventListener
   ): void {
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, new Set());
-    }
-    
-    // Wrap the listener to catch errors
-    const safeListener = (...args: any[]) => {
+    const wrappedListener: EventListener = (...args: unknown[]) => {
       try {
         listener(...args);
       } catch (error) {
-        log.error(`Error in ${this.constructor.name} event listener for ${event}:`, error);
+        log.error(
+          `Error in ${this.constructor.name} event listener for ${String(event)}:`,
+          error
+        );
       }
     };
-    
-    this.eventListeners.get(event).add(safeListener);
-    emitter.on(event, safeListener);
+
+    emitter.on(event, wrappedListener as unknown as Parameters<T["on"]>[1]);
+
+    this.registeredListeners.add({
+      kind: "eventEmitter",
+      emitter,
+      event,
+      listener: wrappedListener
+    });
   }
 
   /**
    * Register a player state listener with automatic cleanup
    * @param listener The player state listener
    */
-  protected registerPlayerStateListener(listener: (state: PlayerState) => void): void {
-    const safeListener = (state: PlayerState) => {
+  protected registerPlayerStateListener(listener: PlayerStateListener): void {
+    const wrappedListener: PlayerStateListener = (state: PlayerState) => {
       try {
         listener(state);
       } catch (error) {
         log.error(`Error in ${this.constructor.name} player state listener:`, error);
       }
     };
-    
-    playerStateStore.addEventListener(safeListener);
-    
-    // Store for cleanup
-    if (!this.eventListeners.has('playerState')) {
-      this.eventListeners.set('playerState', new Set());
-    }
-    this.eventListeners.get('playerState').add(safeListener);
+
+    playerStateStore.addEventListener(wrappedListener);
+
+    this.registeredListeners.add({
+      kind: "playerState",
+      listener: wrappedListener
+    });
   }
 
   /**
    * Cleanup all registered event listeners
    */
   protected cleanupEventListeners(): void {
-    for (const [event, listeners] of this.eventListeners.entries()) {
-      if (event === 'playerState') {
-        for (const listener of listeners) {
-          playerStateStore.removeEventListener(listener);
-        }
+    for (const registration of this.registeredListeners) {
+      if (registration.kind === "playerState") {
+        playerStateStore.removeEventListener(registration.listener);
+        continue;
       }
-      // Other event listeners would be cleaned up here
+
+      registration.emitter.off(
+        registration.event,
+        registration.listener as unknown as Parameters<typeof registration.emitter.off>[1]
+      );
     }
-    
-    this.eventListeners.clear();
+
+    this.registeredListeners.clear();
   }
 
   // IIntegration implementation - these should be overridden by child classes
@@ -91,4 +112,4 @@ export default abstract class BaseIntegration implements IIntegration {
   getYTMScripts(): { name: string; script: string }[] {
     return [];
   }
-} 
+}

@@ -33,8 +33,9 @@ export class NotificationEnhancerPlugin extends BasePlugin {
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     console.log("Notification Enhancer settings changed:", newSettings);
     // Reapply notification styling if needed
-    if (newSettings.notificationStyle !== this.settings.notificationStyle) {
-      this.updateNotificationStyle(newSettings.notificationStyle);
+    if (newSettings.notificationStyle !== undefined) {
+      const styleValue = typeof newSettings.notificationStyle === 'string' ? newSettings.notificationStyle : String(newSettings.notificationStyle ?? this.settings.notificationStyle ?? 'default');
+      this.updateNotificationStyle(styleValue);
     }
   }
 
