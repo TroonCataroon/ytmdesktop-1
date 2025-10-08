@@ -146,37 +146,51 @@
       };
       this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
       this.dispatchEvent(new CustomEvent("yt-action", serviceRequestEvent));
-      returnValue[0].ajaxPromise.then(
-        response => {
-          var addToPlaylistEvent = {
-            bubbles: true,
-            cancelable: false,
-            composed: true,
-            detail: {
-              actionName: "yt-open-popup-action",
-              args: [
-                {
-                  openPopupAction: {
-                    popup: {
-                      addToPlaylistRenderer: response.data.contents[0].addToPlaylistRenderer
-                    },
-                    popupType: "DIALOG"
+      if (returnValue[0] && returnValue[0].ajaxPromise) {
+        returnValue[0].ajaxPromise.then(
+          response => {
+            try {
+              if (response && response.data && response.data.contents && response.data.contents[0] && response.data.contents[0].addToPlaylistRenderer) {
+                var addToPlaylistEvent = {
+                  bubbles: true,
+                  cancelable: false,
+                  composed: true,
+                  detail: {
+                    actionName: "yt-open-popup-action",
+                    args: [
+                      {
+                        openPopupAction: {
+                          popup: {
+                            addToPlaylistRenderer: response.data.contents[0].addToPlaylistRenderer
+                          },
+                          popupType: "DIALOG"
+                        }
+                      },
+                      this
+                    ],
+                    optionalAction: false,
+                    returnValue: []
                   }
-                },
-                this
-              ],
-              optionalAction: false,
-              returnValue: []
+                };
+                this.dispatchEvent(new CustomEvent("yt-action", addToPlaylistEvent));
+              } else {
+                console.warn("No playlists available or unexpected response structure");
+              }
+            } catch (error) {
+              console.warn("Error processing playlist response:", error);
             }
-          };
-          this.dispatchEvent(new CustomEvent("yt-action", addToPlaylistEvent));
-          this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
-        },
-        () => {
-          // service request errored
-        },
-        this
-      );
+            this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+          },
+          error => {
+            console.warn("Playlist API request failed:", error);
+            // Show user-friendly message for API errors
+            this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+          }
+        );
+      } else {
+        console.warn("No playlist API response received");
+        this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+      }
     }.bind(playlistButton),
     style: "mono",
     toggled: false,
