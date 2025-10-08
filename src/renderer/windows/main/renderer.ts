@@ -31,6 +31,10 @@ import "~assets/app.css";
 
 import { createApp } from "vue";
 import App from "./Index.vue";
+import { initializeSentry } from "../../integrations/sentry";
+
+// Initialize Sentry for this renderer process
+initializeSentry('main-window');
 
 const app = createApp(App);
 app.mount("#app");

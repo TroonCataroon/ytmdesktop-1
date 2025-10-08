@@ -47,6 +47,18 @@ export const SENTRY_CONFIG = {
     platform: process.platform || ''
   },
   
+  // Session Replay configuration
+  sessionReplay: {
+    // Whether to enable session replay
+    enabled: true,
+    
+    // Sample rate for sessions (percentage of sessions to record)
+    sessionSampleRate: 0.1,
+    
+    // Sample rate for sessions with errors (should be higher than regular sessions)
+    errorSampleRate: 1.0
+  },
+  
   // Update monitoring configuration
   updateMonitoring: {
     // Whether to track update events in Sentry

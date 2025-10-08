@@ -21,6 +21,15 @@ export function initializeSentry(processName: string): void {
       enableTracing: SENTRY_CONFIG.enableTracing,
       tracesSampleRate: SENTRY_CONFIG.tracesSampleRate,
       
+      // Session Replay integration
+      integrations: [
+        Sentry.replayIntegration(),
+      ],
+      
+      // Session Replay configuration
+      replaysSessionSampleRate: SENTRY_CONFIG.sessionReplay?.sessionSampleRate ?? 0.1,
+      replaysOnErrorSampleRate: SENTRY_CONFIG.sessionReplay?.errorSampleRate ?? 1.0,
+      
       // Set maximum breadcrumbs
       maxBreadcrumbs: SENTRY_CONFIG.maxBreadcrumbs,
       
