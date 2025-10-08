@@ -45,5 +45,20 @@ export const SENTRY_CONFIG = {
     nodeVersion: process.versions.node || '',
     chromeVersion: process.versions.chrome || '',
     platform: process.platform || ''
+  },
+  
+  // Update monitoring configuration
+  updateMonitoring: {
+    // Whether to track update events in Sentry
+    enabled: true,
+    
+    // Events to track
+    trackEvents: {
+      updateCheck: true,
+      updateAvailable: true,
+      updateDownloaded: true,
+      updateInstalled: true,
+      updateError: true
+    }
   }
 };

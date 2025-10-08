@@ -1,0 +1,110 @@
+name: Branch Cleanup
+
+on:
+  schedule:
+    # Run once a month on the 1st at 00:00 UTC
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  identify-stale-branches:
+    runs-on: ubuntu-latest
+    outputs:
+      stale_branches: ${{ steps.find_stale.outputs.stale_branches }}
+      merged_branches: ${{ steps.find_merged.outputs.merged_branches }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Find stale branches
+        id: find_stale
+        run: |
+          # Find branches with no commits in the last 90 days
+          echo "Finding stale branches..."
+          
+          # Get the current date in seconds since epoch
+          CURRENT_DATE=$(date +%s)
+          
+          # Find all branches
+          BRANCHES=$(git branch -r | grep -v "HEAD" | grep -v "master" | grep -v "development" | grep -v "integration" | sed 's/origin\///')
+          
+          STALE_BRANCHES=()
+          for BRANCH in $BRANCHES; do
+            # Get the timestamp of the last commit
+            LAST_COMMIT_DATE=$(git log -1 --format=%ct "origin/$BRANCH")
+            
+            # Calculate days since last commit
+            DAYS_SINCE=$(( ($CURRENT_DATE - $LAST_COMMIT_DATE) / 86400 ))
+            
+            # If more than 90 days, consider it stale
+            if [ $DAYS_SINCE -gt 90 ]; then
+              STALE_BRANCHES+=("$BRANCH")
+            fi
+          done
+          
+          # Output as JSON array
+          JSON_ARRAY=$(printf '%s\n' "${STALE_BRANCHES[@]}" | jq -R . | jq -s .)
+          echo "stale_branches=$JSON_ARRAY" >> $GITHUB_OUTPUT
+      
+      - name: Find merged branches
+        id: find_merged
+        run: |
+          # Find branches that have been merged into development
+          echo "Finding merged branches..."
+          
+          MERGED_BRANCHES=$(git branch -r --merged origin/development | grep -v "HEAD" | grep -v "master" | grep -v "development" | grep -v "integration" | sed 's/origin\///')
+          
+          # Output as JSON array
+          JSON_ARRAY=$(printf '%s\n' "${MERGED_BRANCHES[@]}" | jq -R . | jq -s .)
+          echo "merged_branches=$JSON_ARRAY" >> $GITHUB_OUTPUT
+
+  create-report-issue:
+    needs: identify-stale-branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create report issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const staleBranches = ${{ needs.identify-stale-branches.outputs.stale_branches }};
+            const mergedBranches = ${{ needs.identify-stale-branches.outputs.merged_branches }};
+            
+            const date = new Date().toISOString().split('T')[0];
+            
+            let body = `# Branch Cleanup Report - ${date}\n\n`;
+            
+            if (mergedBranches.length > 0) {
+              body += `## Merged Branches\n\n`;
+              body += `These branches have been merged into development and can be safely deleted:\n\n`;
+              mergedBranches.forEach(branch => {
+                body += `- \`${branch}\`\n`;
+              });
+              body += `\n`;
+            }
+            
+            if (staleBranches.length > 0) {
+              body += `## Stale Branches\n\n`;
+              body += `These branches have had no activity for 90+ days and might be candidates for deletion:\n\n`;
+              staleBranches.forEach(branch => {
+                body += `- \`${branch}\`\n`;
+              });
+              body += `\n`;
+            }
+            
+            body += `## Actions\n\n`;
+            body += `- [ ] Review these branches\n`;
+            body += `- [ ] Delete merged branches that are no longer needed\n`;
+            body += `- [ ] Decide what to do with stale branches (delete, archive, or keep)\n`;
+            body += `- [ ] Run the branch cleanup script: \`yarn cleanup-branches\`\n`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Branch Cleanup Report - ${date}`,
+              body: body,
+              labels: ['maintenance', 'automated']
+            });
