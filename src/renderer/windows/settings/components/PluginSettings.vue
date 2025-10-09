@@ -35,67 +35,163 @@
             <h5>Settings</h5>
           </div>
           <div class="settings-content">
-            <div v-for="(setting, key) in getPluginSettingsSchema(plugin.id)" :key="key" class="setting-item">
-              <label class="setting-label">
-                {{ setting.label }}
-                <span v-if="setting.description" class="setting-description">{{ setting.description }}</span>
-              </label>
+            <!-- Custom 6klabs-inspired layout for Vinyl Player -->
+            <template v-if="plugin.id === 'vinyl-player'">
+              <div class="vinyl-settings-card">
+                <div class="vinyl-grid">
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">open_in_full</span>
+                      Window Size
+                    </div>
+                    <div class="vc-input">
+                      <input
+                        class="vinyl-slider"
+                        type="range"
+                        min="160"
+                        max="400"
+                        step="10"
+                        :value="toNumber(getPluginSetting(plugin.id, 'windowSize'), 200)"
+                        @input="onRangeInput(plugin.id, 'windowSize', $event)"
+                      />
+                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, 'windowSize') }}</span>
+                    </div>
+                  </div>
 
-              <!-- Boolean Setting -->
-              <div v-if="setting.type === 'boolean'" class="setting-control">
-                <input
-                  class="toggle"
-                  type="checkbox"
-                  :checked="getPluginSetting(plugin.id, key)"
-                  @change="updatePluginSetting(plugin.id, key, $event.target.checked)"
-                />
-              </div>
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">rotate_right</span>
+                      Spin Speed
+                    </div>
+                    <div class="vc-input">
+                      <input
+                        class="vinyl-slider"
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        :value="toNumber(getPluginSetting(plugin.id, 'spinSpeed'), 2)"
+                        @input="onRangeInput(plugin.id, 'spinSpeed', $event)"
+                      />
+                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, 'spinSpeed') }}</span>
+                    </div>
+                  </div>
 
-              <!-- String Setting -->
-              <div v-else-if="setting.type === 'string'" class="setting-control">
-                <input
-                  class="text-input"
-                  type="text"
-                  :value="getPluginSetting(plugin.id, key)"
-                  @input="updatePluginSetting(plugin.id, key, $event.target.value)"
-                />
-              </div>
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">opacity</span>
+                      Opacity
+                    </div>
+                    <div class="vc-input">
+                      <input
+                        class="vinyl-slider"
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.05"
+                        :value="toNumber(getPluginSetting(plugin.id, 'opacity'), 0.9)"
+                        @input="onRangeInput(plugin.id, 'opacity', $event)"
+                      />
+                      <span class="vinyl-value">{{ Number(getPluginSetting(plugin.id, 'opacity')).toFixed(2) }}</span>
+                    </div>
+                  </div>
 
-              <!-- Number Setting -->
-              <div v-else-if="setting.type === 'number'" class="setting-control">
-                <input
-                  class="number-input"
-                  type="number"
-                  :value="getPluginSetting(plugin.id, key)"
-                  @input="updatePluginSetting(plugin.id, key, Number($event.target.value))"
-                />
-              </div>
+                  <div class="vinyl-control switches">
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'alwaysOnTop'))"
+                        @change="onCheckboxChange(plugin.id, 'alwaysOnTop', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Always On Top</span>
+                    </label>
 
-              <!-- Select Setting -->
-              <div v-else-if="setting.type === 'select'" class="setting-control">
-                <select class="select-input" :value="getPluginSetting(plugin.id, key)" @change="updatePluginSetting(plugin.id, key, $event.target.value)">
-                  <option v-for="option in setting.options" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-              </div>
-            </div>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'showControls'))"
+                        @change="onCheckboxChange(plugin.id, 'showControls', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Show Controls</span>
+                    </label>
 
-            <!-- Vinyl Player Test Section -->
-            <div v-if="plugin.id === 'vinyl-player' && plugin.enabled" class="vinyl-player-actions">
-              <h6>Test Vinyl Player</h6>
-              <p class="action-description">Open the vinyl player window to test your settings</p>
-              <div class="action-buttons">
-                <button class="action-btn primary" @click="showVinylPlayer">
-                  <span class="material-symbols-outlined">play_circle</span>
-                  Show Vinyl Player
-                </button>
-                <button class="action-btn secondary" @click="hideVinylPlayer">
-                  <span class="material-symbols-outlined">close</span>
-                  Hide Vinyl Player
-                </button>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'autoShow'))"
+                        @change="onCheckboxChange(plugin.id, 'autoShow', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Auto Show on Play</span>
+                    </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableKeyboardShortcuts'))"
+                        @change="onCheckboxChange(plugin.id, 'enableKeyboardShortcuts', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Enable Shortcuts</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="vinyl-actions">
+                  <button class="action-btn primary" @click="showVinylPlayer">
+                    <span class="material-symbols-outlined">play_circle</span>
+                    Show Player
+                  </button>
+                  <button class="action-btn secondary" @click="hideVinylPlayer">
+                    <span class="material-symbols-outlined">close</span>
+                    Hide Player
+                  </button>
+                </div>
               </div>
-            </div>
+            </template>
+
+            <!-- Generic layout for other plugins -->
+            <template v-else>
+              <div v-for="(setting, key) in getPluginSettingsSchema(plugin.id)" :key="key" class="setting-item">
+                <label class="setting-label">
+                  {{ setting.label }}
+                  <span v-if="setting.description" class="setting-description">{{ setting.description }}</span>
+                </label>
+                <div v-if="setting.type === 'boolean'" class="setting-control">
+                  <input
+                    class="toggle"
+                    type="checkbox"
+                    :checked="Boolean(getPluginSetting(plugin.id, key))"
+                    @change="onCheckboxChange(plugin.id, key, $event)"
+                  />
+                </div>
+                <div v-else-if="setting.type === 'string'" class="setting-control">
+                  <input
+                    class="text-input"
+                    type="text"
+                    :value="String(getPluginSetting(plugin.id, key) ?? '')"
+                    @input="onTextInput(plugin.id, key, $event)"
+                  />
+                </div>
+                <div v-else-if="setting.type === 'number'" class="setting-control">
+                  <input
+                    class="number-input"
+                    type="number"
+                    :value="toNumber(getPluginSetting(plugin.id, key))"
+                    @input="onRangeInput(plugin.id, key, $event)"
+                  />
+                </div>
+                <div v-else-if="setting.type === 'select'" class="setting-control">
+                  <select class="select-input" :value="String(getPluginSetting(plugin.id, key) ?? '')" @change="onSelectChange(plugin.id, key, $event)">
+                    <option v-for="option in setting.options" :key="String(option.value)" :value="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -133,6 +229,24 @@ const plugins = ref<Plugin[]>([]);
 const expandedSettings = ref<string | null>(null);
 const pluginSettingsSchemas = ref<Record<string, Record<string, PluginSetting>>>({});
 
+// Typed bridge to preload API
+interface YTMDStoreBridge {
+  set: (key: string, value: unknown) => void;
+}
+
+interface YTMDBridge {
+  getPlugins: () => Promise<Plugin[]>;
+  getPluginSettingsSchemas: () => Promise<Record<string, Record<string, PluginSetting>>>;
+  togglePlugin: (pluginId: string, enabled: boolean) => Promise<void>;
+  getPluginSetting: (pluginId: string, key: string) => unknown;
+  updatePluginSetting: (pluginId: string, key: string, value: unknown) => Promise<void>;
+  showVinylPlayer: () => Promise<void>;
+  hideVinylPlayer: () => Promise<void>;
+  store: YTMDStoreBridge;
+}
+
+const ytmd = (window as unknown as { ytmd: YTMDBridge }).ytmd;
+
 onMounted(async () => {
   await loadPlugins();
 });
@@ -140,7 +254,7 @@ onMounted(async () => {
 async function loadPlugins(): Promise<void> {
   try {
     // Get real plugins from main process
-    const pluginList = await window.ytmd.getPlugins();
+    const pluginList = await ytmd.getPlugins();
     plugins.value = pluginList;
 
     // Load settings schemas
@@ -155,7 +269,7 @@ async function loadPlugins(): Promise<void> {
         description: "Mini pop-out player with spinning vinyl record",
         version: "1.0.0",
         author: "YTMDesktop Team",
-        enabled: window.ytmd.store.get("integrations.vinylPlayerEnabled") || false
+        enabled: false
       }
     ];
     await loadPluginSettingsSchemas();
@@ -165,7 +279,7 @@ async function loadPlugins(): Promise<void> {
 async function loadPluginSettingsSchemas(): Promise<void> {
   try {
     // Get real plugin settings schemas from main process
-    const schemas = await window.ytmd.getPluginSettingsSchemas();
+    const schemas = await ytmd.getPluginSettingsSchemas();
     pluginSettingsSchemas.value = schemas;
   } catch (error) {
     console.error("Failed to load plugin settings schemas:", error);
@@ -226,13 +340,13 @@ async function togglePlugin(pluginId: string): Promise<void> {
       if (pluginId === "vinyl-player") {
         // For vinyl player, use the existing integration setting
         const newState = !plugin.enabled;
-        window.ytmd.store.set("integrations.vinylPlayerEnabled", newState);
+        ytmd.store.set("integrations.vinylPlayerEnabled", newState);
         plugin.enabled = newState;
-        await window.ytmd.togglePlugin(pluginId, newState);
+        await ytmd.togglePlugin(pluginId, newState);
         console.log(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
       } else {
         // For other plugins, use the plugin manager
-        await window.ytmd.togglePlugin(pluginId, !plugin.enabled);
+        await ytmd.togglePlugin(pluginId, !plugin.enabled);
         plugin.enabled = !plugin.enabled;
         console.log(`${plugin.enabled ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
       }
@@ -253,7 +367,7 @@ function getPluginSettingsSchema(pluginId: string): Record<string, PluginSetting
 function getPluginSetting(pluginId: string, key: string): unknown {
   try {
     // Get the actual setting value from the store
-    return window.ytmd.getPluginSetting(pluginId, key);
+    return ytmd.getPluginSetting(pluginId, key);
   } catch (error) {
     console.error("Failed to get plugin setting:", error);
     // Fallback to default value
@@ -265,11 +379,38 @@ function getPluginSetting(pluginId: string, key: string): unknown {
 async function updatePluginSetting(pluginId: string, key: string, value: unknown): Promise<void> {
   try {
     // Update the setting in the store and notify the plugin
-    await window.ytmd.updatePluginSetting(pluginId, key, value);
+    await ytmd.updatePluginSetting(pluginId, key, value);
     console.log(`Updated plugin setting: ${pluginId}.${key} = ${value}`);
   } catch (error) {
     console.error("Failed to update plugin setting:", error);
   }
+}
+
+// Helpers for template bindings (avoid TS casts in template)
+function toNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isNaN(n) ? fallback : n;
+}
+
+function onRangeInput(pluginId: string, key: string, event: Event): void {
+  const target = event.target as HTMLInputElement;
+  const value = Number(target.value);
+  updatePluginSetting(pluginId, key, value);
+}
+
+function onCheckboxChange(pluginId: string, key: string, event: Event): void {
+  const target = event.target as HTMLInputElement;
+  updatePluginSetting(pluginId, key, target.checked);
+}
+
+function onTextInput(pluginId: string, key: string, event: Event): void {
+  const el = event.target as HTMLInputElement;
+  updatePluginSetting(pluginId, key, el.value);
+}
+
+function onSelectChange(pluginId: string, key: string, event: Event): void {
+  const el = event.target as HTMLSelectElement;
+  updatePluginSetting(pluginId, key, el.value);
 }
 
 function toggleSettings(pluginId: string): void {
@@ -282,7 +423,7 @@ function toggleSettings(pluginId: string): void {
 
 async function showVinylPlayer(): Promise<void> {
   try {
-    await window.ytmd.showVinylPlayer();
+    await ytmd.showVinylPlayer();
     console.log("Vinyl player window shown");
   } catch (error) {
     console.error("Failed to show vinyl player:", error);
@@ -291,7 +432,7 @@ async function showVinylPlayer(): Promise<void> {
 
 async function hideVinylPlayer(): Promise<void> {
   try {
-    await window.ytmd.hideVinylPlayer();
+    await ytmd.hideVinylPlayer();
     console.log("Vinyl player window hidden");
   } catch (error) {
     console.error("Failed to hide vinyl player:", error);
@@ -589,5 +730,111 @@ async function hideVinylPlayer(): Promise<void> {
 
 .action-btn .material-symbols-outlined {
   font-size: 16px;
+}
+
+/* 6klabs-inspired vinyl settings */
+.vinyl-settings-card {
+  border: 1px solid #333;
+  background: #1d1f22;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.vinyl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.vinyl-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #232529;
+  border: 1px solid #2f3237;
+  border-radius: 10px;
+}
+
+.vc-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #cfd3da;
+}
+
+.vc-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vinyl-slider {
+  width: 100%;
+  accent-color: #4caf50;
+}
+
+.vinyl-value {
+  min-width: 44px;
+  text-align: right;
+  color: #9aa3ad;
+  font-variant-numeric: tabular-nums;
+}
+
+.vinyl-control.switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: #3a3f45;
+  border-radius: 999px;
+  position: relative;
+  outline: none;
+  transition: background 0.2s ease;
+}
+
+.switch input:checked {
+  background: #4caf50;
+}
+
+.switch .slider {
+  position: absolute;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  border-radius: 50%;
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+}
+
+.switch input:checked + .slider {
+  transform: translateX(20px);
+}
+
+.switch-label {
+  color: #cfd3da;
+  font-size: 13px;
+}
+
+.vinyl-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 </style>

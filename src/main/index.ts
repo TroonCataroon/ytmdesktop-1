@@ -37,6 +37,8 @@ import VolumeRatio from "./integrations/volume-ratio";
 import { pluginManager } from "./integrations/plugins";
 import CrashReporter from "./integrations/crash-reporter";
 import SentryIntegration from "./integrations/sentry";
+import { SENTRY_CONFIG } from "../shared/sentry.config";
+import { sentryUpdateMonitor } from "./integrations/sentry/update-monitoring";
 
 // Initialize Sentry
 const sentryIntegration = new SentryIntegration();
@@ -1719,15 +1721,24 @@ const createMainWindow = (): void => {
     if (details.url.startsWith("http://localhost") || details.url.startsWith("file://")) {
       const responseHeaders = details.responseHeaders || {};
 
-      // Set a strict CSP for the main window
-      responseHeaders["content-security-policy"] = [
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+      // Set a strict CSP for the main window that complies with Electron security requirements
+      const csp = process.env.NODE_ENV === 'development'
+        ? "default-src 'self'; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
           "style-src 'self' 'unsafe-inline' http://localhost:*; " +
           "img-src 'self' data: blob: http://localhost:*; " +
           "font-src 'self' data: http://localhost:*; " +
-          "connect-src 'self' http://localhost:* ws://localhost:*;"
-      ];
+          "connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io; " +
+          "worker-src 'self' blob:;"
+        : "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: blob:; " +
+          "font-src 'self' data:; " +
+          "connect-src 'self' https://*.sentry.io; " +
+          "worker-src 'self' blob:;";
+
+      responseHeaders["content-security-policy"] = [csp];
 
       callback({ responseHeaders });
     } else {
