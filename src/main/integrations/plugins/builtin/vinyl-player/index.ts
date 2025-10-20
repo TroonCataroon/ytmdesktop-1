@@ -1,5 +1,5 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
-import { BrowserWindow, ipcMain, globalShortcut, app } from "electron";
+import { BrowserWindow, ipcMain, globalShortcut, app, screen } from "electron";
 import path from "path";
 import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
 import { pluginManager } from "../../index";
@@ -37,7 +37,10 @@ export class VinylPlayerPlugin extends BasePlugin {
         spinSpeed: 2,
         showControls: true,
         opacity: 0.9,
-        use6KLabsWidget: true // Toggle between custom vinyl player and 6K Labs widget
+        use6KLabsWidget: true, // Toggle between custom vinyl player and 6K Labs widget
+        enableBoundaryCollision: true, // Prevent window from going off-screen
+        enableBoundaryMagnetism: true, // Snap to screen edges
+        magnetismThreshold: 20 // Pixels from edge to trigger magnetism
       }
     });
 
@@ -305,8 +308,92 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
     });
 
-    // Make window draggable
+    // Make window draggable anywhere (not just title bar)
     window.setMovable(true);
+
+    // Enable dragging from anywhere on the window using CSS
+    // The window can be dragged by clicking and dragging anywhere
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let lastMousePos = { x: 0, y: 0 };
+
+    // Track mouse position
+    const updateMousePosition = setInterval(() => {
+      if (isDragging && window && !window.isDestroyed()) {
+        const cursor = screen.getCursorScreenPoint();
+        // Only update if mouse actually moved
+        if (cursor.x !== lastMousePos.x || cursor.y !== lastMousePos.y) {
+          lastMousePos = cursor;
+          handleWindowMove(cursor);
+        }
+      }
+    }, 16); // ~60fps
+
+    // Listen for drag start/end from renderer
+    ipcMain.on("vinyl-player:drag-start", () => {
+      const [x, y] = window.getPosition();
+      const cursor = screen.getCursorScreenPoint();
+      dragOffset = {
+        x: cursor.x - x,
+        y: cursor.y - y
+      };
+      isDragging = true;
+    });
+
+    ipcMain.on("vinyl-player:drag-end", () => {
+      isDragging = false;
+    });
+
+    // Handle window movement with magnetism and collision
+    const handleWindowMove = (cursor: { x: number; y: number }) => {
+      if (!isDragging || !this.vinylWindow?.window) return;
+
+      let newX = cursor.x - dragOffset.x;
+      let newY = cursor.y - dragOffset.y;
+
+      const bounds = window.getBounds();
+      const display = screen.getDisplayNearestPoint({ x: newX, y: newY });
+      const workArea = display.workArea;
+
+      const enableBoundaryCollision = this.settings.enableBoundaryCollision as boolean;
+      const enableBoundaryMagnetism = this.settings.enableBoundaryMagnetism as boolean;
+      const magnetismThreshold = (this.settings.magnetismThreshold as number) || 20;
+
+      // Apply boundary magnetism (snap to edges)
+      if (enableBoundaryMagnetism) {
+        // Left edge
+        if (Math.abs(newX - workArea.x) < magnetismThreshold) {
+          newX = workArea.x;
+        }
+        // Right edge
+        if (Math.abs(newX + bounds.width - (workArea.x + workArea.width)) < magnetismThreshold) {
+          newX = workArea.x + workArea.width - bounds.width;
+        }
+        // Top edge
+        if (Math.abs(newY - workArea.y) < magnetismThreshold) {
+          newY = workArea.y;
+        }
+        // Bottom edge
+        if (Math.abs(newY + bounds.height - (workArea.y + workArea.height)) < magnetismThreshold) {
+          newY = workArea.y + workArea.height - bounds.height;
+        }
+      }
+
+      // Apply boundary collision (prevent going off-screen)
+      if (enableBoundaryCollision) {
+        newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - bounds.width));
+        newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - bounds.height));
+      }
+
+      window.setPosition(Math.floor(newX), Math.floor(newY), false);
+    };
+
+    // Clean up intervals when window is closed
+    window.on("closed", () => {
+      clearInterval(updateMousePosition);
+      ipcMain.removeAllListeners("vinyl-player:drag-start");
+      ipcMain.removeAllListeners("vinyl-player:drag-end");
+    });
 
     // Set initial window opacity
     window.setOpacity(this.settings.opacity as number);
@@ -326,6 +413,36 @@ export class VinylPlayerPlugin extends BasePlugin {
           // Send default/empty state
           this.updateVinylDisplay();
         }
+      } else {
+        // Inject dragging script for 6K Labs widget
+        window.webContents.executeJavaScript(`
+          (function() {
+            let isDragging = false;
+            
+            document.addEventListener('mousedown', (e) => {
+              isDragging = true;
+              window.ipcRenderer?.send?.('vinyl-player:drag-start');
+            });
+            
+            document.addEventListener('mouseup', (e) => {
+              if (isDragging) {
+                isDragging = false;
+                window.ipcRenderer?.send?.('vinyl-player:drag-end');
+              }
+            });
+            
+            document.addEventListener('mouseleave', (e) => {
+              if (isDragging) {
+                isDragging = false;
+                window.ipcRenderer?.send?.('vinyl-player:drag-end');
+              }
+            });
+            
+            // Make body draggable
+            document.body.style.webkitAppRegion = 'drag';
+            document.body.style.userSelect = 'none';
+          })();
+        `);
       }
     });
 
@@ -512,6 +629,24 @@ export class VinylPlayerPlugin extends BasePlugin {
         label: "Opacity",
         description: "Transparency of the player window (0.1-1.0)",
         default: 0.9
+      },
+      enableBoundaryCollision: {
+        type: "boolean",
+        label: "Enable Boundary Collision",
+        description: "Prevent window from moving off-screen",
+        default: true
+      },
+      enableBoundaryMagnetism: {
+        type: "boolean",
+        label: "Enable Boundary Magnetism",
+        description: "Snap window to screen edges when dragging near them",
+        default: true
+      },
+      magnetismThreshold: {
+        type: "number",
+        label: "Magnetism Threshold (pixels)",
+        description: "Distance from edge (in pixels) to trigger snap",
+        default: 20
       }
     };
   }
