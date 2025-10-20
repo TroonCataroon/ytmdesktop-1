@@ -257,13 +257,18 @@ export default class CompanionServer extends BaseIntegration {
       const thumbnails = track.videoDetails.thumbnail?.thumbnails || [];
       const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
 
+      // Convert videoProgress from 0-1 decimal to seconds
+      const durationSeconds = track.videoDetails.durationSeconds || 0;
+      const progressDecimal = track.videoProgress ?? 0;
+      const progressSeconds = Math.floor(progressDecimal * durationSeconds);
+
       reply.send({
         track: {
           author: track.videoDetails.author || "",
           title: track.videoDetails.title || "",
           album: "",
           cover: bestThumbnail,
-          duration: track.videoDetails.durationSeconds || 0,
+          duration: durationSeconds,
           url: "",
           id: "",
           isVideo: false,
@@ -272,7 +277,7 @@ export default class CompanionServer extends BaseIntegration {
         },
         player: {
           trackState: track.trackState ?? 0,
-          videoProgress: track.videoProgress ?? 0,
+          videoProgress: progressSeconds,
           volume: 100,
           adPlaying: false,
           likeStatus: track.likeStatus || "INDIFFERENT"
