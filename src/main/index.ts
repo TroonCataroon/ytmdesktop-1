@@ -530,7 +530,7 @@ const store = new Conf<StoreSchema>({
       ratioVolume: false
     },
     integrations: {
-      companionServerEnabled: false,
+      companionServerEnabled: true, // Enable by default for 6K Labs compatibility
       companionServerAuthTokens: null,
       companionServerCORSWildcardEnabled: false,
       discordPresenceEnabled: false,
