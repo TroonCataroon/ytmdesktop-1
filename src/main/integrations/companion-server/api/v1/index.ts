@@ -2,7 +2,7 @@ import { BrowserView, BrowserWindow, ipcMain } from "electron";
 import Conf from "conf";
 import { FastifyPluginCallback, FastifyPluginOptions } from "fastify";
 import { StoreSchema } from "~shared/store/schema";
-import playerStateStore, { PlayerState, RepeatMode, VideoDetails } from "../../../../player-state-store";
+import playerStateStore, { PlayerState, RepeatMode } from "../../../../player-state-store";
 import {
   createAuthToken,
   getIsTemporaryAuthCodeValidAndRemove,
@@ -590,19 +590,19 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
         title: string;
         album: string | null;
         albumId: string | null;
-        likeStatus: PlayerState['videoDetails']['likeStatus'];
-        thumbnails: PlayerState['videoDetails']['thumbnails'];
+        likeStatus: PlayerState["videoDetails"]["likeStatus"];
+        thumbnails: PlayerState["videoDetails"]["thumbnails"];
         durationSeconds: number;
         id: string;
         isLive: boolean;
-        videoType: PlayerState['videoDetails']['videoType'];
+        videoType: PlayerState["videoDetails"]["videoType"];
       };
     };
 
     type PlayerStateResponse = {
-      status: PlayerState['trackState'] | 'UNKNOWN';
+      status: PlayerState["trackState"] | "UNKNOWN";
       state: PlayerStatePayload | null;
-      queue: PlayerState['queue'] | null;
+      queue: PlayerState["queue"] | null;
       progress: number;
       volume: number;
       muted: boolean;
@@ -617,7 +617,7 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
     // Add null checks to ensure the response doesn't cause errors
     if (!state) {
       const fallback: PlayerStateResponse = {
-        status: 'UNKNOWN',
+        status: "UNKNOWN",
         state: null,
         queue: null,
         progress: 0,

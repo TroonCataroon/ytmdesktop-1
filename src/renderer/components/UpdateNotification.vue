@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, computed, watch } from "vue";
 
 const props = defineProps({
   show: {
@@ -56,13 +56,9 @@ const title = computed(() => {
 const message = computed(() => {
   switch (props.type) {
     case "available":
-      return props.version 
-        ? `Version ${props.version} is available and downloading.` 
-        : "A new update is available and downloading.";
+      return props.version ? `Version ${props.version} is available and downloading.` : "A new update is available and downloading.";
     case "downloaded":
-      return props.version 
-        ? `Version ${props.version} has been downloaded and is ready to install.` 
-        : "Update has been downloaded and is ready to install.";
+      return props.version ? `Version ${props.version} has been downloaded and is ready to install.` : "Update has been downloaded and is ready to install.";
     case "error":
       return props.error || "An error occurred while checking for updates.";
     default:
@@ -83,9 +79,12 @@ function checkForUpdates() {
   emit("check");
 }
 
-watch(() => props.show, (newValue) => {
-  isVisible.value = newValue;
-});
+watch(
+  () => props.show,
+  newValue => {
+    isVisible.value = newValue;
+  }
+);
 </script>
 
 <template>
@@ -102,32 +101,24 @@ watch(() => props.show, (newValue) => {
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
-      
+
       <div class="notification-body">
         <p>{{ message }}</p>
-        
+
         <div v-if="type === 'available'" class="progress-container">
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: progressFormatted }"></div>
           </div>
           <span class="progress-text">{{ progressFormatted }}</span>
         </div>
-        
+
         <div class="notification-actions">
-          <button 
-            v-if="type === 'downloaded'" 
-            class="action-button install-button"
-            @click="install"
-          >
+          <button v-if="type === 'downloaded'" class="action-button install-button" @click="install">
             <span class="material-symbols-outlined">upgrade</span>
             Install Now
           </button>
-          
-          <button 
-            v-if="type === 'error'" 
-            class="action-button retry-button"
-            @click="checkForUpdates"
-          >
+
+          <button v-if="type === 'error'" class="action-button retry-button" @click="checkForUpdates">
             <span class="material-symbols-outlined">refresh</span>
             Try Again
           </button>
@@ -285,4 +276,3 @@ watch(() => props.show, (newValue) => {
   background-color: #616161;
 }
 </style>
-

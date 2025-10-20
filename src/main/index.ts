@@ -38,7 +38,7 @@ import { pluginManager } from "./integrations/plugins";
 import CrashReporter from "./integrations/crash-reporter";
 import SentryIntegration from "./integrations/sentry";
 import { SENTRY_CONFIG } from "../shared/sentry.config";
-import { sentryUpdateMonitor } from "./integrations/sentry/update-monitoring";
+// import { sentryUpdateMonitor } from "./integrations/sentry/update-monitoring";
 
 // Initialize Sentry
 const sentryIntegration = new SentryIntegration();
@@ -310,7 +310,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
 
   // Store update check interval preference
   const updateCheckIntervalMinutes = store.get("updates.checkIntervalMinutes", 60);
-  
+
   // Initialize update progress tracking
   memoryStore.set("updateProgress", 0);
   memoryStore.set("updateStatus", "idle");
@@ -325,7 +325,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Checking for updates...");
     if (settingsWindow) settingsWindow.webContents.send("app:checkingForUpdates");
     if (mainWindow) mainWindow.webContents.send("app:checkingForUpdates");
-    
+
     // Track update check in Sentry if enabled
     if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateCheck) {
       sentryIntegration.captureMessage("Auto-update check started", "info", {
@@ -335,7 +335,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     }
   });
 
-  autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", info => {
     log.info("Application update available", info);
     memoryStore.set("appUpdateAvailable", true);
     memoryStore.set("updateStatus", "downloading");
@@ -344,7 +344,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Downloading update...");
     if (settingsWindow) settingsWindow.webContents.send("app:updateAvailable", info);
     if (mainWindow) mainWindow.webContents.send("app:updateAvailable", info);
-    
+
     // Show notification if not in startup sequence
     if (!appLaunchUpdateCheck) {
       const updateNotification = new Notification({
@@ -354,7 +354,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
       });
       updateNotification.show();
     }
-    
+
     // Track update available in Sentry if enabled
     if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateAvailable) {
       sentryIntegration.captureMessage("Auto-update available", "info", {
@@ -365,32 +365,32 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     }
   });
 
-  autoUpdater.on("update-not-available", (info) => {
+  autoUpdater.on("update-not-available", info => {
     log.info("No application updates available", info);
     memoryStore.set("updateStatus", "idle");
     if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
     if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable", info);
     if (mainWindow) mainWindow.webContents.send("app:updateNotAvailable", info);
-    
+
     // Store the last check time
     store.set("updates.lastChecked", Date.now());
   });
 
   // Add download progress tracking
-  autoUpdater.on("download-progress", (progressObj) => {
+  autoUpdater.on("download-progress", progressObj => {
     log.debug("Update download progress", progressObj);
     memoryStore.set("updateProgress", progressObj.percent || 0);
     if (settingsWindow) settingsWindow.webContents.send("app:updateDownloadProgress", progressObj);
     if (mainWindow) mainWindow.webContents.send("app:updateDownloadProgress", progressObj);
   });
 
-  autoUpdater.on("update-downloaded", (info) => {
+  autoUpdater.on("update-downloaded", info => {
     log.info("Application update downloaded", info);
     appUpdateDownloaded = true;
     memoryStore.set("appUpdateDownloaded", true);
     memoryStore.set("updateStatus", "ready");
     memoryStore.set("updateProgress", 100);
-    
+
     // Auto-install if during startup sequence
     if (appLaunchUpdateCheck) {
       log.info("Auto-installing update during startup sequence");
@@ -403,12 +403,12 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
         icon: getIconPath("ytmd.png")
       });
       updateNotification.show();
-      
+
       // Notify windows
       if (settingsWindow) settingsWindow.webContents.send("app:updateDownloaded", info);
       if (mainWindow) mainWindow.webContents.send("app:updateDownloaded", info);
     }
-    
+
     // Track update downloaded in Sentry if enabled
     if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateDownloaded) {
       sentryIntegration.captureMessage("Auto-update downloaded", "info", {
@@ -419,14 +419,14 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     }
   });
 
-  autoUpdater.on("error", (error) => {
+  autoUpdater.on("error", error => {
     log.error("Update error", error);
     memoryStore.set("updateStatus", "error");
     memoryStore.set("updateError", error?.toString() || "Unknown error");
     if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
     if (settingsWindow) settingsWindow.webContents.send("app:updateError", error);
     if (mainWindow) mainWindow.webContents.send("app:updateError", error);
-    
+
     // Show error notification if not in startup sequence
     if (!appLaunchUpdateCheck) {
       const errorNotification = new Notification({
@@ -436,7 +436,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
       });
       errorNotification.show();
     }
-    
+
     // Track update error in Sentry if enabled
     if (SENTRY_CONFIG.updateMonitoring?.enabled && SENTRY_CONFIG.updateMonitoring.trackEvents.updateError) {
       sentryIntegration.captureException(error instanceof Error ? error : new Error(error?.toString() || "Unknown update error"), {
@@ -446,7 +446,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
       });
     }
   });
-  
+
   log.info("Setup application updater");
 
   // Set up periodic update checking based on user preference
@@ -1722,21 +1722,22 @@ const createMainWindow = (): void => {
       const responseHeaders = details.responseHeaders || {};
 
       // Set a strict CSP for the main window that complies with Electron security requirements
-      const csp = process.env.NODE_ENV === 'development'
-        ? "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
-          "style-src 'self' 'unsafe-inline' http://localhost:*; " +
-          "img-src 'self' data: blob: http://localhost:*; " +
-          "font-src 'self' data: http://localhost:*; " +
-          "connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io; " +
-          "worker-src 'self' blob:;"
-        : "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline'; " +
-          "style-src 'self' 'unsafe-inline'; " +
-          "img-src 'self' data: blob:; " +
-          "font-src 'self' data:; " +
-          "connect-src 'self' https://*.sentry.io; " +
-          "worker-src 'self' blob:;";
+      const csp =
+        process.env.NODE_ENV === "development"
+          ? "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
+            "style-src 'self' 'unsafe-inline' http://localhost:*; " +
+            "img-src 'self' data: blob: http://localhost:*; " +
+            "font-src 'self' data: http://localhost:*; " +
+            "connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io; " +
+            "worker-src 'self' blob:;"
+          : "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: blob:; " +
+            "font-src 'self' data:; " +
+            "connect-src 'self' https://*.sentry.io; " +
+            "worker-src 'self' blob:;";
 
       responseHeaders["content-security-policy"] = [csp];
 
@@ -2257,7 +2258,7 @@ app.on("ready", async () => {
 
     // Store the last check time
     store.set("updates.lastChecked", Date.now());
-    
+
     // Only check if not already downloading or ready to install
     const currentStatus = memoryStore.get("updateStatus");
     if (currentStatus !== "downloading" && currentStatus !== "ready") {
@@ -2307,7 +2308,7 @@ app.on("ready", async () => {
     }
 
     log.info("Restarting application to install update");
-    
+
     // Save state before quitting
     try {
       saveState();
@@ -2319,31 +2320,31 @@ app.on("ready", async () => {
     applicationQuitting = true;
     autoUpdater.quitAndInstall(false, store.get("updates.autoInstall", false));
   });
-  
+
   ipcMain.handle("app:getUpdateSettings", event => {
     if (event.sender !== settingsWindow.webContents) return;
-    
+
     return store.get("updates");
   });
-  
+
   ipcMain.on("app:updateSettings", (event, settings) => {
     if (event.sender !== settingsWindow.webContents) return;
-    
+
     // Validate and update settings
-    if (typeof settings === 'object') {
-      if (typeof settings.checkIntervalMinutes === 'number') {
+    if (typeof settings === "object") {
+      if (typeof settings.checkIntervalMinutes === "number") {
         store.set("updates.checkIntervalMinutes", Math.max(15, settings.checkIntervalMinutes));
       }
-      
-      if (typeof settings.checkOnStartup === 'boolean') {
+
+      if (typeof settings.checkOnStartup === "boolean") {
         store.set("updates.checkOnStartup", settings.checkOnStartup);
       }
-      
-      if (typeof settings.autoInstall === 'boolean') {
+
+      if (typeof settings.autoInstall === "boolean") {
         store.set("updates.autoInstall", settings.autoInstall);
       }
-      
-      if (typeof settings.betaChannel === 'boolean') {
+
+      if (typeof settings.betaChannel === "boolean") {
         store.set("updates.betaChannel", settings.betaChannel);
       }
     }

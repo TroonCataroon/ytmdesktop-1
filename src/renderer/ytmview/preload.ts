@@ -187,15 +187,14 @@ async function hookPlayerApiEvents() {
 function overrideHistoryButtonDisplay() {
   const historyButton = document.querySelector<HTMLElement>("#history-link .history-button");
   if (historyButton) {
-    historyButton.setAttribute('style', 'display: inline-block !important;');
+    historyButton.setAttribute("style", "display: inline-block !important;");
   }
 }
 
 function handleStorageAccessPermissions() {
   // Override requestStorageAccessFor to prevent permission denied errors
   if (window.requestStorageAccessFor) {
-    const originalRequestStorageAccessFor = window.requestStorageAccessFor;
-    window.requestStorageAccessFor = function(origin) {
+    window.requestStorageAccessFor = function (origin) {
       console.log(`Storage access requested for ${origin}, auto-granting`);
       return Promise.resolve();
     };
@@ -203,22 +202,24 @@ function handleStorageAccessPermissions() {
 
   // Override fetch to handle CORS issues for problematic domains
   const originalFetch = window.fetch;
-  window.fetch = function(input, init) {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
     // Handle CORS issues for specific domains that are failing
-    if (url && (url.includes('googleads.g.doubleclick.net') || url.includes('youtube.com/pagead'))) {
+    if (url && (url.includes("googleads.g.doubleclick.net") || url.includes("youtube.com/pagead"))) {
       console.log(`Intercepting fetch request for ${url}`);
 
       // Return a resolved promise to prevent the request from failing
-      return Promise.resolve(new Response('', {
-        status: 200,
-        statusText: 'OK',
-        headers: new Headers({
-          'access-control-allow-origin': '*',
-          'access-control-allow-credentials': 'true'
+      return Promise.resolve(
+        new Response("", {
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({
+            "access-control-allow-origin": "*",
+            "access-control-allow-credentials": "true"
+          })
         })
-      }));
+      );
     }
 
     return originalFetch.call(this, input, init);

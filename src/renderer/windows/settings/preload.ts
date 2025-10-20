@@ -62,26 +62,27 @@ contextBridge.exposeInMainWorld("ytmd", {
   getAppVersion: async (): Promise<string> => await ipcRenderer.invoke("app:getVersion"),
   checkForUpdates: () => ipcRenderer.send("app:checkForUpdates"),
   handleCheckingForUpdate: (callback: (event: Electron.IpcRendererEvent) => void) => ipcRenderer.on("app:checkingForUpdate", callback),
-  handleUpdateAvailable: (callback: (event: Electron.IpcRendererEvent, info?: any) => void) => ipcRenderer.on("app:updateAvailable", callback),
-  handleUpdateNotAvailable: (callback: (event: Electron.IpcRendererEvent, info?: any) => void) => ipcRenderer.on("app:updateNotAvailable", callback),
-  handleUpdateDownloaded: (callback: (event: Electron.IpcRendererEvent, info?: any) => void) => ipcRenderer.on("app:updateDownloaded", callback),
-  handleUpdateError: (callback: (event: Electron.IpcRendererEvent, error?: any) => void) => ipcRenderer.on("app:updateError", callback),
-  handleUpdateDownloadProgress: (callback: (event: Electron.IpcRendererEvent, progressObj?: any) => void) => ipcRenderer.on("app:updateDownloadProgress", callback),
+  handleUpdateAvailable: (callback: (event: Electron.IpcRendererEvent, info?: unknown) => void) => ipcRenderer.on("app:updateAvailable", callback),
+  handleUpdateNotAvailable: (callback: (event: Electron.IpcRendererEvent, info?: unknown) => void) => ipcRenderer.on("app:updateNotAvailable", callback),
+  handleUpdateDownloaded: (callback: (event: Electron.IpcRendererEvent, info?: unknown) => void) => ipcRenderer.on("app:updateDownloaded", callback),
+  handleUpdateError: (callback: (event: Electron.IpcRendererEvent, error?: unknown) => void) => ipcRenderer.on("app:updateError", callback),
+  handleUpdateDownloadProgress: (callback: (event: Electron.IpcRendererEvent, progressObj?: unknown) => void) =>
+    ipcRenderer.on("app:updateDownloadProgress", callback),
   isAppUpdateAvailable: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateAvailable"),
   isAppUpdateDownloaded: async (): Promise<boolean> => await ipcRenderer.invoke("app:isUpdateDownloaded"),
   getUpdateStatus: async () => await ipcRenderer.invoke("app:getUpdateStatus"),
   getUpdateSettings: async () => await ipcRenderer.invoke("app:getUpdateSettings"),
-  updateSettings: (settings: any) => ipcRenderer.send("app:updateSettings", settings),
+  updateSettings: (settings: unknown) => ipcRenderer.send("app:updateSettings", settings),
   getTrueFilePath: (file: File) => webUtils.getPathForFile(file),
   openDevTools: () => ipcRenderer.send("ytmView:openDevTools"),
-  
+
   // Plugin management
   getPlugins: async () => await ipcRenderer.invoke("plugins:getList"),
   getPluginSettingsSchemas: async () => await ipcRenderer.invoke("plugins:getSettingsSchemas"),
   togglePlugin: async (pluginId: string, enabled: boolean) => await ipcRenderer.invoke("plugins:toggle", pluginId, enabled),
   getPluginSetting: (pluginId: string, key: string) => ipcRenderer.sendSync("plugins:getSetting", pluginId, key),
   updatePluginSetting: async (pluginId: string, key: string, value: unknown) => await ipcRenderer.invoke("plugins:updateSetting", pluginId, key, value),
-  
+
   // Vinyl player specific
   showVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:show"),
   hideVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:hide")
