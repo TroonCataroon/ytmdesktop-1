@@ -208,6 +208,78 @@ export default class CompanionServer extends BaseIntegration {
       });
     });
 
+    // Query endpoint for v1.13.0 compatibility (6K Labs widgets)
+    this.fastifyServer.get("/query", (request, reply) => {
+      const playerState = this.memoryStore.get("ytm") as
+        | {
+            player?: {
+              videoDetails?: {
+                title?: string;
+                author?: string;
+                durationSeconds?: number;
+                thumbnail?: { thumbnails?: Array<{ url: string; width?: number; height?: number }> };
+              };
+              videoProgress?: number;
+              trackState?: number;
+              likeStatus?: string;
+            };
+          }
+        | undefined;
+
+      const track = playerState?.player;
+
+      if (!track || !track.videoDetails) {
+        reply.send({
+          track: {
+            author: "",
+            title: "",
+            album: "",
+            cover: "",
+            duration: 0,
+            url: "",
+            id: "",
+            isVideo: false,
+            isAdvertisement: false,
+            inLibrary: false
+          },
+          player: {
+            trackState: 0,
+            videoProgress: 0,
+            volume: 100,
+            adPlaying: false,
+            likeStatus: "INDIFFERENT"
+          }
+        });
+        return;
+      }
+
+      // Find the best thumbnail (largest)
+      const thumbnails = track.videoDetails.thumbnail?.thumbnails || [];
+      const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
+
+      reply.send({
+        track: {
+          author: track.videoDetails.author || "",
+          title: track.videoDetails.title || "",
+          album: "",
+          cover: bestThumbnail,
+          duration: track.videoDetails.durationSeconds || 0,
+          url: "",
+          id: "",
+          isVideo: false,
+          isAdvertisement: false,
+          inLibrary: false
+        },
+        player: {
+          trackState: track.trackState ?? 0,
+          videoProgress: track.videoProgress ?? 0,
+          volume: 100,
+          adPlaying: false,
+          likeStatus: track.likeStatus || "INDIFFERENT"
+        }
+      });
+    });
+
     // Setup compatibility namespaces for third-party widgets (e.g., 6K Labs)
     this.fastifyServer.ready().then(() => {
       this.setupCompatibilityNamespaces();
