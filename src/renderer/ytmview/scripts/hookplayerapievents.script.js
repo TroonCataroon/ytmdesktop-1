@@ -74,6 +74,8 @@
         videoDetails.title = currentItem.title.runs.map(v => v.text).join(""); // Can contain featuring text which isn't in player response
         videoDetails.thumbnail = currentItem.thumbnail; // Can contain more thumbnails than player response
 
+        // Extract artist and album information from longBylineText
+        let artistParts = [];
         for (let i = 0; i < currentItem.longBylineText.runs.length; i++) {
           const item = currentItem.longBylineText.runs[i];
           if (item.navigationEndpoint) {
@@ -83,7 +85,15 @@
                 text: item.text
               }
             }
+          } else {
+            // This is likely artist information (no navigation endpoint)
+            artistParts.push(item.text);
           }
+        }
+        
+        // Update the author field with the extracted artist information
+        if (artistParts.length > 0) {
+          videoDetails.author = artistParts.join("");
         }
       }
 
