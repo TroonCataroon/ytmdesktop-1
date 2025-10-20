@@ -322,14 +322,18 @@ export class VinylPlayerPlugin extends BasePlugin {
     const window = this.vinylWindow.window;
 
     try {
-      // Send track info to the renderer
-      window.webContents.send("vinyl-player:update-track", {
+      const trackData = {
         title: this.currentTrack?.title || "No track playing",
         artist: this.currentTrack?.artist || "Unknown Artist",
         thumbnail: this.currentTrack?.thumbnail || "",
         isPlaying: this.isPlaying,
         spinSpeed: Number(this.settings.spinSpeed ?? 1)
-      });
+      };
+
+      console.log("Sending track update to vinyl player:", trackData);
+
+      // Send track info to the renderer
+      window.webContents.send("vinyl-player:update-track", trackData);
 
       // Send settings to the renderer
       window.webContents.send("vinyl-player:update-settings", {

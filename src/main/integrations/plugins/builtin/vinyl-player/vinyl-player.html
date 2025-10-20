@@ -605,6 +605,7 @@
 
         // Listen for track updates from main process
         ipcRenderer.on('vinyl-player:update-track', (event, track) => {
+            console.log('Vinyl player received track update:', track);
             updateTrackInfo(track);
         });
 
