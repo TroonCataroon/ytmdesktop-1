@@ -176,6 +176,16 @@
                       <span class="slider"></span>
                       <span class="switch-label">Boundary Magnetism</span>
                     </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableWidgetDebugLogs'))"
+                        @change="onCheckboxChange(plugin.id, 'enableWidgetDebugLogs', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Widget Debug Logs</span>
+                    </label>
                   </div>
 
                   <div class="vinyl-control">

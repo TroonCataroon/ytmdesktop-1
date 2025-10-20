@@ -43,6 +43,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         magnetismThreshold: 20, // Pixels from edge to trigger magnetism
         enableResizing: true, // Allow window resizing
         showOnStartup: false, // Show window when app starts (if plugin is enabled)
+        enableWidgetDebugLogs: false, // Enable diagnostic logging for 6K Labs widget
         // Persistent window state (saved automatically)
         savedWindowX: undefined,
         savedWindowY: undefined,
@@ -570,12 +571,14 @@ export class VinylPlayerPlugin extends BasePlugin {
         `);
         /* eslint-enable no-useless-escape */
 
-        // Mirror console messages from the widget for easier debugging
-        window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-          const lvl = typeof level === "number" ? level : 0;
-          const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
-          console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
-        });
+        // Mirror console messages from the widget for easier debugging (if enabled)
+        if (this.settings.enableWidgetDebugLogs) {
+          window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+            const lvl = typeof level === "number" ? level : 0;
+            const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
+            console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
+          });
+        }
       }
     });
 
@@ -857,6 +860,12 @@ export class VinylPlayerPlugin extends BasePlugin {
         type: "boolean",
         label: "Show on Startup",
         description: "Automatically show the vinyl player when the app starts",
+        default: false
+      },
+      enableWidgetDebugLogs: {
+        type: "boolean",
+        label: "Enable Widget Debug Logs",
+        description: "Show diagnostic console messages from the 6K Labs widget in the main logs (for debugging)",
         default: false
       }
       // Note: savedWindow* and wasVisibleOnClose settings are hidden - they're managed automatically
