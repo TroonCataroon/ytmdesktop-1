@@ -86,6 +86,7 @@ export class PluginManager {
     }
 
     try {
+      plugin.setEnabled(true); // Update the plugin's enabled state
       plugin.onEnable();
       this.enabledPlugins.add(pluginId);
       console.log(`Plugin ${pluginId} enabled successfully`);
@@ -109,6 +110,7 @@ export class PluginManager {
     }
 
     try {
+      plugin.setEnabled(false); // Update the plugin's enabled state
       plugin.onDisable();
       this.enabledPlugins.delete(pluginId);
       console.log(`Plugin ${pluginId} disabled successfully`);
