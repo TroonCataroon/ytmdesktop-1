@@ -1338,10 +1338,16 @@ async function copyWidgetUrl(): Promise<void> {
   font-size: 14px;
 }
 
-.select-input option:hover,
-.select-input option:checked {
+.select-input option:hover {
+  background: #2a2d32;
+  color: #ffffff;
+}
+
+.select-input option:checked,
+.select-input option:checked:hover {
   background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
   color: #ffffff;
+  font-weight: 600;
 }
 
 .text-input {
