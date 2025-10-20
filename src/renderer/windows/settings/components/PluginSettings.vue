@@ -136,6 +136,65 @@
                       <span class="slider"></span>
                       <span class="switch-label">Enable Shortcuts</span>
                     </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'showOnStartup'))"
+                        @change="onCheckboxChange(plugin.id, 'showOnStartup', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Show on Startup</span>
+                    </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableResizing'))"
+                        @change="onCheckboxChange(plugin.id, 'enableResizing', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Enable Resizing</span>
+                    </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableBoundaryCollision'))"
+                        @change="onCheckboxChange(plugin.id, 'enableBoundaryCollision', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Boundary Collision</span>
+                    </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableBoundaryMagnetism'))"
+                        @change="onCheckboxChange(plugin.id, 'enableBoundaryMagnetism', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Boundary Magnetism</span>
+                    </label>
+                  </div>
+
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">pin_drop</span>
+                      Magnetism Threshold
+                    </div>
+                    <div class="vc-input">
+                      <input
+                        class="vinyl-slider"
+                        type="range"
+                        min="5"
+                        max="50"
+                        step="5"
+                        :value="toNumber(getPluginSetting(plugin.id, 'magnetismThreshold'), 20)"
+                        @input="onRangeInput(plugin.id, 'magnetismThreshold', $event)"
+                      />
+                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, "magnetismThreshold") }}px</span>
+                    </div>
                   </div>
                 </div>
 
