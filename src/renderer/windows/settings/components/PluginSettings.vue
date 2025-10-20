@@ -553,19 +553,19 @@ async function togglePlugin(pluginId: string): Promise<void> {
   try {
     const plugin = plugins.value.find(p => p.id === pluginId);
     if (plugin) {
+      const newState = !plugin.enabled;
+
       if (pluginId === "vinyl-player") {
         // For vinyl player, use the existing integration setting
-        const newState = !plugin.enabled;
         ytmd.store.set("integrations.vinylPlayerEnabled", newState);
-        plugin.enabled = newState;
-        await ytmd.togglePlugin(pluginId, newState);
-        console.log(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
-      } else {
-        // For other plugins, use the plugin manager
-        await ytmd.togglePlugin(pluginId, !plugin.enabled);
-        plugin.enabled = !plugin.enabled;
-        console.log(`${plugin.enabled ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
       }
+
+      // Update the plugin state in the main process
+      await ytmd.togglePlugin(pluginId, newState);
+
+      // Update the local state AFTER the main process confirms
+      plugin.enabled = newState;
+      console.log(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
     }
   } catch (error) {
     console.error("Failed to toggle plugin:", error);

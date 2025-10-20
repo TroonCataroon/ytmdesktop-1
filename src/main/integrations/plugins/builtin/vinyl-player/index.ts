@@ -40,7 +40,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         use6KLabsWidget: true, // Toggle between custom vinyl player and 6K Labs widget
         enableBoundaryCollision: true, // Prevent window from going off-screen
         enableBoundaryMagnetism: true, // Snap to screen edges
-        magnetismThreshold: 20 // Pixels from edge to trigger magnetism
+        magnetismThreshold: 20, // Pixels from edge to trigger magnetism
+        enableResizing: true // Allow window resizing
       }
     });
 
@@ -70,8 +71,8 @@ export class VinylPlayerPlugin extends BasePlugin {
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     console.log("Vinyl Player settings changed:", newSettings);
 
-    // If switching between 6K Labs widget and custom vinyl player, recreate window
-    if (newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget) {
+    // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
+    if (newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget || newSettings.enableResizing !== this.settings.enableResizing) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
       this.destroyVinylWindow();
       this.createVinylWindow();
@@ -94,9 +95,15 @@ export class VinylPlayerPlugin extends BasePlugin {
 
       if (newSettings.windowSize !== this.settings.windowSize && !newSettings.use6KLabsWidget) {
         const size = newSettings.windowSize as number;
+        const enableResizing = newSettings.enableResizing as boolean;
         window.setSize(size, size);
-        window.setMinimumSize(size, size);
-        window.setMaximumSize(size, size);
+        if (enableResizing) {
+          window.setMinimumSize(160, 160);
+          window.setMaximumSize(0, 0); // 0,0 means no max
+        } else {
+          window.setMinimumSize(size, size);
+          window.setMaximumSize(size, size);
+        }
       }
 
       // Send updated settings to the vinyl player window (only for custom player)
@@ -172,20 +179,21 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
 
     const use6KLabs = this.settings.use6KLabsWidget as boolean;
+    const enableResizing = this.settings.enableResizing as boolean;
     const size = use6KLabs ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
 
     this.vinylWindow = {
       window: new BrowserWindow({
         width: size,
         height: use6KLabs ? 200 : size, // 6K Labs widget is wider
-        minWidth: use6KLabs ? 400 : size,
-        minHeight: use6KLabs ? 100 : size,
-        maxWidth: use6KLabs ? undefined : size, // Allow resizing for 6K Labs
-        maxHeight: use6KLabs ? undefined : size,
+        minWidth: use6KLabs ? 400 : enableResizing ? 160 : size,
+        minHeight: use6KLabs ? 100 : enableResizing ? 160 : size,
+        maxWidth: use6KLabs || enableResizing ? undefined : size, // Allow resizing if enabled
+        maxHeight: use6KLabs || enableResizing ? undefined : size,
         frame: false,
         transparent: true,
         alwaysOnTop: this.settings.alwaysOnTop as boolean,
-        resizable: use6KLabs, // Allow resizing for 6K Labs widget
+        resizable: use6KLabs || enableResizing, // Allow resizing based on setting
         skipTaskbar: false,
         show: false,
         title: use6KLabs ? "6K Labs Widget" : "Vinyl Player",
@@ -647,6 +655,12 @@ export class VinylPlayerPlugin extends BasePlugin {
         label: "Magnetism Threshold (pixels)",
         description: "Distance from edge (in pixels) to trigger snap",
         default: 20
+      },
+      enableResizing: {
+        type: "boolean",
+        label: "Enable Resizing",
+        description: "Allow window to be resized by dragging edges/corners",
+        default: true
       }
     };
   }
