@@ -5,13 +5,24 @@ import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
 import { VinylPlayerPlugin } from "./builtin/vinyl-player";
 import { NotionSyncPlugin } from "./builtin/notion-sync";
 import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
+import Conf from "conf";
+import { app } from "electron";
+
+type PluginStoreSchema = Record<string, { settings: Record<string, unknown> }>;
 
 export class PluginManager {
   private plugins: Map<string, BasePlugin> = new Map();
   private enabledPlugins: Set<string> = new Set();
+  private pluginStore: Conf<PluginStoreSchema>;
 
   constructor() {
+    // Create a dedicated store for plugin settings
+    this.pluginStore = new Conf<PluginStoreSchema>({
+      configName: "plugins",
+      cwd: app.getPath("userData")
+    });
     this.registerBuiltinPlugins();
+    this.loadPluginSettings();
   }
 
   private registerBuiltinPlugins(): void {
@@ -22,6 +33,20 @@ export class PluginManager {
     this.registerPlugin(new VinylPlayerPlugin());
     this.registerPlugin(new NotionSyncPlugin());
     this.registerPlugin(new SixKLabsWidgetPlugin());
+  }
+
+  private loadPluginSettings(): void {
+    // Load saved settings for all plugins
+    this.plugins.forEach(plugin => {
+      const savedSettings = this.pluginStore.get(`${plugin.id}.settings`) as Record<string, unknown> | undefined;
+      if (savedSettings) {
+        plugin.updateSettings(savedSettings);
+      }
+    });
+  }
+
+  private savePluginSettings(pluginId: string, settings: Record<string, unknown>): void {
+    this.pluginStore.set(`${pluginId}.settings`, settings);
   }
 
   registerPlugin(plugin: BasePlugin): void {
@@ -107,6 +132,10 @@ export class PluginManager {
     }
 
     plugin.updateSettings(settings);
+
+    // Save to persistent store
+    this.savePluginSettings(pluginId, settings);
+
     return true;
   }
 
@@ -119,10 +148,10 @@ export class PluginManager {
     return (plugin.constructor as typeof BasePlugin).getSettingsSchema?.() || null;
   }
 
-  getAllPlugins(): Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> {
-    const plugins: Array<{id: string, name: string, description: string, version: string, author: string, enabled: boolean}> = [];
-    
-    this.plugins.forEach((plugin) => {
+  getAllPlugins(): Array<{ id: string; name: string; description: string; version: string; author: string; enabled: boolean }> {
+    const plugins: Array<{ id: string; name: string; description: string; version: string; author: string; enabled: boolean }> = [];
+
+    this.plugins.forEach(plugin => {
       plugins.push({
         id: plugin.id,
         name: plugin.name,
@@ -132,20 +161,20 @@ export class PluginManager {
         enabled: plugin.enabled
       });
     });
-    
+
     return plugins;
   }
 
   getAllPluginSettingsSchemas(): Record<string, PluginSettings> {
     const schemas: Record<string, PluginSettings> = {};
-    
-    this.plugins.forEach((plugin) => {
+
+    this.plugins.forEach(plugin => {
       const schema = (plugin.constructor as typeof BasePlugin).getSettingsSchema?.();
       if (schema) {
         schemas[plugin.id] = schema;
       }
     });
-    
+
     return schemas;
   }
 
@@ -168,6 +197,10 @@ export class PluginManager {
     const newSettings = { ...plugin.currentSettings };
     newSettings[key] = value;
     plugin.updateSettings(newSettings);
+
+    // Save to persistent store
+    this.savePluginSettings(pluginId, newSettings);
+
     return true;
   }
 
