@@ -2290,7 +2290,9 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("app:getUpdateStatus", event => {
-    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
+      return;
+    }
 
     return {
       status: memoryStore.get("updateStatus", "idle"),
@@ -2304,13 +2306,17 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("app:isUpdateAvailable", event => {
-    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
+      return;
+    }
 
     return appUpdateAvailable;
   });
 
   ipcMain.handle("app:isUpdateDownloaded", event => {
-    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
+      return;
+    }
 
     return appUpdateDownloaded;
   });
