@@ -2,6 +2,7 @@ import { BasePlugin, PluginSettings } from "../../base-plugin";
 import { BrowserWindow, ipcMain, globalShortcut, app } from "electron";
 import path from "path";
 import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
+import { pluginManager } from "../../index";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
@@ -35,7 +36,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         autoShow: false,
         spinSpeed: 2,
         showControls: true,
-        opacity: 0.9
+        opacity: 0.9,
+        use6KLabsWidget: true // Toggle between custom vinyl player and 6K Labs widget
       }
     });
 
@@ -65,6 +67,17 @@ export class VinylPlayerPlugin extends BasePlugin {
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     console.log("Vinyl Player settings changed:", newSettings);
 
+    // If switching between 6K Labs widget and custom vinyl player, recreate window
+    if (newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget) {
+      const wasVisible = this.vinylWindow?.isVisible ?? false;
+      this.destroyVinylWindow();
+      this.createVinylWindow();
+      if (wasVisible) {
+        this.showVinylWindow();
+      }
+      return;
+    }
+
     if (this.vinylWindow?.window) {
       const window = this.vinylWindow.window;
 
@@ -76,17 +89,19 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      if (newSettings.windowSize !== this.settings.windowSize) {
+      if (newSettings.windowSize !== this.settings.windowSize && !newSettings.use6KLabsWidget) {
         const size = newSettings.windowSize as number;
         window.setSize(size, size);
         window.setMinimumSize(size, size);
         window.setMaximumSize(size, size);
       }
 
-      // Send updated settings to the vinyl player window
-      window.webContents.send("vinyl-player:update-settings", {
-        showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls
-      });
+      // Send updated settings to the vinyl player window (only for custom player)
+      if (!newSettings.use6KLabsWidget) {
+        window.webContents.send("vinyl-player:update-settings", {
+          showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls
+        });
+      }
     }
   }
 
@@ -153,24 +168,24 @@ export class VinylPlayerPlugin extends BasePlugin {
       return;
     }
 
-    const size = this.settings.windowSize as number;
-    // const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    const use6KLabs = this.settings.use6KLabsWidget as boolean;
+    const size = use6KLabs ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
 
     this.vinylWindow = {
       window: new BrowserWindow({
         width: size,
-        height: size,
-        minWidth: size,
-        minHeight: size,
-        maxWidth: size,
-        maxHeight: size,
+        height: use6KLabs ? 200 : size, // 6K Labs widget is wider
+        minWidth: use6KLabs ? 400 : size,
+        minHeight: use6KLabs ? 100 : size,
+        maxWidth: use6KLabs ? undefined : size, // Allow resizing for 6K Labs
+        maxHeight: use6KLabs ? undefined : size,
         frame: false,
         transparent: true,
         alwaysOnTop: this.settings.alwaysOnTop as boolean,
-        resizable: false,
-        skipTaskbar: false, // Changed to false so it appears in Alt+Tab
+        resizable: use6KLabs, // Allow resizing for 6K Labs widget
+        skipTaskbar: false,
         show: false,
-        title: "Vinyl Player", // Add a title for Alt+Tab
+        title: use6KLabs ? "6K Labs Widget" : "Vinyl Player",
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -184,28 +199,100 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const window = this.vinylWindow.window;
 
-    // Set CSP to allow YouTube thumbnails
-    window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          "Content-Security-Policy": [
-            "default-src 'self'; " +
-              "script-src 'self' 'unsafe-inline'; " +
-              "style-src 'self' 'unsafe-inline'; " +
-              "img-src 'self' data: blob: http://localhost:* https://*.ytimg.com https://*.youtube.com https://*.googleusercontent.com; " +
-              "font-src 'self' data:; " +
-              "connect-src 'self';"
-          ]
-        }
+    if (use6KLabs) {
+      // For 6K Labs widget, load external URL with permissive CSP
+      window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            "Content-Security-Policy": [
+              "default-src *; " +
+                "script-src * 'unsafe-inline' 'unsafe-eval'; " +
+                "style-src * 'unsafe-inline'; " +
+                "img-src * data: blob: http: https:; " +
+                "font-src * data:; " +
+                "connect-src * ws: wss:; " +
+                "frame-src *; " +
+                "media-src *;"
+            ]
+          }
+        });
       });
-    });
 
-    // Load the vinyl player HTML
-    const htmlPath = app.isPackaged
-      ? path.join(__dirname, "vinyl-player.html")
-      : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
-    window.loadFile(htmlPath);
+      // Get 6K Labs widget URL from the plugin
+      const sixKLabsPlugin = pluginManager.getPlugin("6klabs-widget");
+      if (sixKLabsPlugin && "getWidgetUrl" in sixKLabsPlugin) {
+        const widgetUrl = (sixKLabsPlugin as { getWidgetUrl: () => string }).getWidgetUrl();
+
+        if (widgetUrl && !widgetUrl.includes("⚠️")) {
+          console.log(`Loading 6K Labs widget: ${widgetUrl}`);
+          window.loadURL(widgetUrl);
+        } else {
+          console.warn("6K Labs widget token not set. Please configure in plugin settings.");
+          // Load a blank page with instructions
+          window.loadURL(
+            "data:text/html," +
+              encodeURIComponent(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <style>
+                  body {
+                    margin: 0;
+                    padding: 20px;
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    font-family: system-ui;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    text-align: center;
+                  }
+                  .message {
+                    max-width: 400px;
+                  }
+                  h2 {
+                    color: #4caf50;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="message">
+                  <h2>⚠️ Configuration Required</h2>
+                  <p>Please enter your 6K Labs widget token in the plugin settings.</p>
+                  <p>Go to Settings → Plugins → 6K Labs Widget</p>
+                </div>
+              </body>
+            </html>
+          `)
+          );
+        }
+      }
+    } else {
+      // Original vinyl player CSP
+      window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            "Content-Security-Policy": [
+              "default-src 'self'; " +
+                "script-src 'self' 'unsafe-inline'; " +
+                "style-src 'self' 'unsafe-inline'; " +
+                "img-src 'self' data: blob: http://localhost:* https://*.ytimg.com https://*.youtube.com https://*.googleusercontent.com; " +
+                "font-src 'self' data:; " +
+                "connect-src 'self';"
+            ]
+          }
+        });
+      });
+
+      // Load the custom vinyl player HTML
+      const htmlPath = app.isPackaged
+        ? path.join(__dirname, "vinyl-player.html")
+        : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
+      window.loadFile(htmlPath);
+    }
 
     // Handle window events
     window.on("closed", () => {
@@ -224,19 +311,21 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Set initial window opacity
     window.setOpacity(this.settings.opacity as number);
 
-    // Send initial settings to the vinyl player window once it's ready
+    // Send initial settings to the vinyl player window once it's ready (custom player only)
     window.webContents.on("did-finish-load", () => {
-      window.webContents.send("vinyl-player:update-settings", {
-        showControls: this.settings.showControls as boolean
-      });
+      if (!use6KLabs) {
+        window.webContents.send("vinyl-player:update-settings", {
+          showControls: this.settings.showControls as boolean
+        });
 
-      // Get current player state and update vinyl display
-      const currentState = playerStateStore.getState();
-      if (currentState && currentState.videoDetails) {
-        this.updatePlayerState(currentState);
-      } else {
-        // Send default/empty state
-        this.updateVinylDisplay();
+        // Get current player state and update vinyl display
+        const currentState = playerStateStore.getState();
+        if (currentState && currentState.videoDetails) {
+          this.updatePlayerState(currentState);
+        } else {
+          // Send default/empty state
+          this.updateVinylDisplay();
+        }
       }
     });
 
@@ -382,40 +471,46 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   static getSettingsSchema(): PluginSettings {
     return {
+      use6KLabsWidget: {
+        type: "boolean",
+        label: "Use 6K Labs Widget",
+        description: "Load 6K Labs widget instead of custom vinyl player (requires 6K Labs Widget plugin token)",
+        default: false
+      },
       windowSize: {
         type: "number",
         label: "Window Size",
-        description: "Size of the vinyl player window in pixels",
+        description: "Size of the custom vinyl player window in pixels (not used for 6K Labs widget)",
         default: 200
       },
       alwaysOnTop: {
         type: "boolean",
         label: "Always On Top",
-        description: "Keep the vinyl player window above other windows",
+        description: "Keep the player window above other windows",
         default: true
       },
       autoShow: {
         type: "boolean",
         label: "Auto Show",
-        description: "Automatically show the vinyl player when a song starts",
+        description: "Automatically show the player when a song starts",
         default: false
       },
       spinSpeed: {
         type: "number",
         label: "Spin Speed",
-        description: "Speed of the vinyl record rotation (1-5)",
+        description: "Speed of the vinyl record rotation (1-5, custom player only)",
         default: 2
       },
       showControls: {
         type: "boolean",
         label: "Show Controls",
-        description: "Show play/pause controls on the vinyl player",
+        description: "Show play/pause controls on the custom vinyl player",
         default: true
       },
       opacity: {
         type: "number",
         label: "Opacity",
-        description: "Transparency of the vinyl player window (0.1-1.0)",
+        description: "Transparency of the player window (0.1-1.0)",
         default: 0.9
       }
     };
