@@ -4,6 +4,7 @@ import { CustomThemesPlugin } from "./builtin/custom-themes";
 import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
 import { VinylPlayerPlugin } from "./builtin/vinyl-player";
 import { NotionSyncPlugin } from "./builtin/notion-sync";
+import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
 
 export class PluginManager {
   private plugins: Map<string, BasePlugin> = new Map();
@@ -20,6 +21,7 @@ export class PluginManager {
     this.registerPlugin(new KeyboardShortcutsPlugin());
     this.registerPlugin(new VinylPlayerPlugin());
     this.registerPlugin(new NotionSyncPlugin());
+    this.registerPlugin(new SixKLabsWidgetPlugin());
   }
 
   registerPlugin(plugin: BasePlugin): void {

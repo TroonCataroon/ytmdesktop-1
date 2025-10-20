@@ -2177,6 +2177,15 @@ app.on("ready", async () => {
     return false;
   });
 
+  // 6K Labs Widget specific handlers
+  ipcMain.handle("6klabs-widget:getUrl", () => {
+    const widgetPlugin = pluginManager.getPlugin("6klabs-widget");
+    if (widgetPlugin && "getWidgetUrl" in widgetPlugin) {
+      return (widgetPlugin as { getWidgetUrl: () => string }).getWidgetUrl();
+    }
+    return "";
+  });
+
   ipcMain.handle("ytmView:getIntegrationScripts", event => {
     if (event.sender !== ytmView.webContents) return;
 

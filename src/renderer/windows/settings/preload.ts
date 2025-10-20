@@ -85,7 +85,10 @@ contextBridge.exposeInMainWorld("ytmd", {
 
   // Vinyl player specific
   showVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:show"),
-  hideVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:hide")
+  hideVinylPlayer: async () => await ipcRenderer.invoke("vinyl-player:hide"),
+
+  // 6K Labs Widget specific
+  get6KLabsWidgetUrl: async () => await ipcRenderer.invoke("6klabs-widget:getUrl")
 });
 
 // Also expose ipcRenderer directly for components that need it
