@@ -8,7 +8,7 @@ import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
 import Conf from "conf";
 import { app } from "electron";
 
-type PluginStoreSchema = Record<string, { settings: Record<string, unknown> }>;
+type PluginStoreSchema = Record<string, { enabled?: boolean; settings: Record<string, unknown> }>;
 
 export class PluginManager {
   private plugins: Map<string, BasePlugin> = new Map();
@@ -37,11 +37,20 @@ export class PluginManager {
   }
 
   private loadPluginSettings(): void {
-    // Load saved settings for all plugins
+    // Load saved settings and enabled state for all plugins
     this.plugins.forEach(plugin => {
-      const savedSettings = this.pluginStore.get(`${plugin.id}.settings`) as Record<string, unknown> | undefined;
-      if (savedSettings) {
-        plugin.updateSettings(savedSettings);
+      const savedData = this.pluginStore.get(plugin.id) as { enabled?: boolean; settings?: Record<string, unknown> } | undefined;
+
+      if (savedData) {
+        // Load enabled state if available
+        if (savedData.enabled !== undefined) {
+          plugin.setEnabled(savedData.enabled);
+        }
+
+        // Load settings if available
+        if (savedData.settings) {
+          plugin.updateSettings(savedData.settings);
+        }
       }
     });
   }
@@ -56,7 +65,21 @@ export class PluginManager {
   }
 
   private savePluginSettings(pluginId: string, settings: Record<string, unknown>): void {
-    this.pluginStore.set(`${pluginId}.settings`, settings);
+    // Get existing data to preserve enabled state
+    const existingData = this.pluginStore.get(pluginId) as { enabled?: boolean; settings?: Record<string, unknown> } | undefined;
+    this.pluginStore.set(pluginId, {
+      enabled: existingData?.enabled,
+      settings
+    });
+  }
+
+  private savePluginEnabled(pluginId: string, enabled: boolean): void {
+    // Get existing data to preserve settings
+    const existingData = this.pluginStore.get(pluginId) as { enabled?: boolean; settings?: Record<string, unknown> } | undefined;
+    this.pluginStore.set(pluginId, {
+      enabled,
+      settings: existingData?.settings || {}
+    });
   }
 
   registerPlugin(plugin: BasePlugin): void {
@@ -86,9 +109,10 @@ export class PluginManager {
     }
 
     try {
-      plugin.setEnabled(true); // Update the plugin's enabled state
       plugin.onEnable();
+      plugin.setEnabled(true);
       this.enabledPlugins.add(pluginId);
+      this.savePluginEnabled(pluginId, true);
       console.log(`Plugin ${pluginId} enabled successfully`);
       return true;
     } catch (error) {
@@ -110,9 +134,10 @@ export class PluginManager {
     }
 
     try {
-      plugin.setEnabled(false); // Update the plugin's enabled state
       plugin.onDisable();
+      plugin.setEnabled(false);
       this.enabledPlugins.delete(pluginId);
+      this.savePluginEnabled(pluginId, false);
       console.log(`Plugin ${pluginId} disabled successfully`);
       return true;
     } catch (error) {
@@ -167,7 +192,8 @@ export class PluginManager {
         description: plugin.description,
         version: plugin.version,
         author: plugin.author,
-        enabled: plugin.enabled
+        // Return the actual runtime enabled state from enabledPlugins set
+        enabled: this.isPluginEnabled(plugin.id)
       });
     });
 
