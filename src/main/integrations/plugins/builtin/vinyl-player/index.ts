@@ -362,8 +362,9 @@ export class VinylPlayerPlugin extends BasePlugin {
       this.saveWindowState();
     });
 
-    // Save window size when resized
+    // Save window size when resized and constrain to screen bounds
     window.on("resized", () => {
+      this.constrainWindowToScreen(window);
       this.saveWindowState();
     });
 
@@ -669,6 +670,46 @@ export class VinylPlayerPlugin extends BasePlugin {
       height: bounds.height,
       visible: this.vinylWindow.isVisible
     });
+  }
+
+  private constrainWindowToScreen(window: BrowserWindow): void {
+    if (!window || window.isDestroyed()) return;
+
+    const enableBoundaryCollision = this.settings.enableBoundaryCollision as boolean;
+    if (!enableBoundaryCollision) return;
+
+    const bounds = window.getBounds();
+    const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+    const workArea = display.workArea;
+
+    let newX = bounds.x;
+    let newY = bounds.y;
+    let needsUpdate = false;
+
+    // Constrain X position
+    if (bounds.x + bounds.width > workArea.x + workArea.width) {
+      newX = workArea.x + workArea.width - bounds.width;
+      needsUpdate = true;
+    }
+    if (bounds.x < workArea.x) {
+      newX = workArea.x;
+      needsUpdate = true;
+    }
+
+    // Constrain Y position
+    if (bounds.y + bounds.height > workArea.y + workArea.height) {
+      newY = workArea.y + workArea.height - bounds.height;
+      needsUpdate = true;
+    }
+    if (bounds.y < workArea.y) {
+      newY = workArea.y;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      window.setPosition(Math.floor(newX), Math.floor(newY), false);
+      console.log("Constrained window to screen bounds:", { x: newX, y: newY });
+    }
   }
 
   static getSettingsSchema(): PluginSettings {
