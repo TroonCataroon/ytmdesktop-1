@@ -2078,6 +2078,13 @@ app.on("ready", async () => {
     playerStateStore.updateFromStore(queue, likeStatus, volume, muted, adPlaying);
   });
 
+  // Listen to player state changes and update memoryStore for /query endpoint and other integrations
+  playerStateStore.addEventListener(state => {
+    memoryStore.set("ytm", {
+      player: state
+    });
+  });
+
   ipcMain.on("ytmView:switchFocus", (event, context) => {
     if (event.sender !== ytmView.webContents && event.sender !== mainWindow.webContents) return;
 
