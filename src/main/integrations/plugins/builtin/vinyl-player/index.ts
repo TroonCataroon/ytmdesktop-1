@@ -41,9 +41,9 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Initialize with default track
     this.currentTrack = {
-      title: 'No track playing',
-      artist: 'Unknown Artist',
-      thumbnail: '',
+      title: "No track playing",
+      artist: "Unknown Artist",
+      thumbnail: "",
       isPlaying: false,
       spinSpeed: 1
     };
@@ -168,8 +168,9 @@ export class VinylPlayerPlugin extends BasePlugin {
         transparent: true,
         alwaysOnTop: this.settings.alwaysOnTop as boolean,
         resizable: false,
-        skipTaskbar: true,
+        skipTaskbar: false, // Changed to false so it appears in Alt+Tab
         show: false,
+        title: "Vinyl Player", // Add a title for Alt+Tab
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -211,7 +212,15 @@ export class VinylPlayerPlugin extends BasePlugin {
       window.webContents.send("vinyl-player:update-settings", {
         showControls: this.settings.showControls as boolean
       });
-      this.updateVinylDisplay();
+
+      // Get current player state and update vinyl display
+      const currentState = playerStateStore.getState();
+      if (currentState && currentState.videoDetails) {
+        this.updatePlayerState(currentState);
+      } else {
+        // Send default/empty state
+        this.updateVinylDisplay();
+      }
     });
 
     console.log("Vinyl player window created");
@@ -264,8 +273,8 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     if (hasVideo && state.videoDetails) {
       const track: TrackInfo = {
-        title: state.videoDetails.title || 'Unknown Title',
-        artist: state.videoDetails.author || 'Unknown Artist',
+        title: state.videoDetails.title || "Unknown Title",
+        artist: state.videoDetails.author || "Unknown Artist",
         thumbnail: this.getBestThumbnail(state.videoDetails.thumbnails),
         isPlaying,
         spinSpeed: Number(this.settings.spinSpeed ?? 1)
@@ -279,9 +288,9 @@ export class VinylPlayerPlugin extends BasePlugin {
     } else {
       // No video playing
       this.currentTrack = {
-        title: 'No track playing',
-        artist: '',
-        thumbnail: '',
+        title: "No track playing",
+        artist: "",
+        thumbnail: "",
         isPlaying: false,
         spinSpeed: Number(this.settings.spinSpeed ?? 1)
       };
