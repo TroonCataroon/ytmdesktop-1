@@ -180,11 +180,11 @@
                     <label class="switch">
                       <input
                         type="checkbox"
-                        :checked="Boolean(getPluginSetting(plugin.id, 'enableWidgetDebugLogs'))"
-                        @change="onCheckboxChange(plugin.id, 'enableWidgetDebugLogs', $event)"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'enableButtonFeature'))"
+                        @change="onCheckboxChange(plugin.id, 'enableButtonFeature', $event)"
                       />
                       <span class="slider"></span>
-                      <span class="switch-label">Widget Debug Logs</span>
+                      <span class="switch-label">Enable Button Feature</span>
                     </label>
                   </div>
 

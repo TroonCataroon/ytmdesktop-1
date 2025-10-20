@@ -43,7 +43,6 @@ export class VinylPlayerPlugin extends BasePlugin {
         magnetismThreshold: 20, // Pixels from edge to trigger magnetism
         enableResizing: true, // Allow window resizing
         showOnStartup: false, // Show window when app starts (if plugin is enabled)
-        enableWidgetDebugLogs: false, // Enable diagnostic logging for 6K Labs widget
         // Persistent window state (saved automatically)
         savedWindowX: undefined,
         savedWindowY: undefined,
@@ -463,7 +462,8 @@ export class VinylPlayerPlugin extends BasePlugin {
     window.webContents.on("did-finish-load", () => {
       if (!use6KLabs) {
         window.webContents.send("vinyl-player:update-settings", {
-          showControls: this.settings.showControls as boolean
+          showControls: this.settings.showControls as boolean,
+          enableButtonFeature: this.settings.enableButtonFeature as boolean
         });
 
         // Get current player state and update vinyl display
@@ -571,14 +571,12 @@ export class VinylPlayerPlugin extends BasePlugin {
         `);
         /* eslint-enable no-useless-escape */
 
-        // Mirror console messages from the widget for easier debugging (if enabled)
-        if (this.settings.enableWidgetDebugLogs) {
-          window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-            const lvl = typeof level === "number" ? level : 0;
-            const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
-            console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
-          });
-        }
+        // Mirror console messages from the widget for easier debugging
+        window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+          const lvl = typeof level === "number" ? level : 0;
+          const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
+          console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
+        });
       }
     });
 
@@ -696,7 +694,8 @@ export class VinylPlayerPlugin extends BasePlugin {
 
       // Send settings to the renderer
       window.webContents.send("vinyl-player:update-settings", {
-        showControls: Boolean(this.settings.showControls)
+        showControls: Boolean(this.settings.showControls),
+        enableButtonFeature: Boolean(this.settings.enableButtonFeature)
       });
 
       // Show window if auto-show is enabled and a track is playing
@@ -862,11 +861,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         description: "Automatically show the vinyl player when the app starts",
         default: false
       },
-      enableWidgetDebugLogs: {
+      enableButtonFeature: {
         type: "boolean",
-        label: "Enable Widget Debug Logs",
-        description: "Show diagnostic console messages from the 6K Labs widget in the main logs (for debugging)",
-        default: false
+        label: "Enable Button Feature",
+        description: "Allow clicking the vinyl record to play/pause music",
+        default: true
       }
       // Note: savedWindow* and wasVisibleOnClose settings are hidden - they're managed automatically
     };

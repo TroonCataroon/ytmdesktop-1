@@ -98,6 +98,10 @@
             -webkit-app-region: no-drag;
         }
 
+        .vinyl-disc:not(.button-enabled) {
+            cursor: default;
+        }
+
         .vinyl-disc:hover {
             transform: scale(1.02);
             filter: brightness(1.1);
@@ -637,20 +641,34 @@
             if (settings && settings.showControls !== undefined) {
                 controls.style.display = settings.showControls ? 'flex' : 'none';
             }
+            if (settings && settings.enableButtonFeature !== undefined) {
+                if (settings.enableButtonFeature) {
+                    vinylDisc.classList.add('button-enabled');
+                } else {
+                    vinylDisc.classList.remove('button-enabled');
+                }
+            }
         });
 
         // Initialize with default values
         updateTrackInfo(currentTrack);
+        
+        // Set initial button state (enabled by default)
+        vinylDisc.classList.add('button-enabled');
 
-        // Add button click effect for vinyl disc
+        // Add button click effect for vinyl disc (only when enabled)
         vinylDisc.addEventListener('mousedown', () => {
-            vinylDisc.classList.add('active');
+            if (vinylDisc.classList.contains('button-enabled')) {
+                vinylDisc.classList.add('active');
+            }
         });
 
         vinylDisc.addEventListener('mouseup', () => {
-            vinylDisc.classList.remove('active');
-            // Trigger play/pause when clicking the vinyl
-            ipcRenderer.send('vinyl-player:play-pause');
+            if (vinylDisc.classList.contains('button-enabled')) {
+                vinylDisc.classList.remove('active');
+                // Trigger play/pause when clicking the vinyl
+                ipcRenderer.send('vinyl-player:play-pause');
+            }
         });
 
         vinylDisc.addEventListener('mouseleave', () => {
