@@ -13,6 +13,7 @@ import MemoryStore from "../../memory-store";
 import log from "electron-log";
 import { isDefinedAPIError, getStandardizedError, InternalServerError } from "./api-shared/errors";
 import BaseIntegration from "../base-integration";
+import os from "os";
 
 export default class CompanionServer extends BaseIntegration {
   private listenIp = "0.0.0.0";
@@ -86,18 +87,119 @@ export default class CompanionServer extends BaseIntegration {
       }
     });
 
-    // Root endpoint for connection checking (6K Labs compatibility)
+    // Root endpoint - HTML Remote Control page (v1.13.0 compatibility)
     this.fastifyServer.get("/", (request, reply) => {
-      reply.send({
-        app: "YouTube Music Desktop App",
-        version: "2.0.9",
-        apiVersions: ["v1"],
-        status: "connected",
-        companion: {
-          enabled: true,
-          version: "2.0"
+      const playerState = this.memoryStore.get("ytm") as
+        | { player?: { videoDetails?: { title?: string; author?: string; thumbnail?: { thumbnails?: Array<{ url: string }> } } } }
+        | undefined;
+      const track = playerState?.player;
+      const hostname = os.hostname();
+      const networkInterfaces = os.networkInterfaces();
+
+      // Get first IPv4 address
+      let ipAddress = "127.0.0.1";
+      for (const name of Object.keys(networkInterfaces)) {
+        for (const net of networkInterfaces[name]) {
+          if (net.family === "IPv4" && !net.internal) {
+            ipAddress = net.address;
+            break;
+          }
         }
-      });
+      }
+
+      const html = `<!DOCTYPE html>
+<html>
+    <head>
+        <title>YTMDesktop Remote Control</title>
+        <meta http-equiv="refresh" content="60">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+        <style>
+            html {
+                margin: 0;
+                padding: 0;
+                text-align: center;
+                background: linear-gradient(to right top, #000 20%, #1d1d1d 80%);
+                background-attachment: fixed;
+                font-family: sans-serif;
+            }
+            h5 {
+                margin: 1rem 0 1rem 0 !important;
+            }
+            .center {
+                width: 68%;
+                position: absolute;
+                left: 50%;
+                top: 48%;
+                transform: translate(-50%, -50%);
+            }
+        </style>
+    </head>
+    <body>
+        <h4 class="white-text">YTMDesktop Remote Control</h4>
+        <div class="row" style="height: 0; visibility: visible">
+            <div class="col s8 offset-s2 m6 offset-m3 l2 offset-l5">
+                <div class="card horizontal">
+                    <div class="card-image" style="padding: 3px;">
+                        <img src="${track?.videoDetails?.thumbnail?.thumbnails?.[0]?.url || ""}" style="min-width: 78px; width: 78px;">
+                    </div>
+                    <div class="card-stacked" style="width: 74%;">
+                        <div class="card-content" style="font-size: 11px;">
+                            <p class="truncate">
+                                <strong>${track?.videoDetails?.title || "No track playing"}</strong>
+                            </p>
+                            ${track?.videoDetails?.author || ""}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container" style="margin: 13% auto 5% auto;">
+            <div class="row">
+                <div class="col s12">
+                    <div class="card transparent z-depth-0">
+                        <div class="card-content">
+                            <div class="row" style="margin-bottom: 0 !important;">
+                                <div class="col s6">
+                                    <img class="card card-content" style="padding: 10px !important;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='20' fill='%23fff'%3EQR Code%3C/text%3E%3C/svg%3E" width="180"/>
+                                </div>
+                                <div class="col s6 white-text" style="border-left: solid 1px #222 !important; heigth: 500px; margin-top: 2.8% !important;">
+                                    <h3>Network</h3>
+                                    <h5 style="font-weight: 100 !important;">${ipAddress}</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-panel transparent z-depth-0 white-text" style="position: fixed; bottom: 0; text-align: center; width: 100%; padding: 0;">
+            <div>
+                <a href='https://play.google.com/store/apps/details?id=app.ytmdesktop.remote&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1' target="_blank">
+                    <img width="200" alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png'/>
+                </a>
+            </div>
+            <a class="orange-text btn-flat tooltipped" data-position="top" data-tooltip="Not protected with password">
+                <i class="material-icons tiny">lock_open</i>
+            </a>
+            ${hostname}
+            <a class="white-text btn-flat tooltipped" data-position="top" data-tooltip="Devices Connected">
+                <i class="material-icons left">devices_other</i>
+                0
+            </a>
+        </div>
+    </body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var elems = document.querySelectorAll('.tooltipped');
+            M.Tooltip.init(elems, {});
+        });
+    </script>
+</html>`;
+
+      reply.type("text/html").send(html);
     });
 
     this.fastifyServer.get("/metadata", (request, reply) => {
