@@ -77,10 +77,6 @@
             filter: drop-shadow(0 15px 35px rgba(0,0,0,0.7));
         }
 
-        .vinyl-record.button-enabled {
-            -webkit-app-region: no-drag;
-        }
-
         .vinyl-disc {
             width: 100%;
             height: 100%;
@@ -98,17 +94,8 @@
                 0 0 0 1px rgba(255,255,255,0.1);
             transition: all 0.4s ease;
             overflow: hidden;
-            cursor: pointer;
-            -webkit-app-region: no-drag;
         }
 
-        .vinyl-disc:not(.button-enabled) {
-            cursor: default;
-        }
-
-        .vinyl-disc.button-enabled {
-            -webkit-app-region: no-drag;
-        }
 
         .vinyl-disc:hover {
             transform: scale(1.02);
@@ -133,6 +120,15 @@
             transition: background 0.1s ease;
             z-index: 100;
             -webkit-app-region: no-drag;
+        }
+
+        .button-overlay.button-enabled {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .button-overlay.button-enabled:hover {
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .vinyl-disc.active .button-overlay {
@@ -651,13 +647,11 @@
                 controls.style.display = settings.showControls ? 'flex' : 'none';
             }
             if (settings && settings.enableButtonFeature !== undefined) {
-                const vinylRecord = document.querySelector('.vinyl-record');
+                const buttonOverlay = document.querySelector('.button-overlay');
                 if (settings.enableButtonFeature) {
-                    vinylDisc.classList.add('button-enabled');
-                    vinylRecord?.classList.add('button-enabled');
+                    buttonOverlay?.classList.add('button-enabled');
                 } else {
-                    vinylDisc.classList.remove('button-enabled');
-                    vinylRecord?.classList.remove('button-enabled');
+                    buttonOverlay?.classList.remove('button-enabled');
                 }
             }
         });
@@ -666,26 +660,25 @@
         updateTrackInfo(currentTrack);
         
         // Set initial button state (enabled by default)
-        vinylDisc.classList.add('button-enabled');
-        const vinylRecord = document.querySelector('.vinyl-record');
-        vinylRecord?.classList.add('button-enabled');
+        const buttonOverlay = document.querySelector('.button-overlay');
+        buttonOverlay?.classList.add('button-enabled');
 
-        // Add button click effect for vinyl disc (only when enabled)
-        vinylDisc.addEventListener('mousedown', () => {
-            if (vinylDisc.classList.contains('button-enabled')) {
+        // Add button click effect for button overlay (only when enabled)
+        buttonOverlay?.addEventListener('mousedown', () => {
+            if (buttonOverlay?.classList.contains('button-enabled')) {
                 vinylDisc.classList.add('active');
             }
         });
 
-        vinylDisc.addEventListener('mouseup', () => {
-            if (vinylDisc.classList.contains('button-enabled')) {
+        buttonOverlay?.addEventListener('mouseup', () => {
+            if (buttonOverlay?.classList.contains('button-enabled')) {
                 vinylDisc.classList.remove('active');
                 // Trigger play/pause when clicking the vinyl
                 ipcRenderer.send('vinyl-player:play-pause');
             }
         });
 
-        vinylDisc.addEventListener('mouseleave', () => {
+        buttonOverlay?.addEventListener('mouseleave', () => {
             // Remove active state if mouse leaves while pressed
             vinylDisc.classList.remove('active');
         });
