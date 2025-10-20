@@ -474,35 +474,108 @@ export class VinylPlayerPlugin extends BasePlugin {
           this.updateVinylDisplay();
         }
       } else {
-        // Inject dragging script for 6K Labs widget
+        // Inject dragging + diagnostics + blur clamp for 6K Labs widget
+        /* eslint-disable no-useless-escape */
         window.webContents.executeJavaScript(`
           (function() {
             let isDragging = false;
-            
-            document.addEventListener('mousedown', (e) => {
+
+            document.addEventListener('mousedown', () => {
               isDragging = true;
               window.ipcRenderer?.send?.('vinyl-player:drag-start');
             });
-            
-            document.addEventListener('mouseup', (e) => {
+
+            document.addEventListener('mouseup', () => {
               if (isDragging) {
                 isDragging = false;
                 window.ipcRenderer?.send?.('vinyl-player:drag-end');
               }
             });
-            
-            document.addEventListener('mouseleave', (e) => {
+
+            document.addEventListener('mouseleave', () => {
               if (isDragging) {
                 isDragging = false;
                 window.ipcRenderer?.send?.('vinyl-player:drag-end');
               }
             });
-            
+
             // Make body draggable
             document.body.style.webkitAppRegion = 'drag';
             document.body.style.userSelect = 'none';
+
+            // Forward runtime errors with details
+            window.addEventListener('error', (e) => {
+              try {
+                window.ipcRenderer?.send?.('vinyl-widget:error', {
+                  message: e.message,
+                  filename: e.filename,
+                  lineno: e.lineno,
+                  colno: e.colno,
+                  stack: e.error?.stack || null
+                });
+              } catch {}
+            });
+
+            window.addEventListener('unhandledrejection', (e) => {
+              try {
+                const reason = e.reason || {};
+                window.ipcRenderer?.send?.('vinyl-widget:error', {
+                  message: (typeof reason === 'string') ? reason : (reason.message || 'Unhandled promise rejection'),
+                  stack: reason.stack || null
+                });
+              } catch {}
+            });
+
+            // Patch console.error to forward rich details
+            try {
+              const origError = console.error.bind(console);
+              console.error = (...args) => {
+                try {
+                  const serialized = args.map(a => {
+                    if (a && a.stack) return a.stack;
+                    if (typeof a === 'object') {
+                      try { return JSON.stringify(a); } catch { return String(a); }
+                    }
+                    return String(a);
+                  });
+                  window.ipcRenderer?.send?.('vinyl-widget:console-error', serialized);
+                } catch {}
+                origError(...args);
+              };
+            } catch {}
+
+            // Clamp negative blur() in Web Animations API keyframes to avoid warnings
+            try {
+              const originalAnimate = Element.prototype.animate;
+              Element.prototype.animate = function(keyframes, options) {
+                const clamp = (frames) => {
+                  if (Array.isArray(frames)) {
+                    return frames.map(f => {
+                      if (f && typeof f === 'object' && typeof f.filter === 'string') {
+                        f.filter = f.filter.replace(/blur\(([-\d\.]+)(px|rem)\)/g, (_m, val, unit) => {
+                          const n = parseFloat(val);
+                          return 'blur(' + (isNaN(n) || n < 0 ? 0 : n) + unit + ')';
+                        });
+                      }
+                      return f;
+                    });
+                  }
+                  return frames;
+                };
+                try { return originalAnimate.call(this, clamp(keyframes), options); }
+                catch { return originalAnimate.call(this, keyframes, options); }
+              };
+            } catch {}
           })();
         `);
+        /* eslint-enable no-useless-escape */
+
+        // Mirror console messages from the widget for easier debugging
+        window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+          const lvl = typeof level === "number" ? level : 0;
+          const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
+          console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
+        });
       }
     });
 
