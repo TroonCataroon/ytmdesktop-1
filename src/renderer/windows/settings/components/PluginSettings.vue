@@ -54,7 +54,7 @@
                         :value="toNumber(getPluginSetting(plugin.id, 'windowSize'), 200)"
                         @input="onRangeInput(plugin.id, 'windowSize', $event)"
                       />
-                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, 'windowSize') }}</span>
+                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, "windowSize") }}</span>
                     </div>
                   </div>
 
@@ -73,7 +73,7 @@
                         :value="toNumber(getPluginSetting(plugin.id, 'spinSpeed'), 2)"
                         @input="onRangeInput(plugin.id, 'spinSpeed', $event)"
                       />
-                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, 'spinSpeed') }}</span>
+                      <span class="vinyl-value">{{ getPluginSetting(plugin.id, "spinSpeed") }}</span>
                     </div>
                   </div>
 
@@ -92,7 +92,7 @@
                         :value="toNumber(getPluginSetting(plugin.id, 'opacity'), 0.9)"
                         @input="onRangeInput(plugin.id, 'opacity', $event)"
                       />
-                      <span class="vinyl-value">{{ Number(getPluginSetting(plugin.id, 'opacity')).toFixed(2) }}</span>
+                      <span class="vinyl-value">{{ Number(getPluginSetting(plugin.id, "opacity")).toFixed(2) }}</span>
                     </div>
                   </div>
 
@@ -152,6 +152,229 @@
               </div>
             </template>
 
+            <!-- Custom layout for 6K Labs Widget -->
+            <template v-else-if="plugin.id === '6klabs-widget'">
+              <div class="vinyl-settings-card">
+                <!-- Widget Token Input -->
+                <div class="widget-token-section">
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">key</span>
+                      Widget Token
+                    </div>
+                    <input
+                      class="text-input"
+                      type="text"
+                      placeholder="Enter your 6K Labs widget token"
+                      :value="String(getPluginSetting(plugin.id, 'widgetToken') ?? '')"
+                      @input="onTextInput(plugin.id, 'widgetToken', $event)"
+                    />
+                    <p class="widget-help-text">Get your token from <a href="https://6klabs.com/dashboard" target="_blank">6klabs.com/dashboard</a></p>
+                  </div>
+
+                  <!-- Widget URL Display -->
+                  <div class="vinyl-control">
+                    <div class="vc-label">
+                      <span class="material-symbols-outlined">link</span>
+                      Widget URL (for OBS Browser Source)
+                    </div>
+                    <div class="widget-url-display">
+                      <input class="text-input widget-url-input" type="text" readonly :value="widgetUrl" />
+                      <button class="copy-button" title="Copy to clipboard" @click="copyWidgetUrl">
+                        <span class="material-symbols-outlined">content_copy</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cover Settings -->
+                <div class="settings-group">
+                  <h6 class="group-title">Cover Settings</h6>
+                  <div class="vinyl-grid">
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">album</span>
+                        Cover Style
+                      </div>
+                      <select
+                        class="select-input"
+                        :value="toNumber(getPluginSetting(plugin.id, 'coverStyle'), 1)"
+                        @change="onSelectChange(plugin.id, 'coverStyle', $event)"
+                      >
+                        <option :value="0">Square</option>
+                        <option :value="1">Circle</option>
+                        <option :value="2">Vinyl</option>
+                        <option :value="3">CD</option>
+                      </select>
+                    </div>
+
+                    <div class="vinyl-control switches">
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'coverBlur'))"
+                          @change="onCheckboxChange(plugin.id, 'coverBlur', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Cover Blur</span>
+                      </label>
+
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'coverGlow'))"
+                          @change="onCheckboxChange(plugin.id, 'coverGlow', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Cover Glow</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Visibility Settings -->
+                <div class="settings-group">
+                  <h6 class="group-title">Visibility Settings</h6>
+                  <div class="vinyl-grid">
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">timer</span>
+                        Hide Delay (seconds)
+                      </div>
+                      <div class="vc-input">
+                        <input
+                          class="vinyl-slider"
+                          type="range"
+                          min="0"
+                          max="60"
+                          step="1"
+                          :value="toNumber(getPluginSetting(plugin.id, 'hideDelay'), 10)"
+                          @input="onRangeInput(plugin.id, 'hideDelay', $event)"
+                        />
+                        <span class="vinyl-value">{{ getPluginSetting(plugin.id, "hideDelay") }}s</span>
+                      </div>
+                    </div>
+
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">visibility</span>
+                        Visible Duration (seconds)
+                      </div>
+                      <div class="vc-input">
+                        <input
+                          class="vinyl-slider"
+                          type="range"
+                          min="1"
+                          max="60"
+                          step="1"
+                          :value="toNumber(getPluginSetting(plugin.id, 'visibleDuration'), 5)"
+                          @input="onRangeInput(plugin.id, 'visibleDuration', $event)"
+                        />
+                        <span class="vinyl-value">{{ getPluginSetting(plugin.id, "visibleDuration") }}s</span>
+                      </div>
+                    </div>
+
+                    <div class="vinyl-control switches">
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'hideOnPause'))"
+                          @change="onCheckboxChange(plugin.id, 'hideOnPause', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Hide on Pause</span>
+                      </label>
+
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'songChangeOnly'))"
+                          @change="onCheckboxChange(plugin.id, 'songChangeOnly', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Song Change Only</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Player Settings -->
+                <div class="settings-group">
+                  <h6 class="group-title">Player Settings</h6>
+                  <div class="vinyl-grid">
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">style</span>
+                        Player Style
+                      </div>
+                      <select
+                        class="select-input"
+                        :value="toNumber(getPluginSetting(plugin.id, 'playerStyle'), 0)"
+                        @change="onSelectChange(plugin.id, 'playerStyle', $event)"
+                      >
+                        <option :value="0">Minimal</option>
+                        <option :value="1">Modern</option>
+                        <option :value="2">Classic</option>
+                      </select>
+                    </div>
+
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">palette</span>
+                        Theme
+                      </div>
+                      <select
+                        class="select-input"
+                        :value="toNumber(getPluginSetting(plugin.id, 'theme'), 0)"
+                        @change="onSelectChange(plugin.id, 'theme', $event)"
+                      >
+                        <option :value="0">Dark</option>
+                        <option :value="1">Light</option>
+                        <option :value="2">Auto</option>
+                        <option :value="3">Gradient</option>
+                        <option :value="4">Glass</option>
+                      </select>
+                    </div>
+
+                    <div class="vinyl-control">
+                      <div class="vc-label">
+                        <span class="material-symbols-outlined">colorize</span>
+                        Tint Color
+                      </div>
+                      <input
+                        class="color-input"
+                        type="color"
+                        :value="String(getPluginSetting(plugin.id, 'tintColor') ?? '#1DB954')"
+                        @input="onTextInput(plugin.id, 'tintColor', $event)"
+                      />
+                    </div>
+
+                    <div class="vinyl-control switches">
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'playerColors'))"
+                          @change="onCheckboxChange(plugin.id, 'playerColors', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Dynamic Colors</span>
+                      </label>
+
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="Boolean(getPluginSetting(plugin.id, 'hideEqualizer'))"
+                          @change="onCheckboxChange(plugin.id, 'hideEqualizer', $event)"
+                        />
+                        <span class="slider"></span>
+                        <span class="switch-label">Hide Equalizer</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
             <!-- Generic layout for other plugins -->
             <template v-else>
               <div v-for="(setting, key) in getPluginSettingsSchema(plugin.id)" :key="key" class="setting-item">
@@ -168,20 +391,10 @@
                   />
                 </div>
                 <div v-else-if="setting.type === 'string'" class="setting-control">
-                  <input
-                    class="text-input"
-                    type="text"
-                    :value="String(getPluginSetting(plugin.id, key) ?? '')"
-                    @input="onTextInput(plugin.id, key, $event)"
-                  />
+                  <input class="text-input" type="text" :value="String(getPluginSetting(plugin.id, key) ?? '')" @input="onTextInput(plugin.id, key, $event)" />
                 </div>
                 <div v-else-if="setting.type === 'number'" class="setting-control">
-                  <input
-                    class="number-input"
-                    type="number"
-                    :value="toNumber(getPluginSetting(plugin.id, key))"
-                    @input="onRangeInput(plugin.id, key, $event)"
-                  />
+                  <input class="number-input" type="number" :value="toNumber(getPluginSetting(plugin.id, key))" @input="onRangeInput(plugin.id, key, $event)" />
                 </div>
                 <div v-else-if="setting.type === 'select'" class="setting-control">
                   <select class="select-input" :value="String(getPluginSetting(plugin.id, key) ?? '')" @change="onSelectChange(plugin.id, key, $event)">
@@ -228,6 +441,7 @@ interface PluginSetting {
 const plugins = ref<Plugin[]>([]);
 const expandedSettings = ref<string | null>(null);
 const pluginSettingsSchemas = ref<Record<string, Record<string, PluginSetting>>>({});
+const widgetUrl = ref<string>("⚠️ Enter your widget token above to get the URL");
 
 // Typed bridge to preload API
 interface YTMDStoreBridge {
@@ -242,6 +456,7 @@ interface YTMDBridge {
   updatePluginSetting: (pluginId: string, key: string, value: unknown) => Promise<void>;
   showVinylPlayer: () => Promise<void>;
   hideVinylPlayer: () => Promise<void>;
+  get6KLabsWidgetUrl: () => Promise<string>;
   store: YTMDStoreBridge;
 }
 
@@ -249,6 +464,7 @@ const ytmd = (window as unknown as { ytmd: YTMDBridge }).ytmd;
 
 onMounted(async () => {
   await loadPlugins();
+  await updateWidgetUrl();
 });
 
 async function loadPlugins(): Promise<void> {
@@ -381,6 +597,11 @@ async function updatePluginSetting(pluginId: string, key: string, value: unknown
     // Update the setting in the store and notify the plugin
     await ytmd.updatePluginSetting(pluginId, key, value);
     console.log(`Updated plugin setting: ${pluginId}.${key} = ${value}`);
+
+    // If the 6K Labs widget token was updated, refresh the widget URL
+    if (pluginId === "6klabs-widget" && key === "widgetToken") {
+      await updateWidgetUrl();
+    }
   } catch (error) {
     console.error("Failed to update plugin setting:", error);
   }
@@ -410,7 +631,9 @@ function onTextInput(pluginId: string, key: string, event: Event): void {
 
 function onSelectChange(pluginId: string, key: string, event: Event): void {
   const el = event.target as HTMLSelectElement;
-  updatePluginSetting(pluginId, key, el.value);
+  // Convert to number if the value is numeric
+  const value = /^\d+$/.test(el.value) ? Number(el.value) : el.value;
+  updatePluginSetting(pluginId, key, value);
 }
 
 function toggleSettings(pluginId: string): void {
@@ -436,6 +659,26 @@ async function hideVinylPlayer(): Promise<void> {
     console.log("Vinyl player window hidden");
   } catch (error) {
     console.error("Failed to hide vinyl player:", error);
+  }
+}
+
+async function updateWidgetUrl(): Promise<void> {
+  try {
+    const url = await ytmd.get6KLabsWidgetUrl();
+    widgetUrl.value = url;
+  } catch (error) {
+    console.error("Failed to get widget URL:", error);
+    widgetUrl.value = "⚠️ Error getting widget URL";
+  }
+}
+
+async function copyWidgetUrl(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(widgetUrl.value);
+    console.log("Widget URL copied to clipboard");
+    // You could add a toast notification here
+  } catch (error) {
+    console.error("Failed to copy widget URL:", error);
   }
 }
 </script>
@@ -836,5 +1079,96 @@ async function hideVinylPlayer(): Promise<void> {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+/* 6K Labs Widget specific styles */
+.widget-token-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #2f3237;
+}
+
+.widget-help-text {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #888;
+}
+
+.widget-help-text a {
+  color: #4caf50;
+  text-decoration: none;
+}
+
+.widget-help-text a:hover {
+  text-decoration: underline;
+}
+
+.widget-url-display {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.widget-url-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.copy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #333;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-button:hover {
+  background: #444;
+  color: #4caf50;
+}
+
+.copy-button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.settings-group {
+  margin-top: 20px;
+}
+
+.settings-group:first-child {
+  margin-top: 0;
+}
+
+.group-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.color-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #333;
+  cursor: pointer;
+}
+
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 4px;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
 }
 </style>
