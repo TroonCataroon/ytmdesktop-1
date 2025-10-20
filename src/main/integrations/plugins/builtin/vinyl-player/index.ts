@@ -41,7 +41,14 @@ export class VinylPlayerPlugin extends BasePlugin {
         enableBoundaryCollision: true, // Prevent window from going off-screen
         enableBoundaryMagnetism: true, // Snap to screen edges
         magnetismThreshold: 20, // Pixels from edge to trigger magnetism
-        enableResizing: true // Allow window resizing
+        enableResizing: true, // Allow window resizing
+        showOnStartup: false, // Show window when app starts (if plugin is enabled)
+        // Persistent window state (saved automatically)
+        savedWindowX: undefined,
+        savedWindowY: undefined,
+        savedWindowWidth: undefined,
+        savedWindowHeight: undefined,
+        wasVisibleOnClose: false
       }
     });
 
@@ -60,10 +67,23 @@ export class VinylPlayerPlugin extends BasePlugin {
     this.createVinylWindow();
     this.setupPlayerStateListener();
     this.setupIpcHandlers();
+
+    // Show window on startup if configured or if it was visible when app closed
+    const showOnStartup = this.settings.showOnStartup as boolean;
+    const wasVisible = this.settings.wasVisibleOnClose as boolean;
+
+    if (showOnStartup || wasVisible) {
+      // Small delay to ensure player state is loaded
+      setTimeout(() => {
+        this.showVinylWindow();
+      }, 1000);
+    }
   }
 
   onDisable(): void {
     console.log("Vinyl Player Plugin disabled");
+    // Save window state before destroying
+    this.saveWindowState();
     this.destroyVinylWindow();
     this.cleanupIpcHandlers();
   }
@@ -182,29 +202,49 @@ export class VinylPlayerPlugin extends BasePlugin {
     const enableResizing = this.settings.enableResizing as boolean;
     const size = use6KLabs ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
 
+    // Restore saved window position and size if available
+    const savedX = this.settings.savedWindowX as number | undefined;
+    const savedY = this.settings.savedWindowY as number | undefined;
+    const savedWidth = this.settings.savedWindowWidth as number | undefined;
+    const savedHeight = this.settings.savedWindowHeight as number | undefined;
+
+    const width = savedWidth || size;
+    const height = savedHeight || (use6KLabs ? 200 : size);
+
+    const browserWindowOptions: Electron.BrowserWindowConstructorOptions = {
+      width,
+      height,
+      minWidth: use6KLabs ? 400 : enableResizing ? 160 : size,
+      minHeight: use6KLabs ? 100 : enableResizing ? 160 : size,
+      maxWidth: use6KLabs || enableResizing ? undefined : size, // Allow resizing if enabled
+      maxHeight: use6KLabs || enableResizing ? undefined : size,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: this.settings.alwaysOnTop as boolean,
+      resizable: use6KLabs || enableResizing, // Allow resizing based on setting
+      skipTaskbar: false,
+      show: false,
+      title: use6KLabs ? "6K Labs Widget" : "Vinyl Player",
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: app.isPackaged
+          ? path.join(__dirname, "vinyl-player-preload.js")
+          : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
+      }
+    };
+
+    // Set position if saved (validate it's on-screen)
+    if (savedX !== undefined && savedY !== undefined) {
+      const display = screen.getDisplayNearestPoint({ x: savedX, y: savedY });
+      if (display) {
+        browserWindowOptions.x = savedX;
+        browserWindowOptions.y = savedY;
+      }
+    }
+
     this.vinylWindow = {
-      window: new BrowserWindow({
-        width: size,
-        height: use6KLabs ? 200 : size, // 6K Labs widget is wider
-        minWidth: use6KLabs ? 400 : enableResizing ? 160 : size,
-        minHeight: use6KLabs ? 100 : enableResizing ? 160 : size,
-        maxWidth: use6KLabs || enableResizing ? undefined : size, // Allow resizing if enabled
-        maxHeight: use6KLabs || enableResizing ? undefined : size,
-        frame: false,
-        transparent: true,
-        alwaysOnTop: this.settings.alwaysOnTop as boolean,
-        resizable: use6KLabs || enableResizing, // Allow resizing based on setting
-        skipTaskbar: false,
-        show: false,
-        title: use6KLabs ? "6K Labs Widget" : "Vinyl Player",
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          preload: app.isPackaged
-            ? path.join(__dirname, "vinyl-player-preload.js")
-            : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
-        }
-      }),
+      window: new BrowserWindow(browserWindowOptions),
       isVisible: false
     };
 
@@ -307,6 +347,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Handle window events
     window.on("closed", () => {
+      this.saveWindowState();
       this.vinylWindow = null;
     });
 
@@ -314,6 +355,16 @@ export class VinylPlayerPlugin extends BasePlugin {
       if (!this.settings.alwaysOnTop) {
         window.hide();
       }
+    });
+
+    // Save window position when moved
+    window.on("moved", () => {
+      this.saveWindowState();
+    });
+
+    // Save window size when resized
+    window.on("resized", () => {
+      this.saveWindowState();
     });
 
     // Make window draggable anywhere (not just title bar)
@@ -594,6 +645,32 @@ export class VinylPlayerPlugin extends BasePlugin {
     this.updateVinylDisplay();
   }
 
+  private saveWindowState(): void {
+    if (!this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
+      return;
+    }
+
+    const window = this.vinylWindow.window;
+    const bounds = window.getBounds();
+
+    // Update settings with current window state
+    this.updateSettings({
+      savedWindowX: bounds.x,
+      savedWindowY: bounds.y,
+      savedWindowWidth: bounds.width,
+      savedWindowHeight: bounds.height,
+      wasVisibleOnClose: this.vinylWindow.isVisible
+    });
+
+    console.log("Saved vinyl player window state:", {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      visible: this.vinylWindow.isVisible
+    });
+  }
+
   static getSettingsSchema(): PluginSettings {
     return {
       use6KLabsWidget: {
@@ -661,7 +738,14 @@ export class VinylPlayerPlugin extends BasePlugin {
         label: "Enable Resizing",
         description: "Allow window to be resized by dragging edges/corners",
         default: true
+      },
+      showOnStartup: {
+        type: "boolean",
+        label: "Show on Startup",
+        description: "Automatically show the vinyl player when the app starts",
+        default: false
       }
+      // Note: savedWindow* and wasVisibleOnClose settings are hidden - they're managed automatically
     };
   }
 }
