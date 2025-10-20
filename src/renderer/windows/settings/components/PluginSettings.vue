@@ -1075,6 +1075,7 @@ async function copyWidgetUrl(): Promise<void> {
   font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vc-label .material-symbols-outlined {
@@ -1141,12 +1142,13 @@ async function copyWidgetUrl(): Promise<void> {
   min-width: 50px;
   padding: 6px 12px;
   text-align: center;
-  color: #4caf50;
-  font-weight: 600;
+  color: #5fd663;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: rgba(76, 175, 80, 0.12);
+  background: rgba(76, 175, 80, 0.15);
   border-radius: 8px;
-  border: 1px solid rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vinyl-control.switches {
@@ -1209,8 +1211,9 @@ async function copyWidgetUrl(): Promise<void> {
 .switch-label {
   color: #ffffff;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vinyl-actions {
@@ -1292,12 +1295,13 @@ async function copyWidgetUrl(): Promise<void> {
   margin: 0 0 16px 0;
   font-size: 13px;
   font-weight: 700;
-  color: #4caf50;
+  color: #5fd663;
   text-transform: uppercase;
   letter-spacing: 1.2px;
   display: flex;
   align-items: center;
   gap: 8px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .group-title::before {
