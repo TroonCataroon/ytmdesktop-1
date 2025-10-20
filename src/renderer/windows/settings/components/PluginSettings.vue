@@ -1072,10 +1072,9 @@ async function copyWidgetUrl(): Promise<void> {
   align-items: center;
   gap: 10px;
   font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
+  font-weight: 500;
+  color: #e8eaed;
   letter-spacing: 0.3px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vc-label .material-symbols-outlined {
@@ -1142,13 +1141,12 @@ async function copyWidgetUrl(): Promise<void> {
   min-width: 50px;
   padding: 6px 12px;
   text-align: center;
-  color: #5fd663;
-  font-weight: 700;
+  color: #4caf50;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  background: rgba(76, 175, 80, 0.15);
+  background: rgba(76, 175, 80, 0.12);
   border-radius: 8px;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(76, 175, 80, 0.2);
 }
 
 .vinyl-control.switches {
@@ -1209,11 +1207,10 @@ async function copyWidgetUrl(): Promise<void> {
 }
 
 .switch-label {
-  color: #ffffff;
+  color: #e8eaed;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.2px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vinyl-actions {
@@ -1233,7 +1230,7 @@ async function copyWidgetUrl(): Promise<void> {
 .widget-help-text {
   margin: 8px 0 0 0;
   font-size: 12px;
-  color: #b0b0b0;
+  color: #888;
 }
 
 .widget-help-text a {
@@ -1295,13 +1292,12 @@ async function copyWidgetUrl(): Promise<void> {
   margin: 0 0 16px 0;
   font-size: 13px;
   font-weight: 700;
-  color: #5fd663;
+  color: #4caf50;
   text-transform: uppercase;
   letter-spacing: 1.2px;
   display: flex;
   align-items: center;
   gap: 8px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .group-title::before {
@@ -1317,9 +1313,8 @@ async function copyWidgetUrl(): Promise<void> {
   background: linear-gradient(135deg, rgba(35, 37, 41, 0.6) 0%, rgba(28, 30, 34, 0.8) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  color: #ffffff;
+  color: #e8eaed;
   font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1335,14 +1330,27 @@ async function copyWidgetUrl(): Promise<void> {
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
+/* Dropdown menu options styling */
+.select-input option {
+  background: #1a1c1f;
+  color: #e8eaed;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.select-input option:hover,
+.select-input option:checked {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  color: #ffffff;
+}
+
 .text-input {
   padding: 12px 16px;
   background: linear-gradient(135deg, rgba(35, 37, 41, 0.6) 0%, rgba(28, 30, 34, 0.8) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  color: #ffffff;
+  color: #e8eaed;
   font-size: 14px;
-  font-weight: 500;
   transition: all 0.2s ease;
 }
 
