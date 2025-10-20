@@ -257,30 +257,42 @@ export default class CompanionServer extends BaseIntegration {
       const thumbnails = track.videoDetails.thumbnail?.thumbnails || [];
       const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
 
-      // Convert videoProgress from 0-1 decimal to seconds
+      // Calculate progress values matching v1.13.0 format
       const durationSeconds = track.videoDetails.durationSeconds || 0;
-      const progressDecimal = track.videoProgress ?? 0;
-      const progressSeconds = Math.floor(progressDecimal * durationSeconds);
+      const progressDecimal = track.videoProgress ?? 0; // 0-1 decimal from player
+      const seekbarCurrentPosition = Math.floor(progressDecimal * durationSeconds); // Progress in seconds
+      const statePercent = progressDecimal; // Keep as decimal for percentage calculation
+
+      // Format time as MM:SS or H:MM:SS
+      const formatTime = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+      };
 
       reply.send({
+        player: {
+          hasSong: true,
+          isPaused: track.trackState !== 1, // trackState: 1 = playing, 2 = paused
+          volumePercent: track.volume || 100,
+          seekbarCurrentPosition: seekbarCurrentPosition,
+          seekbarCurrentPositionHuman: formatTime(seekbarCurrentPosition),
+          statePercent: statePercent,
+          likeStatus: track.likeStatus || "INDIFFERENT",
+          repeatType: null
+        },
         track: {
           author: track.videoDetails.author || "",
           title: track.videoDetails.title || "",
           album: "",
           cover: bestThumbnail,
           duration: durationSeconds,
-          url: "",
-          id: "",
+          durationHuman: formatTime(durationSeconds),
+          url: `https://music.youtube.com/watch?v=${track.videoDetails.videoId || ""}`,
+          id: track.videoDetails.videoId || "",
           isVideo: false,
           isAdvertisement: false,
           inLibrary: false
-        },
-        player: {
-          trackState: track.trackState ?? 0,
-          videoProgress: progressSeconds,
-          volume: 100,
-          adPlaying: false,
-          likeStatus: track.likeStatus || "INDIFFERENT"
         }
       });
     });
