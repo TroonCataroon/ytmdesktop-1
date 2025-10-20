@@ -23,6 +23,7 @@ export class PluginManager {
     });
     this.registerBuiltinPlugins();
     this.loadPluginSettings();
+    this.autoEnablePlugins();
   }
 
   private registerBuiltinPlugins(): void {
@@ -45,6 +46,15 @@ export class PluginManager {
     });
   }
 
+  private autoEnablePlugins(): void {
+    // Auto-enable plugins that were previously enabled (after settings are loaded)
+    this.plugins.forEach(plugin => {
+      if (plugin.enabled) {
+        this.enablePlugin(plugin.id);
+      }
+    });
+  }
+
   private savePluginSettings(pluginId: string, settings: Record<string, unknown>): void {
     this.pluginStore.set(`${pluginId}.settings`, settings);
   }
@@ -52,10 +62,7 @@ export class PluginManager {
   registerPlugin(plugin: BasePlugin): void {
     this.plugins.set(plugin.id, plugin);
 
-    // Auto-enable if it was previously enabled
-    if (plugin.enabled) {
-      this.enablePlugin(plugin.id);
-    }
+    // Don't auto-enable here - it will be done after settings are loaded
   }
 
   unregisterPlugin(pluginId: string): void {
