@@ -218,10 +218,12 @@ export default class CompanionServer extends BaseIntegration {
                 author?: string;
                 durationSeconds?: number;
                 thumbnail?: { thumbnails?: Array<{ url: string; width?: number; height?: number }> };
+                videoId?: string;
               };
               videoProgress?: number;
               trackState?: number;
               likeStatus?: string;
+              volume?: number;
             };
           }
         | undefined;
@@ -243,11 +245,15 @@ export default class CompanionServer extends BaseIntegration {
             inLibrary: false
           },
           player: {
-            trackState: 0,
-            videoProgress: 0,
-            volume: 100,
+            hasSong: false,
+            isPaused: true,
+            volumePercent: 100,
+            seekbarCurrentPosition: 0,
+            seekbarCurrentPositionHuman: "0:00",
+            statePercent: 0,
             adPlaying: false,
-            likeStatus: "INDIFFERENT"
+            likeStatus: "INDIFFERENT",
+            repeatType: null
           }
         });
         return;
@@ -261,7 +267,7 @@ export default class CompanionServer extends BaseIntegration {
       const durationSeconds = track.videoDetails.durationSeconds || 0;
       const progressDecimal = track.videoProgress ?? 0; // 0-1 decimal from player
       const seekbarCurrentPosition = Math.floor(progressDecimal * durationSeconds); // Progress in seconds
-      const statePercent = progressDecimal; // Keep as decimal for percentage calculation
+      const statePercent = progressDecimal * 100; // Convert to percentage (0-100)
 
       // Format time as MM:SS or H:MM:SS
       const formatTime = (seconds: number): string => {
