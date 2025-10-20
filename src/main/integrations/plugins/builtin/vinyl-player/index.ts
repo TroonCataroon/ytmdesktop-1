@@ -184,6 +184,23 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const window = this.vinylWindow.window;
 
+    // Set CSP to allow YouTube thumbnails
+    window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          "Content-Security-Policy": [
+            "default-src 'self'; " +
+              "script-src 'self' 'unsafe-inline'; " +
+              "style-src 'self' 'unsafe-inline'; " +
+              "img-src 'self' data: blob: http://localhost:* https://*.ytimg.com https://*.youtube.com https://*.googleusercontent.com; " +
+              "font-src 'self' data:; " +
+              "connect-src 'self';"
+          ]
+        }
+      });
+    });
+
     // Load the vinyl player HTML
     const htmlPath = app.isPackaged
       ? path.join(__dirname, "vinyl-player.html")

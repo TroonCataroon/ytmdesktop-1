@@ -86,6 +86,20 @@ export default class CompanionServer extends BaseIntegration {
       }
     });
 
+    // Root endpoint for connection checking (6K Labs compatibility)
+    this.fastifyServer.get("/", (request, reply) => {
+      reply.send({
+        app: "YouTube Music Desktop App",
+        version: "2.0.9",
+        apiVersions: ["v1"],
+        status: "connected",
+        companion: {
+          enabled: true,
+          version: "2.0"
+        }
+      });
+    });
+
     this.fastifyServer.get("/metadata", (request, reply) => {
       reply.send({
         apiVersions: ["v1"]
