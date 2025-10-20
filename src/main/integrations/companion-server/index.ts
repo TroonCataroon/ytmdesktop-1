@@ -265,10 +265,14 @@ export default class CompanionServer extends BaseIntegration {
 
       // Calculate progress values matching v1.13.0 format
       const durationSeconds = track.videoDetails.durationSeconds || 0;
-      const progressDecimal = track.videoProgress ?? 0; // 0-1 decimal from player
+      const videoProgressSeconds = track.videoProgress ?? 0; // Progress in seconds from player
+
+      // Calculate progress as decimal (0-1) by dividing current time by duration
+      const progressDecimal = durationSeconds > 0 ? videoProgressSeconds / durationSeconds : 0;
       // Cap progress at 100% (1.0) to prevent overflow
       const cappedProgress = Math.min(progressDecimal, 1.0);
-      const seekbarCurrentPosition = Math.floor(cappedProgress * durationSeconds); // Progress in seconds
+
+      const seekbarCurrentPosition = Math.floor(videoProgressSeconds); // Progress in seconds (use raw value)
       const statePercent = cappedProgress * 100; // Convert to percentage (0-100)
 
       // Format time as MM:SS or H:MM:SS
