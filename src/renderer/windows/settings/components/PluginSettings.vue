@@ -1072,8 +1072,8 @@ async function copyWidgetUrl(): Promise<void> {
   align-items: center;
   gap: 10px;
   font-size: 14px;
-  font-weight: 500;
-  color: #e8eaed;
+  font-weight: 600;
+  color: #ffffff;
   letter-spacing: 0.3px;
 }
 
@@ -1207,7 +1207,7 @@ async function copyWidgetUrl(): Promise<void> {
 }
 
 .switch-label {
-  color: #e8eaed;
+  color: #ffffff;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.2px;
@@ -1230,7 +1230,7 @@ async function copyWidgetUrl(): Promise<void> {
 .widget-help-text {
   margin: 8px 0 0 0;
   font-size: 12px;
-  color: #888;
+  color: #b0b0b0;
 }
 
 .widget-help-text a {
@@ -1313,8 +1313,9 @@ async function copyWidgetUrl(): Promise<void> {
   background: linear-gradient(135deg, rgba(35, 37, 41, 0.6) 0%, rgba(28, 30, 34, 0.8) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  color: #e8eaed;
+  color: #ffffff;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1335,8 +1336,9 @@ async function copyWidgetUrl(): Promise<void> {
   background: linear-gradient(135deg, rgba(35, 37, 41, 0.6) 0%, rgba(28, 30, 34, 0.8) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  color: #e8eaed;
+  color: #ffffff;
   font-size: 14px;
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
