@@ -217,7 +217,7 @@ export default class CompanionServer extends BaseIntegration {
                 title?: string;
                 author?: string;
                 durationSeconds?: number;
-                thumbnail?: { thumbnails?: Array<{ url: string; width?: number; height?: number }> };
+                thumbnails?: Array<{ url: string; width?: number; height?: number }>;
                 videoId?: string;
               };
               videoProgress?: number;
@@ -260,13 +260,12 @@ export default class CompanionServer extends BaseIntegration {
       }
 
       // Find the best thumbnail (largest)
-      const thumbnails = track.videoDetails.thumbnail?.thumbnails || [];
+      // Note: thumbnails is stored as an array directly on videoDetails, not nested under thumbnail
+      const thumbnails = track.videoDetails.thumbnails || [];
       const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
 
       // Debug: Log thumbnail data
-      console.log("Full track data:", JSON.stringify(track, null, 2));
-      console.log("VideoDetails:", JSON.stringify(track.videoDetails, null, 2));
-      console.log("Thumbnail data:", JSON.stringify(track.videoDetails.thumbnail));
+      console.log("Thumbnails array:", JSON.stringify(thumbnails));
       console.log("Best thumbnail URL:", bestThumbnail);
 
       // Calculate progress values matching v1.13.0 format
