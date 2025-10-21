@@ -85,26 +85,27 @@
         videoDetails.thumbnail = currentItem.thumbnail; // Can contain more thumbnails than player response
 
         // Extract artist and album information from longBylineText
-        let artistParts = [];
+        let artistName = "";
         for (let i = 0; i < currentItem.longBylineText.runs.length; i++) {
           const item = currentItem.longBylineText.runs[i];
           if (item.navigationEndpoint) {
-            if (item.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType === "MUSIC_PAGE_TYPE_ALBUM") {
+            const pageType = item.navigationEndpoint.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType;
+            if (pageType === "MUSIC_PAGE_TYPE_ALBUM") {
               album = {
                 id: item.navigationEndpoint.browseEndpoint.browseId,
                 text: item.text
               }
+            } else if (pageType === "MUSIC_PAGE_TYPE_ARTIST" && !artistName) {
+              // This is the artist name (first artist link we encounter)
+              artistName = item.text;
             }
-          } else {
-            // This is likely artist information (no navigation endpoint)
-            artistParts.push(item.text);
           }
         }
         
         // Update the author field with the extracted artist information
-        if (artistParts.length > 0) {
+        if (artistName) {
           // Fix character encoding issues (ΓÇó -> •, ├ÿ -> Ø, etc.)
-          const fixedAuthor = artistParts.join("")
+          videoDetails.author = artistName
             .replace(/ΓÇó/g, '•')
             .replace(/├ÿ/g, 'Ø')
             .replace(/ΓÇÖ/g, '–')
@@ -113,7 +114,6 @@
             .replace(/ΓÇ£/g, '"')
             .replace(/ΓÇ¥/g, "'")
             .replace(/ΓÇ¥/g, "'");
-          videoDetails.author = fixedAuthor;
         }
       }
 
