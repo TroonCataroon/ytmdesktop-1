@@ -14,6 +14,12 @@ export default class SentryIntegration extends BaseIntegration {
     this.initialize();
   }
 
+  // Implement the abstract provide method from BaseIntegration
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  provide(..._args: unknown[]): void {
+    // No dependencies needed for Sentry integration
+  }
+
   private initialize(): void {
     // Don't initialize Sentry in development unless configured to do so
     if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
@@ -26,16 +32,14 @@ export default class SentryIntegration extends BaseIntegration {
         environment: SENTRY_CONFIG.environment,
         release: SENTRY_CONFIG.release,
         
-        // Electron specific options
         // Performance monitoring
-        enableTracing: SENTRY_CONFIG.enableTracing,
         tracesSampleRate: SENTRY_CONFIG.tracesSampleRate,
-        
-        // Session tracking
-        autoSessionTracking: SENTRY_CONFIG.autoSessionTracking,
         
         // Set maximum breadcrumbs
         maxBreadcrumbs: SENTRY_CONFIG.maxBreadcrumbs,
+        
+        // Debug mode to help with troubleshooting
+        debug: process.env.NODE_ENV === 'development',
         
         // Include app info
         initialScope: {

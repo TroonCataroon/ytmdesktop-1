@@ -5,8 +5,13 @@ import { contextBridge, ipcRenderer } from "electron";
 import { WindowsEventArguments } from "~shared/types";
 import { MemoryStoreSchema } from "~shared/store/schema";
 import MemoryStore from "../../store-ipc/memory-store";
+import RendererSentryIntegration from "../../integrations/sentry";
 
 const memoryStore = new MemoryStore<MemoryStoreSchema>();
+
+// Initialize Sentry integration (only once, through the integration class)
+const sentryIntegration = new RendererSentryIntegration();
+sentryIntegration.enable();
 
 // Set up global error handlers for the renderer process
 window.addEventListener('error', (event) => {

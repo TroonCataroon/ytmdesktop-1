@@ -12,9 +12,6 @@ export const SENTRY_CONFIG = {
   // Release version
   release: 'youtube-music-desktop-app@2.0.9',
   
-  // Whether to enable tracing
-  enableTracing: true,
-  
   // The percentage of transactions to track (0.0 to 1.0)
   tracesSampleRate: 1.0,
   
@@ -24,11 +21,8 @@ export const SENTRY_CONFIG = {
   // Whether to enable auto-session tracking
   autoSessionTracking: true,
   
-  // Whether to enable the integrated performance monitoring
-  enablePerformanceMonitoring: true,
-  
   // Whether to capture errors in development mode
-  captureInDevelopment: false,
+  captureInDevelopment: false, // Set to false to reduce noise during development
   
   // Paths to ignore when capturing errors
   ignoreErrors: [
@@ -36,6 +30,7 @@ export const SENTRY_CONFIG = {
     /third-party cookie/i,
     /Autofill\.enable/i,
     /Autofill\.setAddresses/i
+    // Temporarily removed tray icon errors to test Sentry capture
   ],
   
   // Tags to include with every event

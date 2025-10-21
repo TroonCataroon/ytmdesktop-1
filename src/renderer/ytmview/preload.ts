@@ -11,6 +11,7 @@
 import { contextBridge, ipcRenderer, webFrame } from "electron";
 import Store from "../store-ipc/store";
 import { StoreSchema } from "~shared/store/schema";
+import RendererSentryIntegration from "../integrations/sentry";
 
 import playerBarControlsScript from "./scripts/playerbarcontrols.script?raw";
 import hookPlayerApiEventsScript from "./scripts/hookplayerapievents.script?raw";
@@ -19,6 +20,10 @@ import toggleLikeScript from "./scripts/togglelike.script?raw";
 import toggleDislikeScript from "./scripts/toggledislike.script?raw";
 
 const store = new Store<StoreSchema>();
+
+// Initialize Sentry integration (only once, through the integration class)
+const sentryIntegration = new RendererSentryIntegration();
+sentryIntegration.enable();
 
 contextBridge.exposeInMainWorld("ytmd", {
   sendVideoProgress: (volume: number) => ipcRenderer.send("ytmView:videoProgressChanged", volume),
