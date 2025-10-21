@@ -263,6 +263,10 @@ export default class CompanionServer extends BaseIntegration {
       const thumbnails = track.videoDetails.thumbnail?.thumbnails || [];
       const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
 
+      // Debug: Log thumbnail data
+      console.log("Thumbnail data:", JSON.stringify(track.videoDetails.thumbnail));
+      console.log("Best thumbnail URL:", bestThumbnail);
+
       // Calculate progress values matching v1.13.0 format
       const durationSeconds = track.videoDetails.durationSeconds || 0;
       const videoProgressSeconds = track.videoProgress ?? 0; // Progress in seconds from player

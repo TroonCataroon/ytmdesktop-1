@@ -71,7 +71,17 @@
         hasFullMetadata = true;
 
         // Fill out video details with better information
-        videoDetails.title = currentItem.title.runs.map(v => v.text).join(""); // Can contain featuring text which isn't in player response
+        const rawTitle = currentItem.title.runs.map(v => v.text).join("");
+        // Fix character encoding issues in title
+        videoDetails.title = rawTitle
+          .replace(/ΓÇó/g, '•')
+          .replace(/├ÿ/g, 'Ø')
+          .replace(/ΓÇÖ/g, '–')
+          .replace(/ΓÇÜ/g, '—')
+          .replace(/ΓÇô/g, '"')
+          .replace(/ΓÇ£/g, '"')
+          .replace(/ΓÇ¥/g, "'")
+          .replace(/ΓÇ¥/g, "'");
         videoDetails.thumbnail = currentItem.thumbnail; // Can contain more thumbnails than player response
 
         // Extract artist and album information from longBylineText
@@ -93,7 +103,17 @@
         
         // Update the author field with the extracted artist information
         if (artistParts.length > 0) {
-          videoDetails.author = artistParts.join("");
+          // Fix character encoding issues (ΓÇó -> •, ├ÿ -> Ø, etc.)
+          const fixedAuthor = artistParts.join("")
+            .replace(/ΓÇó/g, '•')
+            .replace(/├ÿ/g, 'Ø')
+            .replace(/ΓÇÖ/g, '–')
+            .replace(/ΓÇÜ/g, '—')
+            .replace(/ΓÇô/g, '"')
+            .replace(/ΓÇ£/g, '"')
+            .replace(/ΓÇ¥/g, "'")
+            .replace(/ΓÇ¥/g, "'");
+          videoDetails.author = fixedAuthor;
         }
       }
 
