@@ -264,6 +264,8 @@ export default class CompanionServer extends BaseIntegration {
       const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
 
       // Debug: Log thumbnail data
+      console.log("Full track data:", JSON.stringify(track, null, 2));
+      console.log("VideoDetails:", JSON.stringify(track.videoDetails, null, 2));
       console.log("Thumbnail data:", JSON.stringify(track.videoDetails.thumbnail));
       console.log("Best thumbnail URL:", bestThumbnail);
 
