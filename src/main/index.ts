@@ -2594,6 +2594,7 @@ app.on("ready", async () => {
       const checkInterval = setInterval(() => {
         if (!appLaunchUpdateCheck) {
           clearInterval(checkInterval);
+          globalCleanupRegistry.unregisterInterval(checkInterval);
           resolve();
         }
       }, 250);
