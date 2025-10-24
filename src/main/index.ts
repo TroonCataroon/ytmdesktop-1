@@ -2599,7 +2599,8 @@ app.on("ready", async () => {
         }
       }, 250);
       
-      // Register for cleanup in case app quits before resolution
+      // Register for cleanup immediately after creation to avoid race condition
+      // This must happen before any callback can execute
       globalCleanupRegistry.registerInterval(checkInterval);
     });
   } else {
