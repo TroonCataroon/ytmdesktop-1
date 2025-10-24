@@ -28,6 +28,8 @@ import electronSquirrelStartup from "electron-squirrel-startup";
 import MemoryStore from "./memory-store";
 import playerStateStore, { PlayerState, VideoState } from "./player-state-store";
 import { MemoryStoreSchema, StoreSchema, TrayIconStyle } from "../shared/store/schema";
+import CleanupRegistry from "./utils/cleanup-registry";
+import { memoryMonitor } from "./utils/memory-monitor";
 
 import CompanionServer from "./integrations/companion-server";
 import CustomCSS from "./integrations/custom-css";
@@ -62,6 +64,12 @@ let appUpdateDownloaded = false;
 let appLaunchUpdateCheck = true;
 
 let stateSaverInterval: NodeJS.Timeout | null = null;
+
+// Global cleanup registry for memory leak prevention
+const globalCleanupRegistry = new CleanupRegistry();
+
+// Store for player state listener reference
+let playerStateListener: ((state: PlayerState) => void) | null = null;
 
 //#region   Crash + Error reporting
 electronCrashReporter.start({ uploadToServer: false });
@@ -322,11 +330,11 @@ const store = new Conf<StoreSchema>({
   }
 });
 
-let mainWindow: BrowserWindow = null;
-let settingsWindow: BrowserWindow = null;
-let ytmView: BrowserView = null;
-let tray: Tray = null;
-let trayContextMenu = null;
+let mainWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
+let ytmView: BrowserView | null = null;
+let tray: Tray | null = null;
+let trayContextMenu: Menu | null = null;
 
 // These variables tend to be changed often so we store it in memory and write on close (less disk usage)
 let lastUrl = "";
@@ -555,7 +563,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
   log.info("Setup application updater");
 
   // Set up periodic update checking based on user preference
-  setInterval(
+  const updateCheckInterval = setInterval(
     () => {
       // Only check for updates if not already downloading or ready to install
       const currentStatus = memoryStore.get("updateStatus");
@@ -570,6 +578,9 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     },
     1000 * 60 * updateCheckIntervalMinutes
   );
+  
+  // Register interval for cleanup
+  globalCleanupRegistry.registerInterval(updateCheckInterval);
 } else {
   memoryStore.set("autoUpdaterDisabled", true);
   log.info("Auto-updater disabled", {
@@ -703,8 +714,14 @@ store.onDidAnyChange(async (newState, oldState) => {
     if (!companionAuthWindowEnableTimeout) {
       companionAuthWindowEnableTimeout = setTimeout(() => {
         memoryStore.set("companionServerAuthWindowEnabled", null);
+        if (companionAuthWindowEnableTimeout) {
+          globalCleanupRegistry.unregisterTimeout(companionAuthWindowEnableTimeout);
+        }
         companionAuthWindowEnableTimeout = null;
       }, 300 * 1000);
+      
+      // Register timeout for cleanup
+      globalCleanupRegistry.registerTimeout(companionAuthWindowEnableTimeout);
     }
   }
 
@@ -801,6 +818,9 @@ stateSaverInterval = setInterval(
   },
   5 * 60 * 1000
 );
+
+// Register interval for cleanup
+globalCleanupRegistry.registerInterval(stateSaverInterval);
 
 // Throttle function to limit how often a function can be called
 function throttle<T>(func: (state: T) => void, limit: number): (state: T) => void {
@@ -1246,6 +1266,53 @@ function openExternalFromYtmView(urlString: string) {
   }
 }
 
+/**
+ * Professional cleanup for BrowserView to prevent memory leaks
+ * Properly disposes of all resources and event listeners
+ */
+function cleanupYTMView(): void {
+  if (!ytmView) {
+    return;
+  }
+
+  try {
+    log.info("Cleaning up YTM View");
+
+    // Remove BrowserView from window first
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.removeBrowserView(ytmView);
+      } catch (error) {
+        log.error("Error removing BrowserView from window:", error);
+      }
+    }
+
+    // Remove all event listeners from webContents
+    if (ytmView.webContents && !ytmView.webContents.isDestroyed()) {
+      try {
+        ytmView.webContents.removeAllListeners();
+      } catch (error) {
+        log.error("Error removing webContents listeners:", error);
+      }
+
+      // Destroy webContents
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ytmView.webContents as any).destroy();
+      } catch (error) {
+        log.error("Error destroying webContents:", error);
+      }
+    }
+
+    // Nullify reference to allow garbage collection
+    ytmView = null;
+
+    log.info("YTM View cleanup completed");
+  } catch (error) {
+    log.error("Error during YTM View cleanup:", error);
+  }
+}
+
 const createOrShowSettingsWindow = (): void => {
   if (mainWindow === null) {
     return;
@@ -1612,7 +1679,15 @@ const createYTMView = (): void => {
         height: mainWindow.getContentBounds().height - 36
       });
     }
+    
+    // Unregister from cleanup as it has fired
+    if (ytmViewLoadTimeout) {
+      globalCleanupRegistry.unregisterTimeout(ytmViewLoadTimeout);
+    }
   }, 30 * 1000);
+  
+  // Register timeout for cleanup
+  globalCleanupRegistry.registerTimeout(ytmViewLoadTimeout);
 };
 
 const createMainWindow = (): void => {
@@ -2022,7 +2097,10 @@ app.on("ready", async () => {
       if (event.sender !== ytmView.webContents) return;
 
       memoryStore.set("ytmViewLoading", false);
+      if (ytmViewLoadTimeout) {
       clearTimeout(ytmViewLoadTimeout);
+        globalCleanupRegistry.unregisterTimeout(ytmViewLoadTimeout);
+      }
       mainWindow.addBrowserView(ytmView);
       ytmView.setBounds({
         x: 0,
@@ -2091,10 +2169,19 @@ app.on("ready", async () => {
   });
 
   // Listen to player state changes and update memoryStore for /query endpoint and other integrations
-  playerStateStore.addEventListener(state => {
+  playerStateListener = (state: PlayerState) => {
     memoryStore.set("ytm", {
       player: state
     });
+  };
+  playerStateStore.addEventListener(playerStateListener);
+  
+  // Register cleanup for player state listener
+  globalCleanupRegistry.register(() => {
+    if (playerStateListener) {
+      playerStateStore.removeEventListener(playerStateListener);
+      playerStateListener = null;
+    }
   });
 
   ipcMain.on("ytmView:switchFocus", (event, context) => {
@@ -2123,13 +2210,8 @@ app.on("ready", async () => {
     if (event.sender !== mainWindow.webContents) return;
 
     if (ytmView) {
-      if (mainWindow) {
-        mainWindow.removeBrowserView(ytmView);
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (ytmView.webContents as any).destroy();
-      ytmView = null;
+      // Use professional cleanup function
+      cleanupYTMView();
       createYTMView();
     }
   });
@@ -2509,9 +2591,15 @@ app.on("ready", async () => {
   if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     autoUpdater.checkForUpdates();
     await new Promise<void>(resolve => {
-      setInterval(() => {
-        if (!appLaunchUpdateCheck) resolve();
+      const checkInterval = setInterval(() => {
+        if (!appLaunchUpdateCheck) {
+          clearInterval(checkInterval);
+          resolve();
+        }
       }, 250);
+      
+      // Register for cleanup in case app quits before resolution
+      globalCleanupRegistry.registerInterval(checkInterval);
     });
   } else {
     appLaunchUpdateCheck = false;
@@ -2594,19 +2682,66 @@ app.on("ready", async () => {
   log.info("Plugin manager initialized");
 
   nativeTheme.on("updated", setTrayIcon);
+
+  // Start memory monitoring in development mode
+  if (process.env.NODE_ENV === "development") {
+    log.info("Starting memory monitor for development");
+    memoryMonitor.start(60000); // Monitor every 60 seconds
+    
+    // Register cleanup
+    globalCleanupRegistry.register(() => {
+      memoryMonitor.stop();
+    });
+  }
 });
 
 app.on("before-quit", () => {
-  log.info("Application quitting\n\n");
+  log.info("Application quitting - starting cleanup\n");
   applicationQuitting = true;
 
-  // Clear the interval to prevent conflicts
-  if (stateSaverInterval) {
-    clearInterval(stateSaverInterval);
-    stateSaverInterval = null;
+  // Professional cleanup sequence
+  
+  // 1. Clean up YTM View
+  cleanupYTMView();
+
+  // 2. Clean up Tray and Menu
+  try {
+    if (tray && !tray.isDestroyed()) {
+      tray.destroy();
+      tray = null;
+      log.info("Tray destroyed");
+    }
+  } catch (error) {
+    log.error("Error destroying tray:", error);
   }
 
-  // Save final state with error handling
+  try {
+    if (trayContextMenu) {
+      trayContextMenu.closePopup();
+      trayContextMenu = null;
+      log.info("Tray context menu cleared");
+    }
+  } catch (error) {
+    log.error("Error clearing tray menu:", error);
+  }
+
+  // 3. Execute global cleanup registry (clears all intervals, timeouts, and registered cleanups)
+  try {
+    globalCleanupRegistry.cleanup();
+    log.info("Global cleanup registry cleaned");
+  } catch (error) {
+    log.error("Error in global cleanup:", error);
+  }
+
+  // 4. Unregister all global shortcuts
+  try {
+    globalShortcut.unregisterAll();
+    log.info("Global shortcuts unregistered");
+  } catch (error) {
+    log.error("Error unregistering shortcuts:", error);
+  }
+
+  // 5. Save final state with error handling
   try {
     saveState();
     log.info("Final state saved successfully");
@@ -2615,8 +2750,20 @@ app.on("before-quit", () => {
     // Don't block quitting even if save fails
   }
 
-  // Cleanup crash reporter
+  // 6. Cleanup crash reporter
+  try {
   crashReporter.dispose();
+    log.info("Crash reporter disposed");
+  } catch (error) {
+    log.error("Error disposing crash reporter:", error);
+  }
+
+  // 7. Nullify major references for garbage collection
+  mainWindow = null;
+  settingsWindow = null;
+  ytmView = null;
+
+  log.info("Application cleanup completed\n");
 });
 
 app.on("open-url", (_, url) => {

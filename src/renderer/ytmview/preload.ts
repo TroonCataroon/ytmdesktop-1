@@ -280,14 +280,26 @@ window.addEventListener("load", async () => {
   }
 
   // Add timeout to prevent infinite waiting
+  let hookInterval: NodeJS.Timeout | null = null;
+  let intervalCleared = false;
+  
   const hookTimeout = setTimeout(() => {
+    if (!intervalCleared && hookInterval) {
+      intervalCleared = true;
+      clearInterval(hookInterval);
+    }
     console.warn("YouTube Music hook setup timed out, proceeding anyway");
     ipcRenderer.send("ytmView:loaded");
   }, 15000); // 15 second timeout for hook setup
 
   try {
     await new Promise<void>(resolve => {
-      const interval = setInterval(async () => {
+      hookInterval = setInterval(async () => {
+        // Prevent memory leak by checking if already cleared
+        if (intervalCleared) {
+          return;
+        }
+        
         try {
           const hooked = (
             await webFrame.executeJavaScript(`
@@ -324,13 +336,15 @@ window.addEventListener("load", async () => {
           )();
 
           if (hooked) {
-            clearInterval(interval);
+            intervalCleared = true;
+            clearInterval(hookInterval);
             clearTimeout(hookTimeout);
             resolve();
           }
         } catch (error) {
           console.error("Error in hook setup:", error);
-          clearInterval(interval);
+          intervalCleared = true;
+          clearInterval(hookInterval);
           clearTimeout(hookTimeout);
           resolve(); // Continue even if hook setup fails
         }
@@ -354,14 +368,26 @@ window.addEventListener("load", async () => {
   document.head.appendChild(materialSymbols);
 
   // Add timeout for material symbols and player API
+  let apiInterval: NodeJS.Timeout | null = null;
+  let apiIntervalCleared = false;
+  
   const apiTimeout = setTimeout(() => {
+    if (!apiIntervalCleared && apiInterval) {
+      apiIntervalCleared = true;
+      clearInterval(apiInterval);
+    }
     console.warn("Player API setup timed out, proceeding anyway");
     ipcRenderer.send("ytmView:loaded");
   }, 10000); // 10 second timeout for API setup
 
   try {
     await new Promise<void>(resolve => {
-      const interval = setInterval(async () => {
+      apiInterval = setInterval(async () => {
+        // Prevent memory leak by checking if already cleared
+        if (apiIntervalCleared) {
+          return;
+        }
+        
         try {
           const playerApiReady: boolean = (
             await webFrame.executeJavaScript(`
@@ -373,7 +399,8 @@ window.addEventListener("load", async () => {
           )();
 
           if (materialSymbolsLoaded && playerApiReady) {
-            clearInterval(interval);
+            apiIntervalCleared = true;
+            clearInterval(apiInterval);
             clearTimeout(apiTimeout);
             resolve();
           }
@@ -381,7 +408,8 @@ window.addEventListener("load", async () => {
           console.error("Error checking player API:", error);
           // Continue anyway if API check fails
           if (materialSymbolsLoaded) {
-            clearInterval(interval);
+            apiIntervalCleared = true;
+            clearInterval(apiInterval);
             clearTimeout(apiTimeout);
             resolve();
           }
