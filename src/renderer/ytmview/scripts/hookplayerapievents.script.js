@@ -97,9 +97,7 @@
             .replace(/ΓÇÜ/g, '—')
             .replace(/ΓÇô/g, '"')
             .replace(/ΓÇ£/g, '"')
-            .replace(/ΓÇ¥/g, "'")
             .replace(/ΓÇ¥/g, "'");
-          if (currentItem.thumbnail)
             videoDetails.thumbnail = currentItem.thumbnail; // Can contain more thumbnails than player response
 
           // Extract artist and album information from longBylineText

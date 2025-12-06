@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from "vue";
-import * as TitleBar from "../../components/TitleBar.vue";
-import * as YTMViewLoading from "../../components/YTMViewLoading.vue";
-import * as UpdateNotification from "../../components/UpdateNotification.vue";
-// @ts-expect-error: logo is a valid image file
-import logo from "~assets/icons/ytmd_white.png";
-
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import TitleBar from "../../components/TitleBar.vue";
+import YTMViewLoading from "../../components/YTMViewLoading.vue";
+import UpdateNotification from "../../components/UpdateNotification.vue";
+import logo from "../../assets/icons/ytmd_white.png";
 const keyboardFocus = ref<HTMLElement | null>(null);
 const keyboardFocusZero = ref<HTMLElement | null>(null);
 
