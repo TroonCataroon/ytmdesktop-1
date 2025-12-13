@@ -139,6 +139,100 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
   }
 
+  private getYtmViewWebContents(): Electron.WebContents | null {
+    const all = BrowserWindow.getAllWindows();
+    for (const win of all) {
+      const getViews = (win as unknown as { getBrowserViews?: () => Array<{ webContents: Electron.WebContents }> }).getBrowserViews;
+      if (typeof getViews !== "function") continue;
+      const views = getViews.call(win) || [];
+      for (const view of views) {
+        try {
+          const url = view.webContents.getURL();
+          if (url && url.startsWith("https://music.youtube.com/")) {
+            return view.webContents;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return null;
+  }
+
+  private getMainWindowWebContentsFallback(): Electron.WebContents | null {
+    const all = BrowserWindow.getAllWindows();
+    const mainWindow =
+      all.find(w => w.getTitle().includes("YouTube Music")) ??
+      all.find(w => w.getTitle().toLowerCase().includes("youtube")) ??
+      BrowserWindow.getFocusedWindow();
+    return mainWindow?.webContents ?? null;
+  }
+
+  private async refreshFromYtmViewSnapshot(): Promise<void> {
+    const wc = this.getYtmViewWebContents();
+    if (!wc || wc.isDestroyed()) return;
+
+    try {
+      const snapshot = (await wc.executeJavaScript(
+        `
+        (function() {
+          try {
+            const bar = document.querySelector('ytmusic-app-layout>ytmusic-player-bar');
+            const api = bar && bar.playerApi ? bar.playerApi : null;
+            const playing = Boolean(bar && bar.playing);
+
+            let details = null;
+            try {
+              details = api && typeof api.getPlayerResponse === 'function'
+                ? (api.getPlayerResponse() && api.getPlayerResponse().videoDetails ? api.getPlayerResponse().videoDetails : null)
+                : null;
+            } catch {}
+
+            // Fallback: use document title if details are unavailable
+            const docTitle = String(document.title || '');
+
+            return {
+              playing,
+              title: details && details.title ? String(details.title) : '',
+              author: details && details.author ? String(details.author) : '',
+              thumbnails: details && details.thumbnail && details.thumbnail.thumbnails ? details.thumbnail.thumbnails : [],
+              docTitle
+            };
+          } catch (e) {
+            return { playing: false, title: '', author: '', thumbnails: [], docTitle: String(document.title || ''), error: String(e) };
+          }
+        })()
+      `
+      )) as {
+        playing?: boolean;
+        title?: string;
+        author?: string;
+        thumbnails?: unknown[];
+        docTitle?: string;
+      };
+
+      const title = (snapshot.title || "").trim();
+      const author = (snapshot.author || "").trim();
+      const thumbnails = Array.isArray(snapshot.thumbnails) ? snapshot.thumbnails : [];
+      const playing = Boolean(snapshot.playing);
+
+      // Only apply snapshot if it looks like real data (avoid clobbering with empties)
+      if (title || author || thumbnails.length > 0) {
+        this.currentTrack = {
+          title: title || this.currentTrack?.title || "No track playing",
+          artist: author || this.currentTrack?.artist || "",
+          thumbnail: this.getBestThumbnail(thumbnails),
+          isPlaying: playing,
+          spinSpeed: Number(this.settings.spinSpeed ?? 1)
+        };
+        this.isPlaying = playing;
+        this.updateVinylDisplay();
+      }
+    } catch {
+      // ignore snapshot failures
+    }
+  }
+
   private setupIpcHandlers(): void {
     // Handle toggle window request from player bar
     ipcMain.on("vinyl-player:toggle-window", () => {
@@ -147,42 +241,32 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Handle play/pause from vinyl player window
     ipcMain.on("vinyl-player:play-pause", () => {
-      // Prefer sending remote control to the YouTube Music BrowserView (ytmView),
-      // since that's where `remoteControl:execute` is handled (renderer ytmview preload).
-      const all = BrowserWindow.getAllWindows();
-      let target: Electron.WebContents | null = null;
-
-      for (const win of all) {
-        // Some Electron versions support getBrowserViews; keep it defensive.
-        const getViews = (win as unknown as { getBrowserViews?: () => Array<{ webContents: Electron.WebContents }> }).getBrowserViews;
-        if (typeof getViews !== "function") continue;
-        const views = getViews.call(win) || [];
-        for (const view of views) {
-          try {
-            const url = view.webContents.getURL();
-            if (url && url.startsWith("https://music.youtube.com/")) {
-              target = view.webContents;
-              break;
-            }
-          } catch {
-            // ignore
-          }
-        }
-        if (target) break;
-      }
-
-      // Fallback to old behavior if we can't find the ytmView.
-      const mainWindow =
-        all.find(w => w.getTitle().includes("YouTube Music")) ??
-        all.find(w => w.getTitle().toLowerCase().includes("youtube")) ??
-        BrowserWindow.getFocusedWindow();
-      if (!target && mainWindow) {
-        target = mainWindow.webContents;
-      }
-
+      const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
       if (target) {
         try {
           target.send("remoteControl:execute", "playPause");
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    ipcMain.on("vinyl-player:next", () => {
+      const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
+      if (target) {
+        try {
+          target.send("remoteControl:execute", "next");
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    ipcMain.on("vinyl-player:previous", () => {
+      const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
+      if (target) {
+        try {
+          target.send("remoteControl:execute", "previous");
         } catch {
           // ignore
         }
@@ -207,6 +291,8 @@ export class VinylPlayerPlugin extends BasePlugin {
   private cleanupIpcHandlers(): void {
     ipcMain.removeAllListeners("vinyl-player:toggle-window");
     ipcMain.removeAllListeners("vinyl-player:play-pause");
+    ipcMain.removeAllListeners("vinyl-player:next");
+    ipcMain.removeAllListeners("vinyl-player:previous");
     ipcMain.removeAllListeners("vinyl-player:close");
     ipcMain.removeAllListeners("vinyl-player:register-shortcuts");
     ipcMain.removeAllListeners("vinyl-player:unregister-shortcuts");
@@ -504,7 +590,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         if (currentState && currentState.videoDetails) {
           this.updatePlayerState(currentState);
         } else {
-          // Send default/empty state
+          // Fill from the ytmview (it often has last-loaded track before store metadata arrives)
+          void this.refreshFromYtmViewSnapshot();
           this.updateVinylDisplay();
         }
       } else {
@@ -778,6 +865,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         this.vinylWindow.window.show();
         this.vinylWindow.isVisible = true;
       }
+      // Best-effort refresh so the vinyl window matches the current/last-loaded track immediately
+      void this.refreshFromYtmViewSnapshot();
       return true;
     }
     return false;

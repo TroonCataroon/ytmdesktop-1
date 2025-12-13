@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
       // Whitelist channels
       const validChannels = [
         'vinyl-player:play-pause',
+        'vinyl-player:next',
+        'vinyl-player:previous',
         'vinyl-player:close',
         // Used by 6K widget mode for click-and-drag window movement
         'vinyl-player:drag-start',

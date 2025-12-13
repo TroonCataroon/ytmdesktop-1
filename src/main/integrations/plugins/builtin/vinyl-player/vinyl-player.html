@@ -21,6 +21,17 @@
             -webkit-app-region: drag;
         }
 
+        :root {
+            --ytmd-btn-bg: rgba(0, 0, 0, 0.55);
+            --ytmd-btn-bg-hover: rgba(0, 0, 0, 0.62);
+            --ytmd-btn-bg-active: rgba(0, 0, 0, 0.70);
+            --ytmd-btn-border: rgba(255, 255, 255, 0.14);
+            --ytmd-btn-border-hover: rgba(255, 255, 255, 0.20);
+            --ytmd-btn-icon: rgba(255, 255, 255, 0.92);
+            --ytmd-btn-shadow: 0 10px 30px rgba(0,0,0,0.45);
+            --ytmd-btn-shadow-hover: 0 14px 36px rgba(0,0,0,0.55);
+        }
+
         .vinyl-container {
             width: 100vw;
             height: 100vh;
@@ -145,28 +156,36 @@
             width: 54px;
             height: 54px;
             border-radius: 999px;
-            background: rgba(0, 0, 0, 0.55);
-            color: white;
-            font-size: 24px;
-            line-height: 1;
+            background: var(--ytmd-btn-bg);
+            border: 1px solid var(--ytmd-btn-border);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+            box-shadow: var(--ytmd-btn-shadow);
             opacity: 0;
             transform: scale(0.98);
-            transition: opacity 120ms ease, transform 120ms ease;
+            transition: opacity 120ms ease, transform 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
             pointer-events: none;
+        }
+
+        .overlay-icon svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--ytmd-btn-icon);
         }
 
         .button-overlay.button-enabled:hover .overlay-icon {
             opacity: 1;
             transform: scale(1);
+            background: var(--ytmd-btn-bg-hover);
+            border-color: var(--ytmd-btn-border-hover);
+            box-shadow: var(--ytmd-btn-shadow-hover);
         }
 
         .vinyl-disc.active .overlay-icon {
             opacity: 1;
             transform: scale(0.98);
+            background: var(--ytmd-btn-bg-active);
         }
 
         .vinyl-disc.paused {
@@ -406,43 +425,50 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
+            background: rgba(0,0,0,0.45);
+            border: 1px solid var(--ytmd-btn-border);
+            color: var(--ytmd-btn-icon);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            transition: all 0.3s ease;
+            transition: background 140ms ease, transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
             -webkit-app-region: no-drag;
             backdrop-filter: blur(5px);
         }
 
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--ytmd-btn-icon);
+        }
+
         .control-btn:hover {
-            background: rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.60);
             transform: scale(1.1);
             box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            border-color: var(--ytmd-btn-border-hover);
         }
 
         .control-btn:active {
             transform: scale(0.95);
+            background: rgba(0,0,0,0.72);
         }
 
         .control-btn#play-pause-btn {
-            background: linear-gradient(135deg, #4caf50, #45a049);
+            background: rgba(0,0,0,0.45);
         }
 
         .control-btn#play-pause-btn:hover {
-            background: linear-gradient(135deg, #5cbf60, #4caf50);
+            background: rgba(0,0,0,0.60);
         }
 
         .control-btn#close-btn {
-            background: linear-gradient(135deg, #f44336, #d32f2f);
+            background: rgba(0,0,0,0.45);
         }
 
         .control-btn#close-btn:hover {
-            background: linear-gradient(135deg, #ff5252, #f44336);
+            background: rgba(232, 17, 35, 0.72);
         }
 
         @keyframes spin {
@@ -559,7 +585,7 @@
         <div class="vinyl-record">
             <div class="vinyl-disc" id="vinyl-disc">
                 <div class="button-overlay">
-                    <div class="overlay-icon" aria-hidden="true">▶️</div>
+                    <div class="overlay-icon" id="overlay-playpause-icon" aria-hidden="true"></div>
                 </div>
                 <div class="vinyl-grooves" id="vinyl-grooves"></div>
                 <div class="record-label">
@@ -572,8 +598,8 @@
         </div>
 
         <div class="controls" id="controls">
-            <button class="control-btn" id="play-pause-btn" title="Play/Pause">▶</button>
-            <button class="control-btn" id="close-btn" title="Close">✕</button>
+            <button class="control-btn" id="play-pause-btn" title="Play/Pause" aria-label="Play/Pause"></button>
+            <button class="control-btn" id="close-btn" title="Close" aria-label="Close"></button>
         </div>
     </div>
 
@@ -592,6 +618,22 @@
         const controls = document.getElementById('controls');
         const buttonOverlay = document.querySelector('.button-overlay');
         const overlayIcon = buttonOverlay?.querySelector('.overlay-icon');
+
+        // Inline SVG icons (crisp + consistent across platforms)
+        const icons = {
+            play: `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg>`,
+            pause: `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
+            close: `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L12 13.41l-6.89 6.3-1.42-1.41L10.59 12 3.69 5.71 5.1 4.29 12 10.59l6.89-6.3z"/></svg>`
+        };
+
+        const setPlayPauseIcons = (isPlaying) => {
+            const svg = isPlaying ? icons.pause : icons.play;
+            if (playPauseBtn) playPauseBtn.innerHTML = svg;
+            if (overlayIcon) overlayIcon.innerHTML = svg;
+        };
+
+        // Initialize static icons
+        if (closeBtn) closeBtn.innerHTML = icons.close;
 
         let currentTrack = {
             title: 'Loading...',
@@ -660,13 +702,10 @@
             }
 
             // Update play/pause button with better icons
-            playPauseBtn.innerHTML = track.isPlaying ? '⏸️' : '▶️';
             playPauseBtn.title = track.isPlaying ? 'Pause' : 'Play';
 
-            // Update hover overlay icon
-            if (overlayIcon) {
-                overlayIcon.textContent = track.isPlaying ? '⏸️' : '▶️';
-            }
+            // Update hover overlay + control icon
+            setPlayPauseIcons(Boolean(track.isPlaying));
         }
 
         // Event listeners
@@ -721,11 +760,38 @@
         buttonOverlay?.addEventListener('pointercancel', clearActive, true);
         buttonOverlay?.addEventListener('pointerleave', clearActive, true);
 
+        // Multi-click actions on the vinyl overlay:
+        // - 1 click: play/pause
+        // - 2 clicks: next track
+        // - 3 clicks: previous track
+        // Note: single click is delayed slightly to disambiguate.
+        const MULTI_CLICK_WINDOW_MS = 250;
+        let clickCount = 0;
+        let clickTimer = null;
+
+        const flushClicks = () => {
+            const n = clickCount;
+            clickCount = 0;
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+
+            if (!isOverlayEnabled()) return;
+
+            if (n === 1) ipcRenderer.send('vinyl-player:play-pause');
+            else if (n === 2) ipcRenderer.send('vinyl-player:next');
+            else if (n >= 3) ipcRenderer.send('vinyl-player:previous');
+        };
+
         buttonOverlay?.addEventListener('click', (e) => {
             if (!isOverlayEnabled()) return;
             e.preventDefault();
             e.stopPropagation();
-            ipcRenderer.send('vinyl-player:play-pause');
+
+            clickCount += 1;
+            if (clickTimer) clearTimeout(clickTimer);
+            clickTimer = setTimeout(flushClicks, MULTI_CLICK_WINDOW_MS);
         }, true);
 
         // Prevent context menu on vinyl disc
