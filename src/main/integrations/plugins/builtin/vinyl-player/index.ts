@@ -634,9 +634,7 @@ export class VinylPlayerPlugin extends BasePlugin {
                     height: 54px;
                     border-radius: 999px;
                     background: rgba(0, 0, 0, 0.55);
-                    color: white;
-                    font-size: 24px;
-                    line-height: 1;
+                    border: 1px solid rgba(255, 255, 255, 0.14);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -645,6 +643,11 @@ export class VinylPlayerPlugin extends BasePlugin {
                     transform: scale(0.98);
                     transition: opacity 120ms ease, transform 120ms ease;
                     pointer-events: none;
+                  }
+                  #ytmd-vinyl-click-overlay .ytmd-icon svg {
+                    width: 22px;
+                    height: 22px;
+                    fill: rgba(255, 255, 255, 0.92);
                   }
                   #ytmd-vinyl-click-overlay.enabled:hover .ytmd-icon { opacity: 1; transform: scale(1); }
                   #ytmd-vinyl-click-overlay.active .ytmd-icon { opacity: 1; transform: scale(0.98); }
@@ -757,7 +760,9 @@ export class VinylPlayerPlugin extends BasePlugin {
             };
 
             const updateIcon = () => {
-              if (icon) icon.textContent = playing ? '⏸️' : '▶️';
+              const playSvg = '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M8 5v14l11-7z\"/></svg>';
+              const pauseSvg = '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M6 19h4V5H6v14zm8-14v14h4V5h-4z\"/></svg>';
+              if (icon) icon.innerHTML = playing ? pauseSvg : playSvg;
               if (overlay) {
                 overlay.classList.toggle('enabled', Boolean(enabled));
                 overlay.style.display = enabled ? 'flex' : 'none';
