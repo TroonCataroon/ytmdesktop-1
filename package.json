@@ -12,6 +12,8 @@
     "publish:dry": "electron-forge publish --dry-run",
     "publish:fromdry": "electron-forge publish --from-dry-run",
     "publish": "electron-forge publish",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint --ext .ts,.tsx,.vue .",
     "lint:fix": "eslint --ext .ts,.tsx,.vue .",
     "prettier": "prettier --check *.{ts,tsx,vue}",
@@ -54,7 +56,8 @@
     "prettier": "3.5.3",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "^4.0.15"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
