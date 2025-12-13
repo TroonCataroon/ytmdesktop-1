@@ -85,18 +85,18 @@ export default class MemoryMonitor {
    */
   private logMemoryUsage(label: string): void {
     const usage = process.memoryUsage();
-    log.info(`[Memory Monitor] ${label} Memory Usage:`);
-    log.info(`  RSS: ${this.formatBytes(usage.rss)} (Resident Set Size)`);
-    log.info(`  Heap Total: ${this.formatBytes(usage.heapTotal)}`);
-    log.info(`  Heap Used: ${this.formatBytes(usage.heapUsed)}`);
-    log.info(`  External: ${this.formatBytes(usage.external)}`);
-    log.info(`  Array Buffers: ${this.formatBytes(usage.arrayBuffers)}`);
+    log.debug(`[Memory Monitor] ${label} Memory Usage:`);
+    log.debug(`  RSS: ${this.formatBytes(usage.rss)} (Resident Set Size)`);
+    log.debug(`  Heap Total: ${this.formatBytes(usage.heapTotal)}`);
+    log.debug(`  Heap Used: ${this.formatBytes(usage.heapUsed)}`);
+    log.debug(`  External: ${this.formatBytes(usage.external)}`);
+    log.debug(`  Array Buffers: ${this.formatBytes(usage.arrayBuffers)}`);
 
     if (this.initialMemory) {
       const rssGrowth = usage.rss - this.initialMemory.rss;
       const heapGrowth = usage.heapUsed - this.initialMemory.heapUsed;
-      log.info(`  RSS Growth: ${this.formatBytes(rssGrowth)}`);
-      log.info(`  Heap Growth: ${this.formatBytes(heapGrowth)}`);
+      log.debug(`  RSS Growth: ${this.formatBytes(rssGrowth)}`);
+      log.debug(`  Heap Growth: ${this.formatBytes(heapGrowth)}`);
     }
   }
 

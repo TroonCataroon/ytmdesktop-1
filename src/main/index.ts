@@ -78,14 +78,23 @@ log.transports.console.format = "[{processType}][{level}]{text}";
 log.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}][{processType}][{level}]{text}";
 log.eventLogger.format = "Electron event {eventSource}#{eventName} observed";
 
-const isSpamLogMessage = (data: unknown): boolean => typeof data === "string" && /third-party cookie will be blocked\./i.test(data);
+const isSpamLogMessage = (data: unknown): boolean => {
+  if (typeof data !== "string") return false;
+
+  // YouTube Music spam + known noisy debug logs from integrations/widgets.
+  return (
+    /third-party cookie will be blocked\./i.test(data) ||
+    data.startsWith("Thumbnails array:") ||
+    data.startsWith("Best thumbnail URL:") ||
+    data.startsWith("Progress in percent:")
+  );
+};
 log.hooks.push((message, transport) => {
-  // If the transport is not a file transport then return as is
-  if (transport !== log.transports.file) {
-    return message;
-  }
-  // If there isnt message data, or the data isnt a string, or the data is spam from Youtube Music, return false
+  // Drop spam logs (e.g. from embedded YouTube Music) for all transports.
   if (message?.data?.[0] && isSpamLogMessage(message.data[0])) return false;
+
+  // Only redact sensitive info for file transport.
+  if (transport !== log.transports.file) return message;
 
   // Check it is an array, then redact sensitive info
   message.data = message.data.map(data => {
@@ -774,6 +783,20 @@ store.onDidAnyChange(async (newState, oldState) => {
 });
 log.info("Created electron store");
 
+// #region agent log (debug instrumentation)
+const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
+  try {
+    fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "debug-session", runId: "resume-1", hypothesisId, location, message, data, timestamp: Date.now() })
+    }).catch(() => undefined);
+  } catch {
+    // swallow
+  }
+};
+// #endregion agent log (debug instrumentation)
+
 if (store.get("general").disableHardwareAcceleration) {
   app.disableHardwareAcceleration();
 }
@@ -787,6 +810,13 @@ function saveState() {
     // Only save if values have actually changed
     const currentState = store.get("state");
     if (currentState.lastUrl !== lastUrl || currentState.lastVideoId !== lastVideoId || currentState.lastPlaylistId !== lastPlaylistId) {
+      // #region agent log (debug instrumentation)
+      __ytmdDbg("S1", "main/index.ts:saveState", "saving state", {
+        lastUrl,
+        lastVideoId,
+        lastPlaylistId
+      });
+      // #endregion agent log (debug instrumentation)
       store.set("state.lastUrl", lastUrl);
       store.set("state.lastVideoId", lastVideoId);
       store.set("state.lastPlaylistId", lastPlaylistId);
@@ -1427,6 +1457,16 @@ const createYTMView = (): void => {
       autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required"
     }
   });
+  // #region agent log (debug instrumentation)
+  __ytmdDbg("S2", "main/index.ts:createYTMView", "ytmView created", {
+    continueWhereYouLeftOff: Boolean(store.get("playback.continueWhereYouLeftOff")),
+    continueWhereYouLeftOffPaused: Boolean(store.get("playback.continueWhereYouLeftOffPaused")),
+    autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required",
+    storedLastUrl: String(store.get("state.lastUrl") || ""),
+    storedLastVideoId: String(store.get("state.lastVideoId") || ""),
+    storedLastPlaylistId: String(store.get("state.lastPlaylistId") || "")
+  });
+  // #endregion agent log (debug instrumentation)
   companionServer.provide(store, memoryStore, ytmView);
   customCss.provide(store, ytmView);
   ratioVolume.provide(ytmView);
@@ -1648,6 +1688,9 @@ const createYTMView = (): void => {
     const lastUrl: string = store.get("state.lastUrl");
     if (lastUrl) {
       if (lastUrl.startsWith("https://music.youtube.com/")) {
+        // #region agent log (debug instrumentation)
+        __ytmdDbg("S3", "main/index.ts:createYTMView", "loading lastUrl", { lastUrl });
+        // #endregion agent log (debug instrumentation)
         ytmView.webContents.loadURL(lastUrl);
         navigateDefault = false;
       }

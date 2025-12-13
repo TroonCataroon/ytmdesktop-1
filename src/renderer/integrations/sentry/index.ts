@@ -1,5 +1,5 @@
-import * as Sentry from '@sentry/electron/renderer';
-import { SENTRY_CONFIG } from '../../../shared/sentry.config';
+import * as Sentry from "@sentry/electron/renderer";
+import { SENTRY_CONFIG } from "../../../shared/sentry.config";
 
 /**
  * Sentry Integration for the renderer process
@@ -14,7 +14,7 @@ export default class RendererSentryIntegration {
 
   private initialize(): void {
     // Don't initialize Sentry in development unless configured to do so
-    if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
+    if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
       return;
     }
 
@@ -23,41 +23,41 @@ export default class RendererSentryIntegration {
         dsn: SENTRY_CONFIG.dsn,
         environment: SENTRY_CONFIG.environment,
         release: SENTRY_CONFIG.release,
-        
+
         // Performance monitoring
         tracesSampleRate: SENTRY_CONFIG.tracesSampleRate,
-        
+
         // Set maximum breadcrumbs
         maxBreadcrumbs: SENTRY_CONFIG.maxBreadcrumbs,
-        
+
         // Debug mode to help with troubleshooting
-        debug: process.env.NODE_ENV === 'development',
-        
+        debug: process.env.NODE_ENV === "development",
+
         // Include app info
         initialScope: {
           tags: {
             ...SENTRY_CONFIG.initialTags,
-            process: 'renderer'
-          },
+            process: "renderer"
+          }
         },
-        
+
         // Specify which errors to ignore
         ignoreErrors: SENTRY_CONFIG.ignoreErrors,
-        
+
         // Before sending an event to Sentry
         beforeSend(event) {
           // Don't send events in development unless configured to do so
-          if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
+          if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
             return null;
           }
           return event;
-        },
+        }
       });
 
       this.isEnabled = true;
-      console.log('Sentry integration initialized in renderer process');
+      console.debug("Sentry integration initialized in renderer process");
     } catch (error) {
-      console.error('Failed to initialize Sentry in renderer process:', error);
+      console.error("Failed to initialize Sentry in renderer process:", error);
     }
   }
 
@@ -65,9 +65,9 @@ export default class RendererSentryIntegration {
     if (this.isEnabled) {
       return;
     }
-    
-    if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
-      console.log('Sentry integration not enabled in development mode');
+
+    if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
+      console.debug("Sentry integration not enabled in development mode");
       return;
     }
 
@@ -78,9 +78,9 @@ export default class RendererSentryIntegration {
         client.getOptions().enabled = true;
       }
       this.isEnabled = true;
-      console.log('Sentry integration enabled in renderer process');
+      console.debug("Sentry integration enabled in renderer process");
     } catch (error) {
-      console.error('Failed to enable Sentry in renderer process:', error);
+      console.error("Failed to enable Sentry in renderer process:", error);
     }
   }
 
@@ -95,9 +95,9 @@ export default class RendererSentryIntegration {
         client.getOptions().enabled = false;
       }
       this.isEnabled = false;
-      console.log('Sentry integration disabled in renderer process');
+      console.debug("Sentry integration disabled in renderer process");
     } catch (error) {
-      console.error('Failed to disable Sentry in renderer process:', error);
+      console.error("Failed to disable Sentry in renderer process:", error);
     }
   }
 
@@ -112,11 +112,11 @@ export default class RendererSentryIntegration {
     }
 
     try {
-      return Sentry.captureException(error, { 
-        contexts: { additional: context || {} } 
+      return Sentry.captureException(error, {
+        contexts: { additional: context || {} }
       });
     } catch (captureError) {
-      console.error('Failed to capture exception with Sentry:', captureError);
+      console.error("Failed to capture exception with Sentry:", captureError);
       return null;
     }
   }
@@ -127,18 +127,18 @@ export default class RendererSentryIntegration {
    * @param level The severity level
    * @param context Additional context information
    */
-  captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, unknown>): string | null {
+  captureMessage(message: string, level: Sentry.SeverityLevel = "info", context?: Record<string, unknown>): string | null {
     if (!this.isEnabled) {
       return null;
     }
 
     try {
-      return Sentry.captureMessage(message, { 
+      return Sentry.captureMessage(message, {
         level,
-        contexts: { additional: context || {} } 
+        contexts: { additional: context || {} }
       });
     } catch (captureError) {
-      console.error('Failed to capture message with Sentry:', captureError);
+      console.error("Failed to capture message with Sentry:", captureError);
       return null;
     }
   }
@@ -155,7 +155,7 @@ export default class RendererSentryIntegration {
     try {
       Sentry.addBreadcrumb(breadcrumb);
     } catch (error) {
-      console.error('Failed to add breadcrumb to Sentry:', error);
+      console.error("Failed to add breadcrumb to Sentry:", error);
     }
   }
 
@@ -172,7 +172,7 @@ export default class RendererSentryIntegration {
     try {
       Sentry.setTag(key, value);
     } catch (error) {
-      console.error('Failed to set Sentry tag:', error);
+      console.error("Failed to set Sentry tag:", error);
     }
   }
 
@@ -188,7 +188,7 @@ export default class RendererSentryIntegration {
     try {
       Sentry.setUser(user);
     } catch (error) {
-      console.error('Failed to set Sentry user:', error);
+      console.error("Failed to set Sentry user:", error);
     }
   }
 }

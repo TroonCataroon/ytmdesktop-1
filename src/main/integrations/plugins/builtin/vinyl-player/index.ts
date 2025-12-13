@@ -252,6 +252,26 @@ export class VinylPlayerPlugin extends BasePlugin {
     });
 
     ipcMain.on("vinyl-player:next", () => {
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "multiclick-1",
+            hypothesisId: "MC",
+            location: "vinyl-player/index.ts:ipc:next",
+            message: "received",
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
       if (target) {
         try {
@@ -263,6 +283,26 @@ export class VinylPlayerPlugin extends BasePlugin {
     });
 
     ipcMain.on("vinyl-player:previous", () => {
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "multiclick-1",
+            hypothesisId: "MC",
+            location: "vinyl-player/index.ts:ipc:previous",
+            message: "received",
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
       if (target) {
         try {
@@ -609,6 +649,18 @@ export class VinylPlayerPlugin extends BasePlugin {
               document.body.style.userSelect = 'none';
             } catch {}
 
+            // #region agent log (debug instrumentation)
+            const __ytmdDbg = (hypothesisId, location, message, data) => {
+              try {
+                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
+                  method:'POST',
+                  headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({sessionId:'debug-session',runId:'overlay-align-1',hypothesisId,location,message,data,timestamp:Date.now()})
+                }).catch(()=>{});
+              } catch {}
+            };
+            // #endregion agent log (debug instrumentation)
+
             // Click overlay CSS (kept minimal to avoid affecting widget styles)
             try {
               const styleId = 'ytmd-vinyl-click-overlay-style';
@@ -721,6 +773,22 @@ export class VinylPlayerPlugin extends BasePlugin {
                   best = el;
                 }
               }
+              // #region agent log (debug instrumentation)
+              try {
+                if (best) {
+                  const rect = best.getBoundingClientRect();
+                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:findCircleTarget', 'best circle candidate', {
+                    tag: best.tagName,
+                    id: best.id || null,
+                    className: (best.className && String(best.className)) || null,
+                    score: bestScore,
+                    rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+                  });
+                } else {
+                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:findCircleTarget', 'no circle candidate', {});
+                }
+              } catch {}
+              // #endregion agent log (debug instrumentation)
               return best;
             };
 
@@ -782,6 +850,21 @@ export class VinylPlayerPlugin extends BasePlugin {
                 overlay.style.display = 'none';
                 return;
               }
+              // #region agent log (debug instrumentation)
+              try {
+                if (target !== lastTarget) {
+                  const r = target.getBoundingClientRect();
+                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:positionOverlay', 'target changed', {
+                    playing,
+                    enabled,
+                    tag: target.tagName,
+                    id: target.id || null,
+                    className: (target.className && String(target.className)) || null,
+                    rect: { left: r.left, top: r.top, width: r.width, height: r.height }
+                  });
+                }
+              } catch {}
+              // #endregion agent log (debug instrumentation)
               lastTarget = target;
 
               const rect = target.getBoundingClientRect();

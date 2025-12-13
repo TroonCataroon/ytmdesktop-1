@@ -7,6 +7,7 @@ import { NotionSyncPlugin } from "./builtin/notion-sync";
 import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
 import Conf from "conf";
 import { app } from "electron";
+import log from "electron-log";
 
 type PluginStoreSchema = Record<string, { enabled?: boolean; settings: Record<string, unknown> }>;
 
@@ -113,7 +114,7 @@ export class PluginManager {
       plugin.setEnabled(true);
       this.enabledPlugins.add(pluginId);
       this.savePluginEnabled(pluginId, true);
-      console.log(`Plugin ${pluginId} enabled successfully`);
+      log.debug(`Plugin ${pluginId} enabled successfully`);
       return true;
     } catch (error) {
       console.error(`Failed to enable plugin ${pluginId}:`, error);
@@ -138,7 +139,7 @@ export class PluginManager {
       plugin.setEnabled(false);
       this.enabledPlugins.delete(pluginId);
       this.savePluginEnabled(pluginId, false);
-      console.log(`Plugin ${pluginId} disabled successfully`);
+      log.debug(`Plugin ${pluginId} disabled successfully`);
       return true;
     } catch (error) {
       console.error(`Failed to disable plugin ${pluginId}:`, error);

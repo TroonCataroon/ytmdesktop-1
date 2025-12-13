@@ -31,17 +31,17 @@ export class NotionSyncPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("Notion Sync Plugin enabled");
+    log.debug("Notion Sync Plugin enabled");
     this.initializeNotion();
   }
 
   onDisable(): void {
-    console.log("Notion Sync Plugin disabled");
+    log.debug("Notion Sync Plugin disabled");
     // No cleanup needed as the Notion integration is managed separately
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    console.log("Notion Sync settings changed:", newSettings);
+    log.debug("Notion Sync settings changed:", newSettings);
   }
 
   private initializeNotion(): void {
@@ -49,7 +49,7 @@ export class NotionSyncPlugin extends BasePlugin {
       // Get the Notion integration instance
       // Note: In a real implementation, this would be injected or provided from the main app
       this.notionIntegration = new NotionIntegration();
-      
+
       // The actual initialization would happen through the main app's integration system
       log.info("Notion integration initialized from plugin");
     } catch (error) {
@@ -64,7 +64,7 @@ export class NotionSyncPlugin extends BasePlugin {
    * @param severity Bug severity
    * @returns ID of the created bug report or null if failed
    */
-  public async reportBug(title: string, description: string, severity: 'Critical' | 'High' | 'Medium' | 'Low'): Promise<string | null> {
+  public async reportBug(title: string, description: string, severity: "Critical" | "High" | "Medium" | "Low"): Promise<string | null> {
     if (!this.notionIntegration) {
       log.error("Notion integration not available");
       return null;
@@ -93,7 +93,7 @@ export class NotionSyncPlugin extends BasePlugin {
    * @param priority Feature priority
    * @returns ID of the created feature request or null if failed
    */
-  public async requestFeature(title: string, description: string, priority: 'High' | 'Medium' | 'Low'): Promise<string | null> {
+  public async requestFeature(title: string, description: string, priority: "High" | "Medium" | "Low"): Promise<string | null> {
     if (!this.notionIntegration) {
       log.error("Notion integration not available");
       return null;
@@ -150,10 +150,10 @@ export class NotionSyncPlugin extends BasePlugin {
     try {
       // Import electron at the top level instead
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { app } = require('electron');
+      const { app } = require("electron");
       return app.getVersion();
     } catch {
-      return 'Unknown';
+      return "Unknown";
     }
   }
 

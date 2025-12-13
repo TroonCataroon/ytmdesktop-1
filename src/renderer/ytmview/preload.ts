@@ -207,7 +207,7 @@ function handleStorageAccessPermissions() {
   // Override requestStorageAccessFor to prevent permission denied errors
   if (window.requestStorageAccessFor) {
     window.requestStorageAccessFor = function (origin) {
-      console.log(`Storage access requested for ${origin}, auto-granting`);
+      console.debug(`Storage access requested for ${origin}, auto-granting`);
       return Promise.resolve();
     };
   }
@@ -219,7 +219,7 @@ function handleStorageAccessPermissions() {
 
     // Handle CORS issues for specific domains that are failing
     if (url && (url.includes("googleads.g.doubleclick.net") || url.includes("youtube.com/pagead"))) {
-      console.log(`Intercepting fetch request for ${url}`);
+      console.debug(`Intercepting fetch request for ${url}`);
 
       // Return a resolved promise to prevent the request from failing
       return Promise.resolve(
@@ -438,15 +438,44 @@ window.addEventListener("load", async () => {
     await hookPlayerApiEvents();
     overrideHistoryButtonDisplay();
 
+    // #region agent log (debug instrumentation)
+    const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: "debug-session", runId: "resume-1", hypothesisId, location, message, data, timestamp: Date.now() })
+        }).catch(() => undefined);
+      } catch {
+        // swallow
+      }
+    };
+    // #endregion agent log (debug instrumentation)
+
     const integrationScripts: { [integrationName: string]: { [scriptName: string]: string } } = await ipcRenderer.invoke("ytmView:getIntegrationScripts");
 
     const state = await store.get("state");
     const continueWhereYouLeftOff = (await store.get("playback")).continueWhereYouLeftOff;
 
+    // #region agent log (debug instrumentation)
+    __ytmdDbg("R1", "ytmview/preload.ts:resume", "resume check", {
+      continueWhereYouLeftOff: Boolean(continueWhereYouLeftOff),
+      lastUrl: String(state.lastUrl || ""),
+      lastVideoId: String(state.lastVideoId || ""),
+      lastPlaylistId: String(state.lastPlaylistId || "")
+    });
+    // #endregion agent log (debug instrumentation)
+
     if (continueWhereYouLeftOff) {
       // The last page the user was on is already a page where it will be playing a song from (no point telling YTM to play it again)
       if (!state.lastUrl.startsWith("https://music.youtube.com/watch")) {
         if (state.lastVideoId) {
+          // #region agent log (debug instrumentation)
+          __ytmdDbg("R2", "ytmview/preload.ts:resume", "dispatching yt-navigate to last video", {
+            lastVideoId: String(state.lastVideoId),
+            lastPlaylistId: String(state.lastPlaylistId || "")
+          });
+          // #endregion agent log (debug instrumentation)
           // This height transition check is a hack to fix the `Start playback` hint from not being in the correct position https://github.com/ytmdesktop/ytmdesktop/issues/1159
           let heightTransitionCount = 0;
           const transitionEnd = async (e: TransitionEvent) => {
@@ -482,6 +511,9 @@ window.addEventListener("load", async () => {
           );
         }
       } else {
+        // #region agent log (debug instrumentation)
+        __ytmdDbg("R3", "ytmview/preload.ts:resume", "lastUrl is watch page; sending videoData snapshot", {});
+        // #endregion agent log (debug instrumentation)
         (
           await webFrame.executeJavaScript(`
           (function() {

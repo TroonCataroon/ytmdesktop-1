@@ -607,6 +607,18 @@
         // Use the exposed API from the preload script
         const { ipcRenderer } = window.electron;
 
+        // #region agent log (debug instrumentation)
+        const __ytmdDbg = (location, message, data) => {
+            try {
+                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({sessionId:'debug-session',runId:'multiclick-1',hypothesisId:'MC',location,message,data,timestamp:Date.now()})
+                }).catch(()=>{});
+            } catch {}
+        };
+        // #endregion agent log (debug instrumentation)
+
         // DOM elements
         const trackTitle = document.getElementById('track-title');
         const trackArtist = document.getElementById('track-artist');
@@ -768,6 +780,7 @@
         const MULTI_CLICK_WINDOW_MS = 250;
         let clickCount = 0;
         let clickTimer = null;
+        let lastClickTs = 0;
 
         const flushClicks = () => {
             const n = clickCount;
@@ -778,6 +791,10 @@
             }
 
             if (!isOverlayEnabled()) return;
+
+            // #region agent log (debug instrumentation)
+            __ytmdDbg('vinyl-player.html:flushClicks', 'flush', { n, enabled: isOverlayEnabled() });
+            // #endregion agent log (debug instrumentation)
 
             if (n === 1) ipcRenderer.send('vinyl-player:play-pause');
             else if (n === 2) ipcRenderer.send('vinyl-player:next');
@@ -790,6 +807,12 @@
             e.stopPropagation();
 
             clickCount += 1;
+            const now = Date.now();
+            const dt = lastClickTs ? now - lastClickTs : null;
+            lastClickTs = now;
+            // #region agent log (debug instrumentation)
+            __ytmdDbg('vinyl-player.html:overlayClick', 'click', { clickCount, dt, windowMs: MULTI_CLICK_WINDOW_MS });
+            // #endregion agent log (debug instrumentation)
             if (clickTimer) clearTimeout(clickTimer);
             clickTimer = setTimeout(flushClicks, MULTI_CLICK_WINDOW_MS);
         }, true);

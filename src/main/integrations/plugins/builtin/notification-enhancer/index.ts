@@ -1,4 +1,5 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
+import log from "electron-log";
 
 export class NotificationEnhancerPlugin extends BasePlugin {
   constructor() {
@@ -19,22 +20,25 @@ export class NotificationEnhancerPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("Notification Enhancer Plugin enabled");
+    log.debug("Notification Enhancer Plugin enabled");
     // Hook into notification system
     this.setupNotificationHooks();
   }
 
   onDisable(): void {
-    console.log("Notification Enhancer Plugin disabled");
+    log.debug("Notification Enhancer Plugin disabled");
     // Clean up hooks
     this.cleanupNotificationHooks();
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    console.log("Notification Enhancer settings changed:", newSettings);
+    log.debug("Notification Enhancer settings changed:", newSettings);
     // Reapply notification styling if needed
     if (newSettings.notificationStyle !== undefined) {
-      const styleValue = typeof newSettings.notificationStyle === 'string' ? newSettings.notificationStyle : String(newSettings.notificationStyle ?? this.settings.notificationStyle ?? 'default');
+      const styleValue =
+        typeof newSettings.notificationStyle === "string"
+          ? newSettings.notificationStyle
+          : String(newSettings.notificationStyle ?? this.settings.notificationStyle ?? "default");
       this.updateNotificationStyle(styleValue);
     }
   }
@@ -42,16 +46,16 @@ export class NotificationEnhancerPlugin extends BasePlugin {
   private setupNotificationHooks(): void {
     // This would hook into the existing notification system
     // For now, just log that we're setting up
-    console.log("Setting up notification enhancement hooks");
+    log.debug("Setting up notification enhancement hooks");
   }
 
   private cleanupNotificationHooks(): void {
     // Clean up any hooks we set up
-    console.log("Cleaning up notification enhancement hooks");
+    log.debug("Cleaning up notification enhancement hooks");
   }
 
   private updateNotificationStyle(style: string): void {
-    console.log(`Updating notification style to: ${style}`);
+    log.debug(`Updating notification style to: ${style}`);
   }
 
   static getSettingsSchema(): PluginSettings {

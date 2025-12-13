@@ -634,7 +634,7 @@ async function togglePlugin(pluginId: string): Promise<void> {
 
       // Update the local state AFTER the main process confirms
       plugin.enabled = newState;
-      console.log(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
+      console.debug(`${newState ? "Enabled" : "Disabled"} plugin: ${pluginId}`);
     }
   } catch (error) {
     console.error("Failed to toggle plugin:", error);
@@ -665,7 +665,7 @@ async function updatePluginSetting(pluginId: string, key: string, value: unknown
   try {
     // Update the setting in the store and notify the plugin
     await ytmd.updatePluginSetting(pluginId, key, value);
-    console.log(`Updated plugin setting: ${pluginId}.${key} = ${value}`);
+    console.debug(`Updated plugin setting: ${pluginId}.${key} = ${value}`);
 
     // If the 6K Labs widget token was updated, refresh the widget URL
     if (pluginId === "6klabs-widget" && key === "widgetToken") {

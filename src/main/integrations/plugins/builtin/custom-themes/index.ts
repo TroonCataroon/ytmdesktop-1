@@ -1,4 +1,5 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
+import log from "electron-log";
 
 export class CustomThemesPlugin extends BasePlugin {
   private currentTheme: string | null = null;
@@ -21,26 +22,26 @@ export class CustomThemesPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("Custom Themes Plugin enabled");
-    const selectedTheme = typeof this.settings.selectedTheme === 'string' ? this.settings.selectedTheme : 'default';
+    log.debug("Custom Themes Plugin enabled");
+    const selectedTheme = typeof this.settings.selectedTheme === "string" ? this.settings.selectedTheme : "default";
     this.applyTheme(selectedTheme);
   }
 
   onDisable(): void {
-    console.log("Custom Themes Plugin disabled");
+    log.debug("Custom Themes Plugin disabled");
     this.removeTheme();
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    console.log("Custom Themes settings changed:", newSettings);
+    log.debug("Custom Themes settings changed:", newSettings);
 
     if (newSettings.selectedTheme !== undefined) {
-      const themeName = typeof newSettings.selectedTheme === 'string' ? newSettings.selectedTheme : String(newSettings.selectedTheme);
+      const themeName = typeof newSettings.selectedTheme === "string" ? newSettings.selectedTheme : String(newSettings.selectedTheme);
       this.applyTheme(themeName);
     }
 
     if (newSettings.customCSS !== undefined) {
-      const cssValue = typeof newSettings.customCSS === 'string' ? newSettings.customCSS : String(newSettings.customCSS ?? '');
+      const cssValue = typeof newSettings.customCSS === "string" ? newSettings.customCSS : String(newSettings.customCSS ?? "");
       this.applyCustomCSS(cssValue);
     }
   }
@@ -56,7 +57,7 @@ export class CustomThemesPlugin extends BasePlugin {
     if (theme) {
       this.injectThemeCSS(theme);
       this.currentTheme = themeName;
-      console.log(`Applied theme: ${themeName}`);
+      log.debug(`Applied theme: ${themeName}`);
     }
   }
 

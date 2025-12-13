@@ -1,4 +1,5 @@
 import { BasePlugin, PluginSettings } from "../../base-plugin";
+import log from "electron-log";
 
 interface CustomShortcut {
   id: string;
@@ -27,18 +28,18 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("Keyboard Shortcuts Plugin enabled");
+    log.debug("Keyboard Shortcuts Plugin enabled");
     this.loadCustomShortcuts();
     this.registerShortcuts();
   }
 
   onDisable(): void {
-    console.log("Keyboard Shortcuts Plugin disabled");
+    log.debug("Keyboard Shortcuts Plugin disabled");
     this.unregisterShortcuts();
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    console.log("Keyboard Shortcuts settings changed:", newSettings);
+    log.debug("Keyboard Shortcuts settings changed:", newSettings);
 
     if (newSettings.shortcuts !== undefined) {
       this.unregisterShortcuts();
@@ -51,7 +52,7 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
     const rawShortcuts = this.settings.shortcuts;
     if (Array.isArray(rawShortcuts)) {
       this.customShortcuts = rawShortcuts as CustomShortcut[];
-    } else if (typeof rawShortcuts === 'string') {
+    } else if (typeof rawShortcuts === "string") {
       try {
         const parsed = JSON.parse(rawShortcuts);
         this.customShortcuts = Array.isArray(parsed) ? (parsed as CustomShortcut[]) : [];
@@ -82,7 +83,7 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
     // For now, we'll just store the handler
     this.registeredShortcuts.set(shortcut.id, handler);
 
-    console.log(`Registered shortcut: ${shortcut.key} -> ${shortcut.action}`);
+    log.debug(`Registered shortcut: ${shortcut.key} -> ${shortcut.action}`);
   }
 
   private executeAction(action: string): void {
@@ -106,33 +107,33 @@ export class KeyboardShortcutsPlugin extends BasePlugin {
         this.skipSeconds(-10);
         break;
       default:
-        console.log(`Unknown action: ${action}`);
+        log.warn(`Unknown action: ${action}`);
     }
   }
 
   // Action implementations
   private togglePlaylist(): void {
-    console.log("Toggling playlist visibility");
+    log.debug("Toggling playlist visibility");
     // Implementation would interact with the main app
   }
 
   private shufflePlaylist(): void {
-    console.log("Shuffling playlist");
+    log.debug("Shuffling playlist");
     // Implementation would interact with the main app
   }
 
   private toggleRepeat(): void {
-    console.log("Toggling repeat mode");
+    log.debug("Toggling repeat mode");
     // Implementation would interact with the main app
   }
 
   private toggleMute(): void {
-    console.log("Toggling mute");
+    log.debug("Toggling mute");
     // Implementation would interact with the main app
   }
 
   private skipSeconds(seconds: number): void {
-    console.log(`Skipping ${seconds} seconds`);
+    log.debug(`Skipping ${seconds} seconds`);
     // Implementation would interact with the main app
   }
 

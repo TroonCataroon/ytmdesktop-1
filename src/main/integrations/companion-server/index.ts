@@ -262,11 +262,14 @@ export default class CompanionServer extends BaseIntegration {
       // Find the best thumbnail (largest)
       // Note: thumbnails is stored as an array directly on videoDetails, not nested under thumbnail
       const thumbnails = track.videoDetails.thumbnails || [];
-      const bestThumbnail = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : "";
-
-      // Debug: Log thumbnail data
-      console.log("Thumbnails array:", JSON.stringify(thumbnails));
-      console.log("Best thumbnail URL:", bestThumbnail);
+      const bestThumbnail =
+        thumbnails.length > 0
+          ? thumbnails.reduce((best: { url: string; width?: number; height?: number }, next: { url: string; width?: number; height?: number }) => {
+              const bestArea = (best.width ?? 0) * (best.height ?? 0);
+              const nextArea = (next.width ?? 0) * (next.height ?? 0);
+              return nextArea > bestArea ? next : best;
+            }).url
+          : "";
 
       // Calculate progress values matching v1.13.0 format
       const durationSeconds = track.videoDetails.durationSeconds || 0;

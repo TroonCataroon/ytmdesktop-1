@@ -1,4 +1,5 @@
 import { BasePlugin } from "../../base-plugin";
+import log from "electron-log";
 
 export class SixKLabsWidgetPlugin extends BasePlugin {
   constructor() {
@@ -122,11 +123,11 @@ export class SixKLabsWidgetPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("[6K Labs Widget] Plugin enabled");
+    log.debug("[6K Labs Widget] Plugin enabled");
   }
 
   onDisable(): void {
-    console.log("[6K Labs Widget] Plugin disabled");
+    log.debug("[6K Labs Widget] Plugin disabled");
   }
 
   getWidgetUrl(): string {
