@@ -63,7 +63,6 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    console.log("Vinyl Player Plugin enabled");
     this.createVinylWindow();
     this.setupPlayerStateListener();
     this.setupIpcHandlers();
@@ -81,7 +80,6 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onDisable(): void {
-    console.log("Vinyl Player Plugin disabled");
     // Save window state before destroying
     this.saveWindowState();
     this.destroyVinylWindow();
@@ -89,8 +87,6 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    console.log("Vinyl Player settings changed:", newSettings);
-
     // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
     if (newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget || newSettings.enableResizing !== this.settings.enableResizing) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
@@ -190,15 +186,11 @@ export class VinylPlayerPlugin extends BasePlugin {
     globalShortcut.register("Alt+Shift+V", () => {
       this.showVinylWindow();
     });
-
-    console.log("Vinyl player keyboard shortcuts registered");
   }
 
   private unregisterKeyboardShortcuts(): void {
     globalShortcut.unregister("Alt+V");
     globalShortcut.unregister("Alt+Shift+V");
-
-    console.log("Vinyl player keyboard shortcuts unregistered");
   }
 
   private createVinylWindow(): void {
@@ -284,7 +276,6 @@ export class VinylPlayerPlugin extends BasePlugin {
         const widgetUrl = (sixKLabsPlugin as { getWidgetUrl: () => string }).getWidgetUrl();
 
         if (widgetUrl && !widgetUrl.includes("⚠️")) {
-          console.log(`Loading 6K Labs widget: ${widgetUrl}`);
           window.loadURL(widgetUrl);
         } else {
           console.warn("6K Labs widget token not set. Please configure in plugin settings.");
@@ -731,17 +722,8 @@ export class VinylPlayerPlugin extends BasePlugin {
           )
           .catch(() => undefined);
         /* eslint-enable no-useless-escape */
-
-        // Mirror console messages from the widget for easier debugging
-        window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-          const lvl = typeof level === "number" ? level : 0;
-          const tag = ["log", "warn", "error", "debug", "info"][lvl] || "log";
-          console.log(`[6KWidget][console:${tag}] ${message} (${sourceId}:${line})`);
-        });
       }
     });
-
-    console.log("Vinyl player window created");
   }
 
   private destroyVinylWindow(): void {
@@ -849,8 +831,6 @@ export class VinylPlayerPlugin extends BasePlugin {
         spinSpeed: Number(this.settings.spinSpeed ?? 1)
       };
 
-      console.log("Sending track update to vinyl player:", trackData);
-
       // Send track info to the renderer
       window.webContents.send("vinyl-player:update-track", trackData);
 
@@ -908,14 +888,6 @@ export class VinylPlayerPlugin extends BasePlugin {
       savedWindowHeight: bounds.height,
       wasVisibleOnClose: this.vinylWindow.isVisible
     });
-
-    console.log("Saved vinyl player window state:", {
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      visible: this.vinylWindow.isVisible
-    });
   }
 
   private constrainWindowToScreen(window: BrowserWindow): void {
@@ -954,7 +926,6 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     if (needsUpdate) {
       window.setPosition(Math.floor(newX), Math.floor(newY), false);
-      console.log("Constrained window to screen bounds:", { x: newX, y: newY });
     }
   }
 

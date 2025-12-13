@@ -677,13 +677,11 @@
         // Listen for track updates from main process
         // Note: preload strips the event, so the first arg is the actual data
         ipcRenderer.on('vinyl-player:update-track', (track) => {
-            console.log('Vinyl player received track update:', track);
             updateTrackInfo(track);
         });
 
         // Handle settings changes
         ipcRenderer.on('vinyl-player:update-settings', (settings) => {
-            console.log('Vinyl player received settings update:', settings);
             if (settings && settings.showControls !== undefined) {
                 controls.style.display = settings.showControls ? 'flex' : 'none';
             }

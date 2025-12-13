@@ -716,7 +716,6 @@ function toggleSettings(pluginId: string): void {
 async function showVinylPlayer(): Promise<void> {
   try {
     await ytmd.showVinylPlayer();
-    console.log("Vinyl player window shown");
   } catch (error) {
     console.error("Failed to show vinyl player:", error);
   }
@@ -725,7 +724,6 @@ async function showVinylPlayer(): Promise<void> {
 async function hideVinylPlayer(): Promise<void> {
   try {
     await ytmd.hideVinylPlayer();
-    console.log("Vinyl player window hidden");
   } catch (error) {
     console.error("Failed to hide vinyl player:", error);
   }
@@ -744,7 +742,6 @@ async function updateWidgetUrl(): Promise<void> {
 async function copyWidgetUrl(): Promise<void> {
   try {
     await navigator.clipboard.writeText(widgetUrl.value);
-    console.log("Widget URL copied to clipboard");
     // You could add a toast notification here
   } catch (error) {
     console.error("Failed to copy widget URL:", error);
