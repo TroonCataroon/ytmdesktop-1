@@ -8,7 +8,10 @@ contextBridge.exposeInMainWorld('electron', {
       // Whitelist channels
       const validChannels = [
         'vinyl-player:play-pause',
-        'vinyl-player:close'
+        'vinyl-player:close',
+        // Used by 6K widget mode for click-and-drag window movement
+        'vinyl-player:drag-start',
+        'vinyl-player:drag-end'
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, data);

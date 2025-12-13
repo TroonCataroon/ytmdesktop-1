@@ -104,6 +104,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     if (this.vinylWindow?.window) {
       const window = this.vinylWindow.window;
+      const nextUse6KLabs = newSettings.use6KLabsWidget !== undefined ? Boolean(newSettings.use6KLabsWidget) : Boolean(this.settings.use6KLabsWidget);
 
       if (newSettings.alwaysOnTop !== this.settings.alwaysOnTop) {
         window.setAlwaysOnTop(newSettings.alwaysOnTop as boolean);
@@ -113,7 +114,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      if (newSettings.windowSize !== this.settings.windowSize && !newSettings.use6KLabsWidget) {
+      // Use computed "nextUse6KLabs" so undefined doesn't incorrectly behave as "custom mode"
+      if (newSettings.windowSize !== this.settings.windowSize && !nextUse6KLabs) {
         const size = newSettings.windowSize as number;
         const enableResizing = newSettings.enableResizing as boolean;
         window.setSize(size, size);
@@ -127,10 +129,16 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
 
       // Send updated settings to the vinyl player window (only for custom player)
-      if (!newSettings.use6KLabsWidget) {
+      if (!nextUse6KLabs) {
         window.webContents.send("vinyl-player:update-settings", {
-          showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls
+          showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls,
+          enableButtonFeature: newSettings.enableButtonFeature !== undefined ? newSettings.enableButtonFeature : this.settings.enableButtonFeature
         });
+      } else if (newSettings.enableButtonFeature !== undefined) {
+        // Keep the injected overlay in sync (6K Labs widget mode)
+        window.webContents
+          .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${Boolean(newSettings.enableButtonFeature)});`)
+          .catch(() => undefined);
       }
     }
   }
@@ -475,75 +483,217 @@ export class VinylPlayerPlugin extends BasePlugin {
           this.updateVinylDisplay();
         }
       } else {
-        // Inject dragging + diagnostics + blur clamp for 6K Labs widget
+        // Inject window dragging + click-to-toggle overlay + blur clamp for 6K Labs widget
         /* eslint-disable no-useless-escape */
-        window.webContents.executeJavaScript(`
+        window.webContents
+          .executeJavaScript(
+            `
           (function() {
-            let isDragging = false;
-
-            document.addEventListener('mousedown', () => {
-              isDragging = true;
-              window.ipcRenderer?.send?.('vinyl-player:drag-start');
-            });
-
-            document.addEventListener('mouseup', () => {
-              if (isDragging) {
-                isDragging = false;
-                window.ipcRenderer?.send?.('vinyl-player:drag-end');
-              }
-            });
-
-            document.addEventListener('mouseleave', () => {
-              if (isDragging) {
-                isDragging = false;
-                window.ipcRenderer?.send?.('vinyl-player:drag-end');
-              }
-            });
+            const ipc = window.electron && window.electron.ipcRenderer ? window.electron.ipcRenderer : null;
 
             // Make body draggable
-            document.body.style.webkitAppRegion = 'drag';
-            document.body.style.userSelect = 'none';
-
-            // Forward runtime errors with details
-            window.addEventListener('error', (e) => {
-              try {
-                window.ipcRenderer?.send?.('vinyl-widget:error', {
-                  message: e.message,
-                  filename: e.filename,
-                  lineno: e.lineno,
-                  colno: e.colno,
-                  stack: e.error?.stack || null
-                });
-              } catch {}
-            });
-
-            window.addEventListener('unhandledrejection', (e) => {
-              try {
-                const reason = e.reason || {};
-                window.ipcRenderer?.send?.('vinyl-widget:error', {
-                  message: (typeof reason === 'string') ? reason : (reason.message || 'Unhandled promise rejection'),
-                  stack: reason.stack || null
-                });
-              } catch {}
-            });
-
-            // Patch console.error to forward rich details
             try {
-              const origError = console.error.bind(console);
-              console.error = (...args) => {
-                try {
-                  const serialized = args.map(a => {
-                    if (a && a.stack) return a.stack;
-                    if (typeof a === 'object') {
-                      try { return JSON.stringify(a); } catch { return String(a); }
-                    }
-                    return String(a);
-                  });
-                  window.ipcRenderer?.send?.('vinyl-widget:console-error', serialized);
-                } catch {}
-                origError(...args);
-              };
+              document.body.style.webkitAppRegion = 'drag';
+              document.body.style.userSelect = 'none';
             } catch {}
+
+            // Click overlay CSS (kept minimal to avoid affecting widget styles)
+            try {
+              const styleId = 'ytmd-vinyl-click-overlay-style';
+              if (!document.getElementById(styleId)) {
+                const st = document.createElement('style');
+                st.id = styleId;
+                st.textContent = \`
+                  #ytmd-vinyl-click-overlay {
+                    position: fixed;
+                    border-radius: 50%;
+                    z-index: 2147483647;
+                    background: rgba(255, 255, 255, 0);
+                    transition: background 120ms ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    -webkit-app-region: no-drag;
+                  }
+                  #ytmd-vinyl-click-overlay.enabled { cursor: pointer; }
+                  #ytmd-vinyl-click-overlay.enabled:hover { background: rgba(255, 255, 255, 0.06); }
+                  #ytmd-vinyl-click-overlay .ytmd-icon {
+                    width: 54px;
+                    height: 54px;
+                    border-radius: 999px;
+                    background: rgba(0, 0, 0, 0.55);
+                    color: white;
+                    font-size: 24px;
+                    line-height: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+                    opacity: 0;
+                    transform: scale(0.98);
+                    transition: opacity 120ms ease, transform 120ms ease;
+                    pointer-events: none;
+                  }
+                  #ytmd-vinyl-click-overlay.enabled:hover .ytmd-icon { opacity: 1; transform: scale(1); }
+                  #ytmd-vinyl-click-overlay.active .ytmd-icon { opacity: 1; transform: scale(0.98); }
+                \`;
+                document.head.appendChild(st);
+              }
+            } catch {}
+
+            const state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
+            let enabled = ${Boolean(this.settings.enableButtonFeature)};
+            let playing = ${Boolean(this.isPlaying)};
+            let overlay = null;
+            let icon = null;
+            let lastTarget = null;
+
+            const clamp01 = (n) => Math.max(0, Math.min(1, n));
+            const isVisible = (el) => {
+              if (!el) return false;
+              const rect = el.getBoundingClientRect();
+              if (rect.width < 40 || rect.height < 40) return false;
+              if (rect.bottom < 0 || rect.right < 0) return false;
+              if (rect.top > window.innerHeight || rect.left > window.innerWidth) return false;
+              const cs = window.getComputedStyle(el);
+              if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity || '1') === 0) return false;
+              return true;
+            };
+
+            const approxCircleScore = (el) => {
+              const rect = el.getBoundingClientRect();
+              const w = rect.width;
+              const h = rect.height;
+              if (w < 80 || h < 80) return -1;
+              const aspect = Math.min(w, h) / Math.max(w, h);
+              if (aspect < 0.85) return -1;
+
+              const cs = window.getComputedStyle(el);
+              const br = cs.borderRadius || '';
+              let circleish = 0;
+
+              // Accept 50% radii or very large pixel radii
+              if (br.includes('%')) {
+                const pct = parseFloat(br);
+                if (!Number.isNaN(pct)) circleish = clamp01(1 - Math.abs(pct - 50) / 50);
+              } else {
+                const px = parseFloat(br);
+                const minDim = Math.min(w, h);
+                if (!Number.isNaN(px) && minDim > 0) circleish = clamp01(px / (minDim / 2));
+              }
+
+              // Favor large, near-center elements
+              const area = w * h;
+              const cx = rect.left + w / 2;
+              const cy = rect.top + h / 2;
+              const dx = Math.abs(cx - window.innerWidth / 2) / (window.innerWidth / 2);
+              const dy = Math.abs(cy - window.innerHeight / 2) / (window.innerHeight / 2);
+              const centerScore = clamp01(1 - (dx + dy) / 2);
+
+              return area * aspect * (0.25 + 0.75 * circleish) * (0.4 + 0.6 * centerScore);
+            };
+
+            const findCircleTarget = () => {
+              const selectors = 'img,canvas,svg,div';
+              const els = Array.from(document.querySelectorAll(selectors));
+              let best = null;
+              let bestScore = -1;
+              for (const el of els) {
+                if (!isVisible(el)) continue;
+                const score = approxCircleScore(el);
+                if (score > bestScore) {
+                  bestScore = score;
+                  best = el;
+                }
+              }
+              return best;
+            };
+
+            const ensureOverlay = () => {
+              if (overlay && document.body.contains(overlay)) return;
+              overlay = document.createElement('div');
+              overlay.id = 'ytmd-vinyl-click-overlay';
+              overlay.innerHTML = '<div class=\"ytmd-icon\" aria-hidden=\"true\"></div>';
+              icon = overlay.querySelector('.ytmd-icon');
+
+              // Prevent window drag handlers from starting when clicking overlay
+              overlay.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }, true);
+
+              overlay.addEventListener('click', (e) => {
+                if (!enabled) return;
+                e.preventDefault();
+                e.stopPropagation();
+                ipc && ipc.send && ipc.send('vinyl-player:play-pause');
+              }, true);
+
+              overlay.addEventListener('pointerdown', (e) => {
+                if (!enabled) return;
+                e.preventDefault();
+                e.stopPropagation();
+                overlay.classList.add('active');
+              }, true);
+
+              const clearActive = () => overlay && overlay.classList.remove('active');
+              overlay.addEventListener('pointerup', clearActive, true);
+              overlay.addEventListener('pointercancel', clearActive, true);
+              overlay.addEventListener('pointerleave', clearActive, true);
+
+              document.body.appendChild(overlay);
+            };
+
+            const updateIcon = () => {
+              if (icon) icon.textContent = playing ? '⏸️' : '▶️';
+              if (overlay) {
+                overlay.classList.toggle('enabled', Boolean(enabled));
+                overlay.style.display = enabled ? 'flex' : 'none';
+              }
+            };
+
+            const positionOverlay = () => {
+              ensureOverlay();
+              if (!overlay) return;
+              if (!enabled) {
+                overlay.style.display = 'none';
+                return;
+              }
+
+              const target = findCircleTarget();
+              if (!target) {
+                overlay.style.display = 'none';
+                return;
+              }
+              lastTarget = target;
+
+              const rect = target.getBoundingClientRect();
+              overlay.style.display = 'flex';
+              overlay.style.left = Math.round(rect.left) + 'px';
+              overlay.style.top = Math.round(rect.top) + 'px';
+              overlay.style.width = Math.round(rect.width) + 'px';
+              overlay.style.height = Math.round(rect.height) + 'px';
+            };
+
+            // Drag start/end - ignore overlay clicks
+            let isDragging = false;
+            document.addEventListener('mousedown', (e) => {
+              if (e && e.target && e.target.closest && e.target.closest('#ytmd-vinyl-click-overlay')) return;
+              isDragging = true;
+              ipc && ipc.send && ipc.send('vinyl-player:drag-start');
+            }, true);
+
+            document.addEventListener('mouseup', () => {
+              if (!isDragging) return;
+              isDragging = false;
+              ipc && ipc.send && ipc.send('vinyl-player:drag-end');
+            }, true);
+
+            document.addEventListener('mouseleave', () => {
+              if (!isDragging) return;
+              isDragging = false;
+              ipc && ipc.send && ipc.send('vinyl-player:drag-end');
+            }, true);
 
             // Clamp negative blur() in Web Animations API keyframes to avoid warnings
             try {
@@ -553,7 +703,7 @@ export class VinylPlayerPlugin extends BasePlugin {
                   if (Array.isArray(frames)) {
                     return frames.map(f => {
                       if (f && typeof f === 'object' && typeof f.filter === 'string') {
-                        f.filter = f.filter.replace(/blur\(([-\d\.]+)(px|rem)\)/g, (_m, val, unit) => {
+                        f.filter = f.filter.replace(/blur\\(([-\\d\\.]+)(px|rem)\\)/g, (_m, val, unit) => {
                           const n = parseFloat(val);
                           return 'blur(' + (isNaN(n) || n < 0 ? 0 : n) + unit + ')';
                         });
@@ -567,8 +717,19 @@ export class VinylPlayerPlugin extends BasePlugin {
                 catch { return originalAnimate.call(this, keyframes, options); }
               };
             } catch {}
+
+            state.setPlaying = (v) => { playing = Boolean(v); updateIcon(); };
+            state.setEnabled = (v) => { enabled = Boolean(v); updateIcon(); positionOverlay(); };
+            state.refresh = () => { positionOverlay(); };
+
+            updateIcon();
+            positionOverlay();
+            window.addEventListener('resize', () => positionOverlay(), { passive: true });
+            setInterval(() => positionOverlay(), 450);
           })();
-        `);
+        `
+          )
+          .catch(() => undefined);
         /* eslint-enable no-useless-escape */
 
         // Mirror console messages from the widget for easier debugging
@@ -677,6 +838,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
 
     const window = this.vinylWindow.window;
+    const use6KLabs = Boolean(this.settings.use6KLabsWidget);
 
     try {
       const trackData = {
@@ -697,6 +859,15 @@ export class VinylPlayerPlugin extends BasePlugin {
         showControls: Boolean(this.settings.showControls),
         enableButtonFeature: Boolean(this.settings.enableButtonFeature)
       });
+
+      // Keep the injected 6K overlay in sync (play/pause icon + enabled state)
+      if (use6KLabs) {
+        const enabled = Boolean(this.settings.enableButtonFeature);
+        const playing = Boolean(this.isPlaying);
+        window.webContents
+          .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${enabled}); window.__YTMD_VINYL_OVERLAY__?.setPlaying?.(${playing});`)
+          .catch(() => undefined);
+      }
 
       // Show window if auto-show is enabled and a track is playing
       if (Boolean(this.settings.autoShow) && this.isPlaying && !this.vinylWindow.isVisible) {

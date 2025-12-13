@@ -66,10 +66,11 @@
         }
 
         .vinyl-record {
-            width: 85%;
-            height: 85%;
-            max-width: 200px;
-            max-height: 200px;
+            /* Scale the player content with the window so the window isn't larger than the UI */
+            width: min(92vmin, 100%);
+            height: min(92vmin, 100%);
+            max-width: 100%;
+            max-height: 100%;
             position: relative;
             display: flex;
             align-items: center;
@@ -120,6 +121,9 @@
             transition: background 0.1s ease;
             z-index: 100;
             -webkit-app-region: no-drag;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .button-overlay.button-enabled {
@@ -133,6 +137,34 @@
 
         .vinyl-disc.active .button-overlay {
             background: rgba(0, 0, 0, 0.4);
+        }
+
+        .overlay-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.55);
+            color: white;
+            font-size: 24px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+            opacity: 0;
+            transform: scale(0.98);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+        }
+
+        .button-overlay.button-enabled:hover .overlay-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .vinyl-disc.active .overlay-icon {
+            opacity: 1;
+            transform: scale(0.98);
         }
 
         .vinyl-disc.paused {
@@ -522,7 +554,9 @@
 
         <div class="vinyl-record">
             <div class="vinyl-disc" id="vinyl-disc">
-                <div class="button-overlay"></div>
+                <div class="button-overlay">
+                    <div class="overlay-icon" aria-hidden="true">▶️</div>
+                </div>
                 <div class="vinyl-grooves" id="vinyl-grooves"></div>
                 <div class="record-label">
                     <div class="album-art" id="album-art"></div>
@@ -552,6 +586,8 @@
         const playPauseBtn = document.getElementById('play-pause-btn');
         const closeBtn = document.getElementById('close-btn');
         const controls = document.getElementById('controls');
+        const buttonOverlay = document.querySelector('.button-overlay');
+        const overlayIcon = buttonOverlay?.querySelector('.overlay-icon');
 
         let currentTrack = {
             title: 'Loading...',
@@ -622,6 +658,11 @@
             // Update play/pause button with better icons
             playPauseBtn.innerHTML = track.isPlaying ? '⏸️' : '▶️';
             playPauseBtn.title = track.isPlaying ? 'Pause' : 'Play';
+
+            // Update hover overlay icon
+            if (overlayIcon) {
+                overlayIcon.textContent = track.isPlaying ? '⏸️' : '▶️';
+            }
         }
 
         // Event listeners
@@ -660,27 +701,36 @@
         updateTrackInfo(currentTrack);
         
         // Set initial button state (enabled by default)
-        const buttonOverlay = document.querySelector('.button-overlay');
         buttonOverlay?.classList.add('button-enabled');
 
-        // Add button click effect for button overlay (only when enabled)
-        buttonOverlay?.addEventListener('mousedown', () => {
-            if (buttonOverlay?.classList.contains('button-enabled')) {
-                vinylDisc.classList.add('active');
-            }
+        const isOverlayEnabled = () => Boolean(buttonOverlay?.classList.contains('button-enabled'));
+
+        // Pressed feedback + reliable click toggle
+        buttonOverlay?.addEventListener('pointerdown', (e) => {
+            if (!isOverlayEnabled()) return;
+            // Prevent window dragging from this region
+            e.preventDefault();
+            e.stopPropagation();
+            vinylDisc.classList.add('active');
         });
 
-        buttonOverlay?.addEventListener('mouseup', () => {
-            if (buttonOverlay?.classList.contains('button-enabled')) {
-                vinylDisc.classList.remove('active');
-                // Trigger play/pause when clicking the vinyl
-                ipcRenderer.send('vinyl-player:play-pause');
-            }
-        });
-
-        buttonOverlay?.addEventListener('mouseleave', () => {
-            // Remove active state if mouse leaves while pressed
+        buttonOverlay?.addEventListener('pointerup', () => {
             vinylDisc.classList.remove('active');
+        });
+
+        buttonOverlay?.addEventListener('pointercancel', () => {
+            vinylDisc.classList.remove('active');
+        });
+
+        buttonOverlay?.addEventListener('pointerleave', () => {
+            vinylDisc.classList.remove('active');
+        });
+
+        buttonOverlay?.addEventListener('click', (e) => {
+            if (!isOverlayEnabled()) return;
+            e.preventDefault();
+            e.stopPropagation();
+            ipcRenderer.send('vinyl-player:play-pause');
         });
 
         // Prevent context menu on vinyl disc
