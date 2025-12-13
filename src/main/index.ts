@@ -578,7 +578,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
     },
     1000 * 60 * updateCheckIntervalMinutes
   );
-  
+
   // Register interval for cleanup
   globalCleanupRegistry.registerInterval(updateCheckInterval);
 } else {
@@ -591,10 +591,10 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
 }
 
 function getIconPath(icon: string) {
-  return path.join(process.env.NODE_ENV === "development" 
-    ? path.join(__dirname, "../../src/assets/icons") 
-    : assetFolder, 
-    `${process.env.NODE_ENV === "development" ? "" : "icons/"}${icon}`);
+  return path.join(
+    process.env.NODE_ENV === "development" ? path.join(__dirname, "../../src/assets/icons") : assetFolder,
+    `${process.env.NODE_ENV === "development" ? "" : "icons/"}${icon}`
+  );
 }
 function getControlsIconPath(icon: string) {
   return getIconPath(`${process.env.NODE_ENV === "development" ? "controls/" : ""}${icon}`);
@@ -719,7 +719,7 @@ store.onDidAnyChange(async (newState, oldState) => {
         }
         companionAuthWindowEnableTimeout = null;
       }, 300 * 1000);
-      
+
       // Register timeout for cleanup
       globalCleanupRegistry.registerTimeout(companionAuthWindowEnableTimeout);
     }
@@ -994,15 +994,13 @@ function trayIconFileName(style: TrayIconStyle) {
 
 function getTrayIconPath() {
   const style = store.get("appearance").trayIconStyle;
-  const iconsDir = process.env.NODE_ENV === "development" 
-    ? path.join(__dirname, "../../src/assets/icons") 
-    : process.resourcesPath;
+  const iconsDir = process.env.NODE_ENV === "development" ? path.join(__dirname, "../../src/assets/icons") : process.resourcesPath;
   return path.join(iconsDir, trayIconFileName(style));
 }
 
 function setTrayIcon() {
   if (!tray) return;
-  
+
   try {
     const iconPath = getTrayIconPath();
     log.debug("Setting tray icon to:", iconPath);
@@ -1679,13 +1677,13 @@ const createYTMView = (): void => {
         height: mainWindow.getContentBounds().height - 36
       });
     }
-    
+
     // Unregister from cleanup as it has fired
     if (ytmViewLoadTimeout) {
       globalCleanupRegistry.unregisterTimeout(ytmViewLoadTimeout);
     }
   }, 30 * 1000);
-  
+
   // Register timeout for cleanup
   globalCleanupRegistry.registerTimeout(ytmViewLoadTimeout);
 };
@@ -1693,7 +1691,26 @@ const createYTMView = (): void => {
 const createMainWindow = (): void => {
   // Create the browser window.
   const scaleFactor = screen.getPrimaryDisplay().scaleFactor;
-  const windowBounds = store.get("state").windowBounds;
+  const storedBounds = store.get("state").windowBounds;
+  const windowBounds = (() => {
+    if (!storedBounds) return null;
+
+    // Ensure saved bounds are still on-screen (multi-monitor setups can change).
+    const displays = screen.getAllDisplays().map(d => d.workArea);
+    const intersects = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+      a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+
+    const isOnSomeDisplay = displays.some(d => intersects(storedBounds, d));
+    if (isOnSomeDisplay) return storedBounds;
+
+    const primary = screen.getPrimaryDisplay().workArea;
+    const safeWidth = Math.min(Math.max(storedBounds.width, 156), primary.width);
+    const safeHeight = Math.min(Math.max(storedBounds.height, 180), primary.height);
+    const safeX = Math.round(primary.x + (primary.width - safeWidth) / 2);
+    const safeY = Math.round(primary.y + (primary.height - safeHeight) / 2);
+
+    return { x: safeX, y: safeY, width: safeWidth, height: safeHeight };
+  })();
   mainWindow = new BrowserWindow({
     width: windowBounds?.width ?? 1280 / scaleFactor,
     height: windowBounds?.height ?? 720 / scaleFactor,
@@ -2098,7 +2115,7 @@ app.on("ready", async () => {
 
       memoryStore.set("ytmViewLoading", false);
       if (ytmViewLoadTimeout) {
-      clearTimeout(ytmViewLoadTimeout);
+        clearTimeout(ytmViewLoadTimeout);
         globalCleanupRegistry.unregisterTimeout(ytmViewLoadTimeout);
       }
       mainWindow.addBrowserView(ytmView);
@@ -2175,7 +2192,7 @@ app.on("ready", async () => {
     });
   };
   playerStateStore.addEventListener(playerStateListener);
-  
+
   // Register cleanup for player state listener
   globalCleanupRegistry.register(() => {
     if (playerStateListener) {
@@ -2598,7 +2615,7 @@ app.on("ready", async () => {
           resolve();
         }
       }, 250);
-      
+
       // Register for cleanup immediately after creation to avoid race condition
       // This must happen before any callback can execute
       globalCleanupRegistry.registerInterval(checkInterval);
@@ -2689,7 +2706,7 @@ app.on("ready", async () => {
   if (process.env.NODE_ENV === "development") {
     log.info("Starting memory monitor for development");
     memoryMonitor.start(60000); // Monitor every 60 seconds
-    
+
     // Register cleanup
     globalCleanupRegistry.register(() => {
       memoryMonitor.stop();
@@ -2702,7 +2719,7 @@ app.on("before-quit", () => {
   applicationQuitting = true;
 
   // Professional cleanup sequence
-  
+
   // 1. Clean up YTM View
   cleanupYTMView();
 
@@ -2754,7 +2771,7 @@ app.on("before-quit", () => {
 
   // 6. Cleanup crash reporter
   try {
-  crashReporter.dispose();
+    crashReporter.dispose();
     log.info("Crash reporter disposed");
   } catch (error) {
     log.error("Error disposing crash reporter:", error);
@@ -2860,13 +2877,13 @@ ipcMain.handle("crashReports:delete", async (_, filename: string) => {
   }
 });
 
-  ipcMain.handle("crashReports:generateTest", async () => {
-    try {
-      const testError = new Error("This is a test crash report");
-      testError.stack = "Test stack trace";
-      return await crashReporter.reportError(testError, "Manual test crash report");
-    } catch (error) {
-      log.error("Failed to generate test crash report:", error);
-      return null;
-    }
-  });
+ipcMain.handle("crashReports:generateTest", async () => {
+  try {
+    const testError = new Error("This is a test crash report");
+    testError.stack = "Test stack trace";
+    return await crashReporter.reportError(testError, "Manual test crash report");
+  } catch (error) {
+    log.error("Failed to generate test crash report:", error);
+    return null;
+  }
+});

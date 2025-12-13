@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import TitleBar from "../../components/TitleBar.vue";
 import YTMViewLoading from "../../components/YTMViewLoading.vue";
 import UpdateNotification from "../../components/UpdateNotification.vue";
-import logo from "../../assets/icons/ytmd_white.png";
+import logo from "../../../assets/icons/ytmd_white.png";
 const keyboardFocus = ref<HTMLElement | null>(null);
 const keyboardFocusZero = ref<HTMLElement | null>(null);
 

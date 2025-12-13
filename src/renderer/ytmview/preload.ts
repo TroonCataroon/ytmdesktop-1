@@ -186,7 +186,14 @@ async function hideChromecastButton() {
 }
 
 async function hookPlayerApiEvents() {
-  (await webFrame.executeJavaScript(hookPlayerApiEventsScript))();
+  const result: unknown = await webFrame.executeJavaScript(hookPlayerApiEventsScript);
+
+  // The injected script may either:
+  // - return a callable function (legacy pattern), or
+  // - self-invoke and return `undefined` (current pattern).
+  if (typeof result === "function") {
+    (result as () => void)();
+  }
 }
 
 function overrideHistoryButtonDisplay() {
@@ -282,7 +289,7 @@ window.addEventListener("load", async () => {
   // Add timeout to prevent infinite waiting
   let hookInterval: NodeJS.Timeout | null = null;
   let intervalCleared = false;
-  
+
   const hookTimeout = setTimeout(() => {
     if (!intervalCleared && hookInterval) {
       intervalCleared = true;
@@ -299,7 +306,7 @@ window.addEventListener("load", async () => {
         if (intervalCleared) {
           return;
         }
-        
+
         try {
           const hooked = (
             await webFrame.executeJavaScript(`
@@ -370,7 +377,7 @@ window.addEventListener("load", async () => {
   // Add timeout for material symbols and player API
   let apiInterval: NodeJS.Timeout | null = null;
   let apiIntervalCleared = false;
-  
+
   const apiTimeout = setTimeout(() => {
     if (!apiIntervalCleared && apiInterval) {
       apiIntervalCleared = true;
@@ -387,7 +394,7 @@ window.addEventListener("load", async () => {
         if (apiIntervalCleared) {
           return;
         }
-        
+
         try {
           const playerApiReady: boolean = (
             await webFrame.executeJavaScript(`
