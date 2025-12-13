@@ -62,6 +62,19 @@ yarn install
 yarn start
 ```
 
+## Builder config (non-local deployments)
+This repo includes a `builder.config.json` used by some deployment/build runners. The `serverUrl` must be reachable from wherever that runner is executing.
+
+- **Preferred runtime override**: set `BUILDER_SERVER_URL` (example: `https://your-host.example.com/`).
+- **Environment-specific config files**: you can use `builder.config.local.json`, `builder.config.staging.json`, `builder.config.production.json` and select via `NODE_ENV` (`local` is the default for anything except `production` / `staging`).
+- **If your runner cannot expand `${VAR}` templates**: generate a fully-resolved JSON first:
+  - `yarn builder:config` (writes `builder.config.resolved.json` and prints its path)
+  - `yarn builder:config:write` (also overwrites `builder.config.json` with the resolved values)
+
+Supported env vars:
+- `BUILDER_SERVER_URL`: overrides `serverUrl` at runtime
+- `BUILDER_CONFIG_FILE`: optional path to a specific config file to load instead of `NODE_ENV` selection
+
 # Building the Project
 To build for your platform you need to run `yarn make`, however please see the information below regarding the required additionally Software, Tools and Packages which are needed to successfully package into a nice installer file.
 

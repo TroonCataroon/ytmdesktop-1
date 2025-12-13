@@ -7,6 +7,8 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
+    "builder:config": "node .scripts/resolve-builder-config.mjs",
+    "builder:config:write": "node .scripts/resolve-builder-config.mjs --write",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish:dry": "electron-forge publish --dry-run",
