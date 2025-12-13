@@ -123,7 +123,6 @@ export class SixKLabsWidgetPlugin extends BasePlugin {
 
   onEnable(): void {
     console.log("[6K Labs Widget] Plugin enabled");
-    console.log(`[6K Labs Widget] Widget URL: ${this.getWidgetUrl()}`);
   }
 
   onDisable(): void {
@@ -138,4 +137,3 @@ export class SixKLabsWidgetPlugin extends BasePlugin {
     return `https://6klabs.com/widget/youtube/${token}`;
   }
 }
-

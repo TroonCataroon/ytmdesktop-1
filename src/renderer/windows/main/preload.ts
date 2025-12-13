@@ -10,28 +10,33 @@ import RendererSentryIntegration from "../../integrations/sentry";
 const memoryStore = new MemoryStore<MemoryStoreSchema>();
 
 // Initialize Sentry integration (only once, through the integration class)
-const sentryIntegration = new RendererSentryIntegration();
-sentryIntegration.enable();
+try {
+  const sentryIntegration = new RendererSentryIntegration();
+  sentryIntegration.enable();
+} catch (error) {
+  console.error("Failed to initialize Sentry integration:", error);
+  // Allow the preload script to continue even if Sentry fails
+}
 
 // Set up global error handlers for the renderer process
-window.addEventListener('error', (event) => {
-  console.error('Uncaught error:', event.error);
-  ipcRenderer.send('renderer:unhandledError', {
-    message: event.error?.message || 'Unknown error',
-    stack: event.error?.stack || '',
+window.addEventListener("error", event => {
+  console.error("Uncaught error:", event.error);
+  ipcRenderer.send("renderer:unhandledError", {
+    message: event.error?.message || "Unknown error",
+    stack: event.error?.stack || "",
     source: event.filename,
     line: event.lineno,
     column: event.colno
   });
-  
+
   // Don't prevent default - still allow the error to be logged in the console
 });
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection:', event.reason);
-  ipcRenderer.send('renderer:unhandledRejection', {
-    message: event.reason?.message || 'Unknown promise rejection',
-    stack: event.reason?.stack || '',
+window.addEventListener("unhandledrejection", event => {
+  console.error("Unhandled rejection:", event.reason);
+  ipcRenderer.send("renderer:unhandledRejection", {
+    message: event.reason?.message || "Unknown promise rejection",
+    stack: event.reason?.stack || ""
   });
 });
 
@@ -54,10 +59,11 @@ contextBridge.exposeInMainWorld("ytmd", {
   },
   restartApplicationForUpdate: () => ipcRenderer.send("app:restartApplicationForUpdate"),
   checkForUpdates: () => ipcRenderer.send("app:checkForUpdates"),
-  reportError: (error: Error) => ipcRenderer.send('renderer:reportError', {
-    message: error.message,
-    stack: error.stack
-  })
+  reportError: (error: Error) =>
+    ipcRenderer.send("renderer:reportError", {
+      message: error.message,
+      stack: error.stack
+    })
 });
 
 // Also expose ipcRenderer directly for components that need it
