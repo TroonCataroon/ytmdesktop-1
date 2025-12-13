@@ -49,7 +49,7 @@ const config: ForgeConfig = {
       loadingGif: "./src/assets/icons/ytmd_installer.gif",
       setupIcon: "./src/assets/icons/ytmd.ico",
       remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/${process.env.YTMD_UPDATE_FEED_REPOSITORY ?? "ytmdesktop"}/releases`,
-      remoteToken: process.env.GITHUB_TOKEN,
+      remoteToken: process.env.GITHUB_TOKEN
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({
