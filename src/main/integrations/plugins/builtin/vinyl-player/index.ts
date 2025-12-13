@@ -21,6 +21,7 @@ export class VinylPlayerPlugin extends BasePlugin {
   private vinylWindow: VinylPlayerWindow | null = null;
   private isPlaying = false;
   private currentTrack: TrackInfo | null = null;
+  private initialized = false;
 
   constructor() {
     super({
@@ -63,9 +64,56 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onEnable(): void {
-    this.createVinylWindow();
-    this.setupPlayerStateListener();
-    this.setupIpcHandlers();
+    // Guard: PluginManager can enable plugins before Electron is ready in dev.
+    // `screen` (used by createVinylWindow) cannot be accessed before `app.ready`.
+    if (this.initialized) return;
+    this.initialized = true;
+
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "vinyl-ready-1",
+          hypothesisId: "VR",
+          location: "vinyl-player/index.ts:onEnable",
+          message: "onEnable called",
+          data: { appIsReady: app.isReady() },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
+
+    void app.whenReady().then(() => {
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "vinyl-ready-1",
+            hypothesisId: "VR",
+            location: "vinyl-player/index.ts:onEnable",
+            message: "app.whenReady resolved; initializing vinyl plugin",
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
+      this.createVinylWindow();
+      this.setupPlayerStateListener();
+      this.setupIpcHandlers();
+    });
 
     // Show window on startup if configured or if it was visible when app closed
     const showOnStartup = this.settings.showOnStartup as boolean;
@@ -84,6 +132,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     this.saveWindowState();
     this.destroyVinylWindow();
     this.cleanupIpcHandlers();
+    this.initialized = false;
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
