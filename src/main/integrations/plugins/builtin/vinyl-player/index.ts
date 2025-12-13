@@ -714,6 +714,24 @@ export class VinylPlayerPlugin extends BasePlugin {
             let overlay = null;
             let icon = null;
             let lastTarget = null;
+            const MULTI_CLICK_WINDOW_MS = 350;
+            let clickCount = 0;
+            let clickTimer = null;
+
+            const flushClicks = () => {
+              const n = clickCount;
+              clickCount = 0;
+              if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+              }
+              if (!enabled) return;
+              if (!ipc || !ipc.send) return;
+
+              if (n === 1) ipc.send('vinyl-player:play-pause');
+              else if (n === 2) ipc.send('vinyl-player:next');
+              else if (n >= 3) ipc.send('vinyl-player:previous');
+            };
 
             const clamp01 = (n) => Math.max(0, Math.min(1, n));
             const isVisible = (el) => {
@@ -766,7 +784,18 @@ export class VinylPlayerPlugin extends BasePlugin {
               let best = null;
               let bestScore = -1;
               for (const el of els) {
+                // Never target our own overlay (prevents self-referential drift)
+                try {
+                  if (el && el.id === 'ytmd-vinyl-click-overlay') continue;
+                  if (el && el.closest && el.closest('#ytmd-vinyl-click-overlay')) continue;
+                } catch {}
                 if (!isVisible(el)) continue;
+                // Ignore partially-offscreen candidates (common during initial render)
+                try {
+                  const r = el.getBoundingClientRect();
+                  if (r.top < 0 || r.left < 0) continue;
+                  if (r.bottom > window.innerHeight || r.right > window.innerWidth) continue;
+                } catch {}
                 const score = approxCircleScore(el);
                 if (score > bestScore) {
                   bestScore = score;
@@ -809,7 +838,9 @@ export class VinylPlayerPlugin extends BasePlugin {
                 if (!enabled) return;
                 e.preventDefault();
                 e.stopPropagation();
-                ipc && ipc.send && ipc.send('vinyl-player:play-pause');
+                clickCount += 1;
+                if (clickTimer) clearTimeout(clickTimer);
+                clickTimer = setTimeout(flushClicks, MULTI_CLICK_WINDOW_MS);
               }, true);
 
               overlay.addEventListener('pointerdown', (e) => {
