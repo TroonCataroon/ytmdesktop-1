@@ -134,7 +134,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         // Keep the injected overlay in sync (6K Labs widget mode)
         window.webContents
           .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${Boolean(newSettings.enableButtonFeature)});`)
-          .catch(() => undefined);
+          .catch((): void => undefined);
       }
     }
   }
@@ -482,11 +482,9 @@ export class VinylPlayerPlugin extends BasePlugin {
           (function() {
             const ipc = window.electron && window.electron.ipcRenderer ? window.electron.ipcRenderer : null;
 
-            // Make body draggable
-            try {
-              document.body.style.webkitAppRegion = 'drag';
-              document.body.style.userSelect = 'none';
-            } catch {}
+            // Don't use Electron drag regions here; they can swallow click events.
+            // We use custom click-hold-drag via IPC instead.
+            try { document.body.style.userSelect = 'none'; } catch {}
 
             // Click overlay CSS (kept minimal to avoid affecting widget styles)
             try {
@@ -720,7 +718,7 @@ export class VinylPlayerPlugin extends BasePlugin {
           })();
         `
           )
-          .catch(() => undefined);
+          .catch((): void => undefined);
         /* eslint-enable no-useless-escape */
       }
     });
@@ -846,7 +844,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         const playing = Boolean(this.isPlaying);
         window.webContents
           .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${enabled}); window.__YTMD_VINYL_OVERLAY__?.setPlaying?.(${playing});`)
-          .catch(() => undefined);
+          .catch((): void => undefined);
       }
 
       // Show window if auto-show is enabled and a track is playing

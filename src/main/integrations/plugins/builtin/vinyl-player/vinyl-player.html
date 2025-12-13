@@ -16,7 +16,9 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
             user-select: none;
-            -webkit-app-region: drag;
+            /* Don't use Electron drag regions here; they swallow click events.
+               We use custom click-hold-drag via IPC instead. */
+            -webkit-app-region: no-drag;
         }
 
         .vinyl-container {
@@ -703,33 +705,118 @@
 
         const isOverlayEnabled = () => Boolean(buttonOverlay?.classList.contains('button-enabled'));
 
-        // Pressed feedback + reliable click toggle
+        // Custom window drag + click-to-toggle on the disc.
+        // - Click: toggles play/pause
+        // - Click-hold-drag: moves the window (no toggle)
+        const DRAG_THRESHOLD_PX = 6;
+        let overlayPointerId = null;
+        let overlayStart = { x: 0, y: 0 };
+        let overlayDragged = false;
+        let overlayDraggingWindow = false;
+
+        const shouldIgnoreWindowDrag = (target) => {
+            try {
+                // Don't start window dragging when interacting with controls
+                return Boolean(target && target.closest && target.closest('.controls'));
+            } catch {
+                return false;
+            }
+        };
+
+        // Drag from anywhere except the controls.
+        document.addEventListener('pointerdown', (e) => {
+            if (!e || e.button !== 0) return;
+            if (shouldIgnoreWindowDrag(e.target)) return;
+            // If the down happens on the disc overlay, we'll handle it there (with threshold)
+            if (e.target && e.target.closest && e.target.closest('.button-overlay')) return;
+            ipcRenderer.send('vinyl-player:drag-start');
+        }, true);
+
+        document.addEventListener('pointerup', (e) => {
+            if (!e || e.button !== 0) return;
+            ipcRenderer.send('vinyl-player:drag-end');
+        }, true);
+
+        document.addEventListener('pointercancel', () => {
+            ipcRenderer.send('vinyl-player:drag-end');
+        }, true);
+
+        // Disc overlay: decide between click vs drag using a small movement threshold.
         buttonOverlay?.addEventListener('pointerdown', (e) => {
             if (!isOverlayEnabled()) return;
-            // Prevent window dragging from this region
+            if (!e || e.button !== 0) return;
             e.preventDefault();
             e.stopPropagation();
+
+            overlayPointerId = e.pointerId;
+            overlayStart = { x: e.clientX, y: e.clientY };
+            overlayDragged = false;
+            overlayDraggingWindow = false;
             vinylDisc.classList.add('active');
-        });
 
-        buttonOverlay?.addEventListener('pointerup', () => {
+            try { buttonOverlay.setPointerCapture(e.pointerId); } catch {}
+        }, true);
+
+        buttonOverlay?.addEventListener('pointermove', (e) => {
+            if (!isOverlayEnabled()) return;
+            if (overlayPointerId === null || e.pointerId !== overlayPointerId) return;
+
+            const dx = e.clientX - overlayStart.x;
+            const dy = e.clientY - overlayStart.y;
+            if (!overlayDragged && Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX) {
+                overlayDragged = true;
+                overlayDraggingWindow = true;
+                ipcRenderer.send('vinyl-player:drag-start');
+            }
+        }, true);
+
+        const finishOverlayPointer = (e) => {
+            if (overlayPointerId === null) return;
+            if (e && e.pointerId !== overlayPointerId) return;
+
             vinylDisc.classList.remove('active');
-        });
 
-        buttonOverlay?.addEventListener('pointercancel', () => {
-            vinylDisc.classList.remove('active');
-        });
+            if (overlayDraggingWindow) {
+                ipcRenderer.send('vinyl-player:drag-end');
+            } else {
+                // Treat as click
+                ipcRenderer.send('vinyl-player:play-pause');
+            }
 
-        buttonOverlay?.addEventListener('pointerleave', () => {
-            vinylDisc.classList.remove('active');
-        });
+            overlayPointerId = null;
+            overlayDragged = false;
+            overlayDraggingWindow = false;
+        };
 
-        buttonOverlay?.addEventListener('click', (e) => {
+        buttonOverlay?.addEventListener('pointerup', (e) => {
             if (!isOverlayEnabled()) return;
             e.preventDefault();
             e.stopPropagation();
-            ipcRenderer.send('vinyl-player:play-pause');
-        });
+            finishOverlayPointer(e);
+        }, true);
+
+        buttonOverlay?.addEventListener('pointercancel', (e) => {
+            if (!isOverlayEnabled()) return;
+            e.preventDefault();
+            e.stopPropagation();
+            // If we were dragging, end it; otherwise just clear state (no toggle)
+            if (overlayDraggingWindow) ipcRenderer.send('vinyl-player:drag-end');
+            vinylDisc.classList.remove('active');
+            overlayPointerId = null;
+            overlayDragged = false;
+            overlayDraggingWindow = false;
+        }, true);
+
+        buttonOverlay?.addEventListener('pointerleave', (e) => {
+            // Leaving the overlay while pressed should behave like cancel
+            if (overlayPointerId === null) return;
+            if (e && e.pointerId !== overlayPointerId) return;
+            if (overlayDraggingWindow) ipcRenderer.send('vinyl-player:drag-end');
+            vinylDisc.classList.remove('active');
+            overlayPointerId = null;
+            overlayDragged = false;
+            overlayDraggingWindow = false;
+        }, true);
 
         // Prevent context menu on vinyl disc
         vinylDisc.addEventListener('contextmenu', (e) => {
