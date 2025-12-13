@@ -74,8 +74,15 @@ function getBranchLastCommitDate(branch) {
 }
 
 function isBranchMerged(branch, targetBranch = 'development') {
-  const result = execCommand(`git branch --merged ${targetBranch} | grep -E "^\\s*${branch}$"`);
-  return result.includes(branch);
+  const output = execCommand(`git branch --merged ${targetBranch}`);
+  if (!output) return false;
+
+  const mergedBranches = output
+    .split('\n')
+    .map(line => line.trim().replace(/^[*+]\s*/, '').trim())
+    .filter(Boolean);
+
+  return mergedBranches.some(b => b === branch);
 }
 
 function getBranchCommitCount(branch) {
