@@ -147,10 +147,45 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Handle play/pause from vinyl player window
     ipcMain.on("vinyl-player:play-pause", () => {
-      // Send play/pause command to main window
-      const mainWindow = BrowserWindow.getAllWindows().find(w => w.getTitle().includes("YouTube Music"));
-      if (mainWindow) {
-        mainWindow.webContents.send("remoteControl:execute", "playPause");
+      // Prefer sending remote control to the YouTube Music BrowserView (ytmView),
+      // since that's where `remoteControl:execute` is handled (renderer ytmview preload).
+      const all = BrowserWindow.getAllWindows();
+      let target: Electron.WebContents | null = null;
+
+      for (const win of all) {
+        // Some Electron versions support getBrowserViews; keep it defensive.
+        const getViews = (win as unknown as { getBrowserViews?: () => Array<{ webContents: Electron.WebContents }> }).getBrowserViews;
+        if (typeof getViews !== "function") continue;
+        const views = getViews.call(win) || [];
+        for (const view of views) {
+          try {
+            const url = view.webContents.getURL();
+            if (url && url.startsWith("https://music.youtube.com/")) {
+              target = view.webContents;
+              break;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (target) break;
+      }
+
+      // Fallback to old behavior if we can't find the ytmView.
+      const mainWindow =
+        all.find(w => w.getTitle().includes("YouTube Music")) ??
+        all.find(w => w.getTitle().toLowerCase().includes("youtube")) ??
+        BrowserWindow.getFocusedWindow();
+      if (!target && mainWindow) {
+        target = mainWindow.webContents;
+      }
+
+      if (target) {
+        try {
+          target.send("remoteControl:execute", "playPause");
+        } catch {
+          // ignore
+        }
       }
     });
 
@@ -375,7 +410,6 @@ export class VinylPlayerPlugin extends BasePlugin {
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
-
     // Track mouse position
     const updateMousePosition = setInterval(() => {
       if (isDragging && window && !window.isDestroyed()) {
@@ -482,9 +516,11 @@ export class VinylPlayerPlugin extends BasePlugin {
           (function() {
             const ipc = window.electron && window.electron.ipcRenderer ? window.electron.ipcRenderer : null;
 
-            // Don't use Electron drag regions here; they can swallow click events.
-            // We use custom click-hold-drag via IPC instead.
-            try { document.body.style.userSelect = 'none'; } catch {}
+            // Use Electron drag regions for stable window movement; overlay is no-drag.
+            try {
+              document.body.style.webkitAppRegion = 'drag';
+              document.body.style.userSelect = 'none';
+            } catch {}
 
             // Click overlay CSS (kept minimal to avoid affecting widget styles)
             try {
