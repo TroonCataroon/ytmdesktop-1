@@ -3,7 +3,7 @@ import FastifyIO from "fastify-socket";
 import CompanionServerAPIv1 from "./api/v1";
 import { MemoryStoreSchema, StoreSchema } from "~shared/store/schema";
 import Conf from "conf";
-import { BrowserView, safeStorage } from "electron";
+import { BrowserView, safeStorage, app } from "electron";
 import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { AuthToken } from "~shared/integrations/companion-server/types";
 import { RemoteSocket } from "socket.io";
@@ -14,6 +14,8 @@ import log from "electron-log";
 import { isDefinedAPIError, getStandardizedError, InternalServerError } from "./api-shared/errors";
 import BaseIntegration from "../base-integration";
 import os from "os";
+import path from "path";
+import fs from "fs/promises";
 
 export default class CompanionServer extends BaseIntegration {
   private listenIp = "0.0.0.0";
@@ -315,6 +317,21 @@ export default class CompanionServer extends BaseIntegration {
           inLibrary: false
         }
       });
+    });
+
+    // OBS/browser-source friendly overlay (local remake UI powered by /query)
+    this.fastifyServer.get("/overlay/vinyl", async (_request, reply) => {
+      try {
+        const htmlPath = app.isPackaged
+          ? path.join(__dirname, "..", "plugins", "builtin", "vinyl-player", "vinyl-remake.html")
+          : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-remake.html");
+        const html = await fs.readFile(htmlPath, { encoding: "utf-8" });
+        reply.header("Cache-Control", "no-store");
+        reply.type("text/html").send(html);
+      } catch (error) {
+        log.error("Failed to serve vinyl overlay page:", error);
+        reply.type("text/plain").send("Failed to load overlay page.");
+      }
     });
 
     // Setup compatibility namespaces for third-party widgets (e.g., 6K Labs)

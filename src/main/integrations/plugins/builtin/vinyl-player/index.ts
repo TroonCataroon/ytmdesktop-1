@@ -15,6 +15,8 @@ interface TrackInfo {
   thumbnail: string;
   isPlaying: boolean;
   spinSpeed: number;
+  durationSeconds?: number;
+  progressSeconds?: number;
 }
 
 export class VinylPlayerPlugin extends BasePlugin {
@@ -38,7 +40,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         spinSpeed: 2,
         showControls: true,
         opacity: 0.9,
-        use6KLabsWidget: true, // Toggle between custom vinyl player and 6K Labs widget
+        widgetMode: "remake", // 'custom' | 'remake' | '6klabs'
+        use6KLabsWidget: true, // Legacy toggle (kept for backward compatibility); prefer widgetMode
         enableBoundaryCollision: true, // Prevent window from going off-screen
         enableBoundaryMagnetism: true, // Snap to screen edges
         magnetismThreshold: 20, // Pixels from edge to trigger magnetism
@@ -59,7 +62,9 @@ export class VinylPlayerPlugin extends BasePlugin {
       artist: "Unknown Artist",
       thumbnail: "",
       isPlaying: false,
-      spinSpeed: 1
+      spinSpeed: 1,
+      durationSeconds: 0,
+      progressSeconds: 0
     };
   }
 
@@ -113,18 +118,18 @@ export class VinylPlayerPlugin extends BasePlugin {
       this.createVinylWindow();
       this.setupPlayerStateListener();
       this.setupIpcHandlers();
+
+      // Show window on startup if configured or if it was visible when app closed
+      const showOnStartup = this.settings.showOnStartup as boolean;
+      const wasVisible = this.settings.wasVisibleOnClose as boolean;
+
+      if (showOnStartup || wasVisible) {
+        // Small delay to ensure player state is loaded
+        setTimeout(() => {
+          this.showVinylWindow();
+        }, 1000);
+      }
     });
-
-    // Show window on startup if configured or if it was visible when app closed
-    const showOnStartup = this.settings.showOnStartup as boolean;
-    const wasVisible = this.settings.wasVisibleOnClose as boolean;
-
-    if (showOnStartup || wasVisible) {
-      // Small delay to ensure player state is loaded
-      setTimeout(() => {
-        this.showVinylWindow();
-      }, 1000);
-    }
   }
 
   onDisable(): void {
@@ -137,7 +142,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
     // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
-    if (newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget || newSettings.enableResizing !== this.settings.enableResizing) {
+    if (
+      newSettings.widgetMode !== this.settings.widgetMode ||
+      newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget ||
+      newSettings.enableResizing !== this.settings.enableResizing
+    ) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
       this.destroyVinylWindow();
       this.createVinylWindow();
@@ -149,7 +158,14 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     if (this.vinylWindow?.window) {
       const window = this.vinylWindow.window;
-      const nextUse6KLabs = newSettings.use6KLabsWidget !== undefined ? Boolean(newSettings.use6KLabsWidget) : Boolean(this.settings.use6KLabsWidget);
+      const nextWidgetMode =
+        typeof newSettings.widgetMode === "string"
+          ? String(newSettings.widgetMode)
+          : typeof this.settings.widgetMode === "string"
+            ? String(this.settings.widgetMode)
+            : this.settings.use6KLabsWidget
+              ? "6klabs"
+              : "custom";
 
       if (newSettings.alwaysOnTop !== this.settings.alwaysOnTop) {
         window.setAlwaysOnTop(newSettings.alwaysOnTop as boolean);
@@ -159,8 +175,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      // Use computed "nextUse6KLabs" so undefined doesn't incorrectly behave as "custom mode"
-      if (newSettings.windowSize !== this.settings.windowSize && !nextUse6KLabs) {
+      if (newSettings.windowSize !== this.settings.windowSize && nextWidgetMode === "custom") {
         const size = newSettings.windowSize as number;
         const enableResizing = newSettings.enableResizing as boolean;
         window.setSize(size, size);
@@ -173,8 +188,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         }
       }
 
-      // Send updated settings to the vinyl player window (only for custom player)
-      if (!nextUse6KLabs) {
+      // Send updated settings to the vinyl player window (local modes: custom + remake)
+      if (nextWidgetMode === "custom" || nextWidgetMode === "remake") {
         window.webContents.send("vinyl-player:update-settings", {
           showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls,
           enableButtonFeature: newSettings.enableButtonFeature !== undefined ? newSettings.enableButtonFeature : this.settings.enableButtonFeature
@@ -291,6 +306,31 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Handle play/pause from vinyl player window
     ipcMain.on("vinyl-player:play-pause", () => {
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
+
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "vinyl-play-1",
+            hypothesisId: "VP2",
+            location: "vinyl-player/index.ts:ipc:play-pause",
+            message: "received; forwarding remoteControl:execute",
+            data: {
+              hasTarget: Boolean(target),
+              targetUrl: target ? String(target.getURL?.() || "") : "",
+              appIsReady: app.isReady()
+            },
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
       if (target) {
         try {
           target.send("remoteControl:execute", "playPause");
@@ -410,7 +450,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const use6KLabs = this.settings.use6KLabsWidget as boolean;
     const enableResizing = this.settings.enableResizing as boolean;
-    const size = use6KLabs ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
+    const widgetMode = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) : use6KLabs ? "6klabs" : "custom";
+    const use6K = widgetMode === "6klabs";
+    const useRemake = widgetMode === "remake";
+
+    const size = use6K ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
 
     // Restore saved window position and size if available
     const savedX = this.settings.savedWindowX as number | undefined;
@@ -418,23 +462,25 @@ export class VinylPlayerPlugin extends BasePlugin {
     const savedWidth = this.settings.savedWindowWidth as number | undefined;
     const savedHeight = this.settings.savedWindowHeight as number | undefined;
 
-    const width = savedWidth || size;
-    const height = savedHeight || (use6KLabs ? 200 : size);
+    const remakeDefaultWidth = 922;
+    const remakeDefaultHeight = 282;
+    const width = savedWidth || (useRemake ? remakeDefaultWidth : size);
+    const height = savedHeight || (use6K ? 200 : useRemake ? remakeDefaultHeight : size);
 
     const browserWindowOptions: Electron.BrowserWindowConstructorOptions = {
       width,
       height,
-      minWidth: use6KLabs ? 400 : enableResizing ? 160 : size,
-      minHeight: use6KLabs ? 100 : enableResizing ? 160 : size,
-      maxWidth: use6KLabs || enableResizing ? undefined : size, // Allow resizing if enabled
-      maxHeight: use6KLabs || enableResizing ? undefined : size,
+      minWidth: use6K ? 400 : enableResizing ? 160 : size,
+      minHeight: use6K ? 100 : enableResizing ? 160 : size,
+      maxWidth: use6K || enableResizing || useRemake ? undefined : size, // Allow resizing if enabled
+      maxHeight: use6K || enableResizing || useRemake ? undefined : size,
       frame: false,
       transparent: true,
       alwaysOnTop: this.settings.alwaysOnTop as boolean,
-      resizable: use6KLabs || enableResizing, // Allow resizing based on setting
+      resizable: use6K || useRemake || enableResizing, // Allow resizing based on setting
       skipTaskbar: false,
       show: false,
-      title: use6KLabs ? "6K Labs Widget" : "Vinyl Player",
+      title: use6K ? "6K Labs Widget" : useRemake ? "Remake Widget" : "Vinyl Player",
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -460,7 +506,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const window = this.vinylWindow.window;
 
-    if (use6KLabs) {
+    if (use6K) {
       // For 6K Labs widget, load external URL with permissive CSP
       window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
         callback({
@@ -547,10 +593,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         });
       });
 
-      // Load the custom vinyl player HTML
+      // Load the local HTML (custom or remake)
+      const localHtmlFile = useRemake ? "vinyl-remake.html" : "vinyl-player.html";
       const htmlPath = app.isPackaged
-        ? path.join(__dirname, "vinyl-player.html")
-        : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html");
+        ? path.join(__dirname, localHtmlFile)
+        : path.join(process.cwd(), `src/main/integrations/plugins/builtin/vinyl-player/${localHtmlFile}`);
       window.loadFile(htmlPath);
     }
 
@@ -668,7 +715,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Send initial settings to the vinyl player window once it's ready (custom player only)
     window.webContents.on("did-finish-load", () => {
-      if (!use6KLabs) {
+      if (!use6K) {
         window.webContents.send("vinyl-player:update-settings", {
           showControls: this.settings.showControls as boolean,
           enableButtonFeature: this.settings.enableButtonFeature as boolean
@@ -1024,6 +1071,30 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   // Public methods for external control
   public showVinylWindow(): boolean {
+    if (!app.isReady()) {
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "vinyl-ready-1",
+            hypothesisId: "VR",
+            location: "vinyl-player/index.ts:showVinylWindow",
+            message: "called before app ready; deferring",
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+      void app.whenReady().then(() => this.showVinylWindow());
+      return false;
+    }
+
     if (!this.vinylWindow) {
       this.createVinylWindow();
     }
@@ -1068,7 +1139,9 @@ export class VinylPlayerPlugin extends BasePlugin {
         artist: state.videoDetails.author || "Unknown Artist",
         thumbnail: this.getBestThumbnail(state.videoDetails.thumbnails),
         isPlaying,
-        spinSpeed: Number(this.settings.spinSpeed ?? 1)
+        spinSpeed: Number(this.settings.spinSpeed ?? 1),
+        durationSeconds: Number(state.videoDetails.durationSeconds ?? 0),
+        progressSeconds: Number(state.videoProgress ?? 0)
       };
 
       // Only update if track info has changed
@@ -1083,7 +1156,9 @@ export class VinylPlayerPlugin extends BasePlugin {
         artist: "",
         thumbnail: "",
         isPlaying: false,
-        spinSpeed: Number(this.settings.spinSpeed ?? 1)
+        spinSpeed: Number(this.settings.spinSpeed ?? 1),
+        durationSeconds: 0,
+        progressSeconds: 0
       };
       this.updateVinylDisplay();
     }
@@ -1111,7 +1186,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     }
 
     const window = this.vinylWindow.window;
-    const use6KLabs = Boolean(this.settings.use6KLabsWidget);
+    const use6KLabs = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) === "6klabs" : Boolean(this.settings.use6KLabsWidget);
 
     try {
       const trackData = {
@@ -1119,7 +1194,9 @@ export class VinylPlayerPlugin extends BasePlugin {
         artist: this.currentTrack?.artist || "Unknown Artist",
         thumbnail: this.currentTrack?.thumbnail || "",
         isPlaying: this.isPlaying,
-        spinSpeed: Number(this.settings.spinSpeed ?? 1)
+        spinSpeed: Number(this.settings.spinSpeed ?? 1),
+        durationSeconds: Number(this.currentTrack?.durationSeconds ?? 0),
+        progressSeconds: Number(this.currentTrack?.progressSeconds ?? 0)
       };
 
       // Send track info to the renderer
@@ -1222,10 +1299,21 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   static getSettingsSchema(): PluginSettings {
     return {
+      widgetMode: {
+        type: "select",
+        label: "Widget Mode",
+        description: "Choose what the pop-out window displays.",
+        default: "remake",
+        options: [
+          { value: "custom", label: "Custom Vinyl Player (built-in)" },
+          { value: "remake", label: "Remake Widget (local, customizable)" },
+          { value: "6klabs", label: "6K Labs Widget (external URL)" }
+        ]
+      },
       use6KLabsWidget: {
         type: "boolean",
-        label: "Use 6K Labs Widget",
-        description: "Load 6K Labs widget instead of custom vinyl player (requires 6K Labs Widget plugin token)",
+        label: "Use 6K Labs Widget (Legacy)",
+        description: "Legacy toggle (kept for compatibility). Prefer using Widget Mode above.",
         default: false
       },
       windowSize: {

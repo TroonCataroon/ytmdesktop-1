@@ -25,11 +25,50 @@ const store = new Store<StoreSchema>();
 const sentryIntegration = new RendererSentryIntegration();
 sentryIntegration.enable();
 
+// #region agent log (debug instrumentation)
+const __ytmdDbgPlay = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
+  try {
+    fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "debug-session", runId: "vinyl-play-1", hypothesisId, location, message, data, timestamp: Date.now() })
+    }).catch((): void => undefined);
+  } catch {
+    // ignore
+  }
+};
+// #endregion agent log (debug instrumentation)
+
 contextBridge.exposeInMainWorld("ytmd", {
   sendVideoProgress: (volume: number) => ipcRenderer.send("ytmView:videoProgressChanged", volume),
   sendVideoState: (state: number) => ipcRenderer.send("ytmView:videoStateChanged", state),
-  sendVideoData: (videoDetails: unknown, playlistId: string, album: { id: string; text: string }, likeStatus: unknown, hasFullMetadata: boolean) =>
-    ipcRenderer.send("ytmView:videoDataChanged", videoDetails, playlistId, album, likeStatus, hasFullMetadata),
+  sendVideoData: (videoDetails: unknown, playlistId: string, album: { id: string; text: string }, likeStatus: unknown, hasFullMetadata: boolean) => {
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "resume-2",
+          hypothesisId: "R2",
+          location: "ytmview/preload.ts:sendVideoData",
+          message: "sendVideoData called",
+          data: {
+            hasVideoId: typeof videoDetails === "object" && videoDetails !== null && "videoId" in videoDetails,
+            playlistId: String(playlistId || ""),
+            hasAlbum: Boolean(album?.id),
+            hasFullMetadata: Boolean(hasFullMetadata)
+          },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
+    ipcRenderer.send("ytmView:videoDataChanged", videoDetails, playlistId, album, likeStatus, hasFullMetadata);
+  },
   sendStoreUpdate: (queueState: unknown, likeStatus: string, volume: number, muted: boolean, adPlaying: boolean) =>
     ipcRenderer.send("ytmView:storeStateChanged", queueState, likeStatus, volume, muted, adPlaying),
   sendCreatePlaylistObservation: (playlist: unknown) => ipcRenderer.send("ytmView:createPlaylistObserved", playlist),
@@ -532,57 +571,128 @@ window.addEventListener("load", async () => {
     ipcRenderer.on("remoteControl:execute", async (_event, command, value) => {
       switch (command) {
         case "playPause": {
-          (
-            await webFrame.executeJavaScript(`
+          // #region agent log (debug instrumentation)
+          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "received", { value: value ?? null });
+          // #endregion agent log (debug instrumentation)
+
+          // Snapshot before attempting the action (in main world)
+          const before = (await webFrame.executeJavaScript(`
             (function() {
-              document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playing ? document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.pauseVideo() : document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.playVideo();
-            })
-          `)
-          )();
+              try {
+                const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+                return {
+                  hasBar: Boolean(bar),
+                  hasApi: Boolean(bar && bar.playerApi),
+                  playing: Boolean(bar && bar.playing),
+                  userActivation: (navigator.userActivation ? { isActive: navigator.userActivation.isActive, hasBeenActive: navigator.userActivation.hasBeenActive } : null)
+                };
+              } catch (e) {
+                return { error: String(e) };
+              }
+            })()
+          `)) as unknown;
+
+          // #region agent log (debug instrumentation)
+          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "before", { before });
+          // #endregion agent log (debug instrumentation)
+
+          const actionResult = await webFrame.executeJavaScript(
+            `
+            (function() {
+              try {
+                const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+                if (!bar || !bar.playerApi) return { ok: false, reason: "no-bar-or-api" };
+                if (bar.playing) {
+                  bar.playerApi.pauseVideo();
+                } else {
+                  bar.playerApi.playVideo();
+                }
+                return { ok: true };
+              } catch (e) {
+                return { ok: false, error: String(e) };
+              }
+            })()
+          `,
+            true
+          );
+
+          // #region agent log (debug instrumentation)
+          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "actionResult", { actionResult });
+          // #endregion agent log (debug instrumentation)
+
+          // Snapshot after attempting the action
+          const after = (await webFrame.executeJavaScript(`
+            (function() {
+              try {
+                const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+                return {
+                  hasBar: Boolean(bar),
+                  hasApi: Boolean(bar && bar.playerApi),
+                  playing: Boolean(bar && bar.playing),
+                  userActivation: (navigator.userActivation ? { isActive: navigator.userActivation.isActive, hasBeenActive: navigator.userActivation.hasBeenActive } : null)
+                };
+              } catch (e) {
+                return { error: String(e) };
+              }
+            })()
+          `)) as unknown;
+
+          // #region agent log (debug instrumentation)
+          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "after", { after });
+          // #endregion agent log (debug instrumentation)
+
           break;
         }
 
         case "play": {
-          (
-            await webFrame.executeJavaScript(`
+          await webFrame.executeJavaScript(
+            `
             (function() {
-              document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.playVideo();
-            })
-          `)
-          )();
+              const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+              if (bar && bar.playerApi) bar.playerApi.playVideo();
+            })()
+          `,
+            true
+          );
           break;
         }
 
         case "pause": {
-          (
-            await webFrame.executeJavaScript(`
+          await webFrame.executeJavaScript(
+            `
             (function() {
-              document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.pauseVideo();
-            })
-          `)
-          )();
+              const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+              if (bar && bar.playerApi) bar.playerApi.pauseVideo();
+            })()
+          `,
+            true
+          );
           break;
         }
 
         case "next": {
-          (
-            await webFrame.executeJavaScript(`
+          await webFrame.executeJavaScript(
+            `
             (function() {
-              document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.nextVideo();
-            })
-          `)
-          )();
+              const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+              if (bar && bar.playerApi) bar.playerApi.nextVideo();
+            })()
+          `,
+            true
+          );
           break;
         }
 
         case "previous": {
-          (
-            await webFrame.executeJavaScript(`
+          await webFrame.executeJavaScript(
+            `
             (function() {
-              document.querySelector("ytmusic-app-layout>ytmusic-player-bar").playerApi.previousVideo();
-            })
-          `)
-          )();
+              const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+              if (bar && bar.playerApi) bar.playerApi.previousVideo();
+            })()
+          `,
+            true
+          );
           break;
         }
 

@@ -619,6 +619,18 @@
         };
         // #endregion agent log (debug instrumentation)
 
+        // #region agent log (debug instrumentation)
+        const __ytmdDbgPlay = (location, message, data) => {
+            try {
+                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({sessionId:'debug-session',runId:'vinyl-play-1',hypothesisId:'VP1',location,message,data,timestamp:Date.now()})
+                }).catch(()=>{});
+            } catch {}
+        };
+        // #endregion agent log (debug instrumentation)
+
         // DOM elements
         const trackTitle = document.getElementById('track-title');
         const trackArtist = document.getElementById('track-artist');
@@ -722,6 +734,9 @@
 
         // Event listeners
         playPauseBtn.addEventListener('click', () => {
+            // #region agent log (debug instrumentation)
+            __ytmdDbgPlay('vinyl-player.html:playPauseBtn', 'click', { via: 'control-btn' });
+            // #endregion agent log (debug instrumentation)
             ipcRenderer.send('vinyl-player:play-pause');
         });
 
@@ -732,6 +747,15 @@
         // Listen for track updates from main process
         // Note: preload strips the event, so the first arg is the actual data
         ipcRenderer.on('vinyl-player:update-track', (track) => {
+            // #region agent log (debug instrumentation)
+            try {
+                __ytmdDbgPlay('vinyl-player.html:update-track', 'received', {
+                    title: String(track?.title || ''),
+                    artist: String(track?.artist || ''),
+                    isPlaying: Boolean(track?.isPlaying)
+                });
+            } catch {}
+            // #endregion agent log (debug instrumentation)
             updateTrackInfo(track);
         });
 
@@ -799,6 +823,12 @@
             if (n === 1) ipcRenderer.send('vinyl-player:play-pause');
             else if (n === 2) ipcRenderer.send('vinyl-player:next');
             else if (n >= 3) ipcRenderer.send('vinyl-player:previous');
+
+            // #region agent log (debug instrumentation)
+            if (n === 1) {
+                __ytmdDbgPlay('vinyl-player.html:flushClicks', 'sent play-pause', { via: 'overlay' });
+            }
+            // #endregion agent log (debug instrumentation)
         };
 
         buttonOverlay?.addEventListener('click', (e) => {

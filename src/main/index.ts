@@ -784,13 +784,13 @@ store.onDidAnyChange(async (newState, oldState) => {
 log.info("Created electron store");
 
 // #region agent log (debug instrumentation)
-const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => {
+const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
   try {
     fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: "debug-session", runId: "resume-1", hypothesisId, location, message, data, timestamp: Date.now() })
-    }).catch(() => undefined);
+    }).catch((): void => undefined);
   } catch {
     // swallow
   }
@@ -2214,6 +2214,30 @@ app.on("ready", async () => {
     // Update in-memory state
     lastVideoId = videoDetails.videoId;
     lastPlaylistId = playlistId;
+
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "resume-2",
+          hypothesisId: "R3",
+          location: "main/index.ts:ytmView:videoDataChanged",
+          message: "received videoDataChanged",
+          data: {
+            lastUrl,
+            lastVideoId: String(lastVideoId || ""),
+            lastPlaylistId: String(lastPlaylistId || "")
+          },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
 
     // Update player state store
     playerStateStore.updateVideoDetails(videoDetails, playlistId, album, likeStatus, hasFullMetadata);
