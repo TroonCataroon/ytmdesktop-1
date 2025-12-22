@@ -74,48 +74,41 @@
         position: relative;
         width: 100%;
         height: 100%;
-        /* Reserve space for the bottom progress bar */
-        padding: 18px 18px 44px;
+        padding: 14px 16px;
       }
 
-      /* 6K-ish layout: circle on the left, stacked panels on the right, progress bar at bottom */
       .card {
-        --circleMax: 220px;
-        --circleMin: 110px;
-        /* Derived from window height so the circle scales with the window */
-        --circleSize: clamp(var(--circleMin), calc(100vh - 90px), var(--circleMax));
-
         width: 100%;
         height: 100%;
-        border-radius: 20px;
+        border-radius: 18px;
         border: 1px solid var(--border);
         background: linear-gradient(180deg, var(--bg), var(--bg2));
         box-shadow: var(--shadow);
         backdrop-filter: blur(18px);
-        position: relative;
-        overflow: hidden; /* lets the circle bleed/clip nicely like 6K */
-
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 18px 18px;
+        gap: 14px;
+        padding: 12px;
+        position: relative;
       }
 
+      /* Left: disc/cover */
       .disc-wrap {
         position: relative;
-        width: var(--circleSize);
-        height: var(--circleSize);
-        flex: 0 0 auto;
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        aspect-ratio: 1;
+        flex-shrink: 0;
         -webkit-app-region: no-drag;
-        filter: drop-shadow(0 18px 50px rgba(0, 0, 0, 0.55));
       }
 
-      /* Vinyl background layer (spins) */
       .disc {
-        position: absolute;
-        inset: 0;
+        width: 100%;
+        height: 100%;
         border-radius: 999px;
+        position: relative;
         background:
           radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.06), transparent 48%), conic-gradient(from 0deg, #0a0a0a, #161616, #0e0e0e, #262626, #0a0a0a);
         box-shadow:
@@ -134,6 +127,11 @@
         filter: grayscale(0.5) brightness(0.86);
       }
 
+      .disc:hover {
+        transform: scale(1.01);
+        filter: brightness(1.06);
+      }
+
       .grooves {
         position: absolute;
         inset: 0;
@@ -145,25 +143,32 @@
         pointer-events: none;
       }
 
-      /* Album art on top */
+      .label {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 40%;
+        height: 40%;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent 60%),
+          linear-gradient(135deg, #2c1810 0%, #8b4513 20%, #a0522d 40%, #8b4513 60%, #654321 100%);
+        border: 2px solid rgba(139, 69, 19, 0.75);
+        box-shadow:
+          inset 0 0 12px rgba(0, 0, 0, 0.55),
+          0 10px 26px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+
       .cover {
         position: absolute;
-        inset: 14%;
+        inset: 7%;
         border-radius: 999px;
         background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
         background-size: cover;
         background-position: center;
         box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45);
-        overflow: hidden;
-      }
-
-      .cover::after {
-        position: absolute;
-        inset: 0;
-        content: "";
-        background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), transparent 55%);
-        opacity: 0.75;
-        pointer-events: none;
       }
 
       .hole {
@@ -171,8 +176,8 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 7%;
-        height: 7%;
+        width: 8%;
+        height: 8%;
         border-radius: 50%;
         background: radial-gradient(circle, #000 0%, #1a1a1a 70%, #333 100%);
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.85);
@@ -229,30 +234,19 @@
         fill: var(--btnIcon);
       }
 
-      /* Right: stacked panels (closer to 6K widget) */
+      /* Right: text + progress */
       .info {
-        flex: 1 1 auto;
+        flex: 1;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 8px;
         min-width: 0;
         height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 12px;
-        padding-right: 6px;
-      }
-
-      .panel {
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(36, 44, 58, 0.65);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        padding: 14px 16px;
-        min-width: 0;
+        padding-top: 4px;
       }
 
       .badge {
-        align-self: flex-end;
+        justify-self: end;
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.06em;
@@ -261,22 +255,22 @@
         padding: 6px 10px;
         border-radius: 999px;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(0, 0, 0, 0.24);
+        background: rgba(0, 0, 0, 0.22);
         backdrop-filter: blur(10px);
       }
 
       .title {
-        font-size: clamp(18px, 5.3vh, 34px);
+        font-size: 26px;
         font-weight: 800;
         line-height: 1.05;
-        color: rgba(255, 120, 140, 0.95); /* 6K-ish accent */
+        color: var(--text);
         min-width: 0;
       }
 
       .artist {
-        font-size: clamp(12px, 2.9vh, 18px);
+        font-size: 15px;
         font-weight: 600;
-        color: rgba(255, 255, 255, 0.72);
+        color: var(--muted);
         min-width: 0;
       }
 
@@ -306,11 +300,28 @@
         }
       }
 
-      .row {
+      .progress {
+        align-self: end;
         display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 12px;
-        align-items: center;
+        gap: 8px;
+      }
+
+      .bar {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--bar);
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .bar > .fill {
+        height: 100%;
+        width: 0%;
+        background: var(--barFill);
+        border-radius: 999px;
+        box-shadow: 0 0 18px rgba(242, 46, 118, 0.28);
+        transition: width 220ms ease;
       }
 
       .times {
@@ -320,74 +331,10 @@
         color: rgba(255, 255, 255, 0.65);
       }
 
-      .time {
-        font-size: clamp(12px, 2.4vh, 16px);
-        font-weight: 800;
-        color: rgba(255, 130, 150, 0.95);
-        letter-spacing: 0.02em;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .wave {
-        height: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        opacity: 0.95;
-      }
-
-      .wave span {
-        width: 4px;
-        height: 35%;
-        border-radius: 999px;
-        background: rgba(255, 80, 96, 0.92);
-        transform-origin: center;
-      }
-
-      .wave.playing span {
-        animation: wave 1.15s ease-in-out infinite;
-        animation-delay: var(--d, 0ms);
-      }
-
-      @keyframes wave {
-        0%,
-        100% {
-          transform: scaleY(0.35);
-          opacity: 0.7;
-        }
-        45% {
-          transform: scaleY(1.15);
-          opacity: 1;
-        }
-      }
-
-      .progressBar {
-        position: absolute;
-        left: 18px;
-        right: 18px;
-        bottom: 18px;
-        height: 12px;
-        border-radius: 999px;
-        background: rgba(10, 12, 16, 0.55);
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        overflow: hidden;
-      }
-
-      .progressBar > .fill {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, rgba(255, 76, 90, 0.95), rgba(255, 76, 90, 0.55));
-        border-radius: 999px;
-        box-shadow: 0 0 18px rgba(255, 76, 90, 0.3);
-        transition: width 220ms ease;
-      }
-
       .controls {
         position: absolute;
-        right: 18px;
-        top: 50%;
-        transform: translateY(-50%);
+        right: 14px;
+        bottom: 14px;
         display: flex;
         gap: 10px;
         z-index: 20;
@@ -440,19 +387,14 @@
         }
       }
 
-      /* Compact widths */
-      @media (max-width: 560px) {
-        .card {
-          gap: 12px;
-          padding: 16px 16px;
+      /* Responsive fallback */
+      @media (max-width: 520px) {
+        .title {
+          font-size: 20px;
         }
-        .frame {
-          padding: 16px 16px 42px;
-        }
-        .progressBar {
-          left: 16px;
-          right: 16px;
-          bottom: 16px;
+        .badge {
+          font-size: 10px;
+          padding: 4px 8px;
         }
       }
     </style>
@@ -464,49 +406,32 @@
         <div class="disc-wrap">
           <div class="disc" id="disc">
             <div class="grooves"></div>
+            <div class="label">
+              <div class="cover" id="cover"></div>
+            </div>
             <div class="hole"></div>
             <div class="disc-overlay" id="discOverlay">
               <div class="icon" id="overlayIcon" aria-hidden="true"></div>
             </div>
           </div>
-          <div class="cover" id="cover"></div>
         </div>
 
         <div class="info">
           <div class="badge" id="badge">YTMDesktop</div>
-          <div class="panel">
-            <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
-            <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
-          </div>
-          <div class="panel row">
-            <div class="time" id="tCur">0:00</div>
-            <div class="wave" id="wave" aria-hidden="true">
-              <span style="--d: 0ms"></span>
-              <span style="--d: 80ms"></span>
-              <span style="--d: 160ms"></span>
-              <span style="--d: 240ms"></span>
-              <span style="--d: 320ms"></span>
-              <span style="--d: 400ms"></span>
-              <span style="--d: 480ms"></span>
-              <span style="--d: 560ms"></span>
-              <span style="--d: 640ms"></span>
-              <span style="--d: 720ms"></span>
-              <span style="--d: 800ms"></span>
-              <span style="--d: 880ms"></span>
-              <span style="--d: 960ms"></span>
-              <span style="--d: 1040ms"></span>
+          <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
+          <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
+          <div class="progress">
+            <div class="bar"><div class="fill" id="barFill"></div></div>
+            <div class="times">
+              <span id="tCur">0:00</span>
+              <span id="tDur">0:00</span>
             </div>
-            <div class="time" id="tDur">0:00</div>
           </div>
         </div>
 
         <div class="controls" id="controls">
           <button class="btn" id="btnPlayPause" title="Play/Pause" aria-label="Play/Pause"></button>
           <button class="btn close" id="btnClose" title="Close" aria-label="Close"></button>
-        </div>
-
-        <div class="progressBar" aria-hidden="true">
-          <div class="fill" id="barFill"></div>
         </div>
       </div>
     </div>
@@ -526,7 +451,6 @@
         barFill: document.getElementById("barFill"),
         tCur: document.getElementById("tCur"),
         tDur: document.getElementById("tDur"),
-        wave: document.getElementById("wave"),
         controls: document.getElementById("controls"),
         btnPlayPause: document.getElementById("btnPlayPause"),
         btnClose: document.getElementById("btnClose"),
@@ -605,7 +529,6 @@
         if (els.tCur) els.tCur.textContent = formatTime(prog);
         if (els.tDur) els.tDur.textContent = formatTime(dur);
         if (els.barFill) els.barFill.style.width = `${pct * 100}%`;
-        if (els.wave) els.wave.classList.toggle("playing", isPlaying);
 
         // Cover + backdrop
         if (els.cover) {
