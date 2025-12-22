@@ -20,6 +20,10 @@ interface TrackInfo {
 }
 
 export class VinylPlayerPlugin extends BasePlugin {
+  private static readonly REMAKE_DEFAULT_WIDTH = 922;
+  private static readonly REMAKE_DEFAULT_HEIGHT = 282;
+  private static readonly REMAKE_ASPECT = VinylPlayerPlugin.REMAKE_DEFAULT_WIDTH / VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT;
+
   private vinylWindow: VinylPlayerWindow | null = null;
   private isPlaying = false;
   private currentTrack: TrackInfo | null = null;
@@ -167,6 +171,8 @@ export class VinylPlayerPlugin extends BasePlugin {
               ? "6klabs"
               : "custom";
 
+      const isRemake = nextWidgetMode === "remake";
+
       if (newSettings.alwaysOnTop !== this.settings.alwaysOnTop) {
         window.setAlwaysOnTop(newSettings.alwaysOnTop as boolean);
       }
@@ -175,16 +181,31 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      if (newSettings.windowSize !== this.settings.windowSize && nextWidgetMode === "custom") {
-        const size = newSettings.windowSize as number;
+      if (newSettings.windowSize !== this.settings.windowSize && (nextWidgetMode === "custom" || isRemake)) {
+        const size = Number(newSettings.windowSize as number);
         const enableResizing = newSettings.enableResizing as boolean;
-        window.setSize(size, size);
+        if (isRemake) {
+          // Reuse the existing slider but apply it as the REMAKE HEIGHT, keeping the screenshot aspect ratio.
+          // This makes the remake widget scale nicely without inventing new UI controls.
+          const height = Math.max(160, Math.min(size, 800));
+          const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
+          window.setSize(width, height);
+        } else {
+          window.setSize(size, size);
+        }
         if (enableResizing) {
           window.setMinimumSize(160, 160);
           window.setMaximumSize(0, 0); // 0,0 means no max
         } else {
-          window.setMinimumSize(size, size);
-          window.setMaximumSize(size, size);
+          if (isRemake) {
+            const height = Math.max(160, Math.min(size, 800));
+            const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
+            window.setMinimumSize(width, height);
+            window.setMaximumSize(width, height);
+          } else {
+            window.setMinimumSize(size, size);
+            window.setMaximumSize(size, size);
+          }
         }
       }
 
@@ -462,10 +483,12 @@ export class VinylPlayerPlugin extends BasePlugin {
     const savedWidth = this.settings.savedWindowWidth as number | undefined;
     const savedHeight = this.settings.savedWindowHeight as number | undefined;
 
-    const remakeDefaultWidth = 922;
-    const remakeDefaultHeight = 282;
-    const width = savedWidth || (useRemake ? remakeDefaultWidth : size);
-    const height = savedHeight || (use6K ? 200 : useRemake ? remakeDefaultHeight : size);
+    const desiredSquareSize = Number(this.settings.windowSize as number);
+    const remakeHeight = Math.max(160, Math.min(desiredSquareSize || VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT, 800));
+    const remakeWidth = Math.round(remakeHeight * VinylPlayerPlugin.REMAKE_ASPECT);
+
+    const width = savedWidth || (useRemake ? remakeWidth : size);
+    const height = savedHeight || (use6K ? 200 : useRemake ? remakeHeight : size);
 
     const browserWindowOptions: Electron.BrowserWindowConstructorOptions = {
       width,

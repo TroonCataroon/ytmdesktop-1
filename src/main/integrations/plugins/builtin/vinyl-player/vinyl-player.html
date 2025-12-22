@@ -607,29 +607,13 @@
         // Use the exposed API from the preload script
         const { ipcRenderer } = window.electron;
 
-        // #region agent log (debug instrumentation)
-        const __ytmdDbg = (location, message, data) => {
-            try {
-                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({sessionId:'debug-session',runId:'multiclick-1',hypothesisId:'MC',location,message,data,timestamp:Date.now()})
-                }).catch(()=>{});
-            } catch {}
-        };
-        // #endregion agent log (debug instrumentation)
-
-        // #region agent log (debug instrumentation)
-        const __ytmdDbgPlay = (location, message, data) => {
-            try {
-                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({sessionId:'debug-session',runId:'vinyl-play-1',hypothesisId:'VP1',location,message,data,timestamp:Date.now()})
-                }).catch(()=>{});
-            } catch {}
-        };
-        // #endregion agent log (debug instrumentation)
+        // Debug ingest logging (disabled by default to avoid console noise)
+        // To re-enable temporarily, set: localStorage.setItem('ytmd_ingest','1') and reload.
+        const __ytmdIngestEnabled = (() => {
+            try { return localStorage.getItem('ytmd_ingest') === '1'; } catch { return false; }
+        })();
+        const __ytmdDbg = (_location, _message, _data) => {};
+        const __ytmdDbgPlay = (_location, _message, _data) => {};
 
         // DOM elements
         const trackTitle = document.getElementById('track-title');
@@ -735,7 +719,7 @@
         // Event listeners
         playPauseBtn.addEventListener('click', () => {
             // #region agent log (debug instrumentation)
-            __ytmdDbgPlay('vinyl-player.html:playPauseBtn', 'click', { via: 'control-btn' });
+            if (__ytmdIngestEnabled) __ytmdDbgPlay('vinyl-player.html:playPauseBtn', 'click', { via: 'control-btn' });
             // #endregion agent log (debug instrumentation)
             ipcRenderer.send('vinyl-player:play-pause');
         });
@@ -749,7 +733,7 @@
         ipcRenderer.on('vinyl-player:update-track', (track) => {
             // #region agent log (debug instrumentation)
             try {
-                __ytmdDbgPlay('vinyl-player.html:update-track', 'received', {
+                if (__ytmdIngestEnabled) __ytmdDbgPlay('vinyl-player.html:update-track', 'received', {
                     title: String(track?.title || ''),
                     artist: String(track?.artist || ''),
                     isPlaying: Boolean(track?.isPlaying)
@@ -817,7 +801,7 @@
             if (!isOverlayEnabled()) return;
 
             // #region agent log (debug instrumentation)
-            __ytmdDbg('vinyl-player.html:flushClicks', 'flush', { n, enabled: isOverlayEnabled() });
+            if (__ytmdIngestEnabled) __ytmdDbg('vinyl-player.html:flushClicks', 'flush', { n, enabled: isOverlayEnabled() });
             // #endregion agent log (debug instrumentation)
 
             if (n === 1) ipcRenderer.send('vinyl-player:play-pause');
@@ -826,7 +810,7 @@
 
             // #region agent log (debug instrumentation)
             if (n === 1) {
-                __ytmdDbgPlay('vinyl-player.html:flushClicks', 'sent play-pause', { via: 'overlay' });
+                if (__ytmdIngestEnabled) __ytmdDbgPlay('vinyl-player.html:flushClicks', 'sent play-pause', { via: 'overlay' });
             }
             // #endregion agent log (debug instrumentation)
         };
@@ -841,7 +825,7 @@
             const dt = lastClickTs ? now - lastClickTs : null;
             lastClickTs = now;
             // #region agent log (debug instrumentation)
-            __ytmdDbg('vinyl-player.html:overlayClick', 'click', { clickCount, dt, windowMs: MULTI_CLICK_WINDOW_MS });
+            if (__ytmdIngestEnabled) __ytmdDbg('vinyl-player.html:overlayClick', 'click', { clickCount, dt, windowMs: MULTI_CLICK_WINDOW_MS });
             // #endregion agent log (debug instrumentation)
             if (clickTimer) clearTimeout(clickTimer);
             clickTimer = setTimeout(flushClicks, MULTI_CLICK_WINDOW_MS);

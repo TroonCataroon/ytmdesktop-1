@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -9,9 +9,9 @@
         /* Theme tokens (customizable) */
         --bg: rgba(12, 13, 16, 0.72);
         --bg2: rgba(20, 22, 27, 0.55);
-        --border: rgba(255, 255, 255, 0.10);
+        --border: rgba(255, 255, 255, 0.1);
         --text: rgba(255, 255, 255, 0.95);
-        --muted: rgba(255, 255, 255, 0.70);
+        --muted: rgba(255, 255, 255, 0.7);
         --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
         --accent: #f22e76;
         --accent2: #7c3aed;
@@ -35,7 +35,16 @@
         overflow: hidden;
         user-select: none;
         background: transparent;
-        font-family: Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Noto Sans",
+        font-family:
+          Poppins,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          "Noto Sans",
           sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -47,9 +56,9 @@
       .backdrop {
         position: absolute;
         inset: -20px;
-        background: radial-gradient(circle at 25% 10%, rgba(242, 46, 118, 0.30), transparent 55%),
-          radial-gradient(circle at 70% 60%, rgba(124, 58, 237, 0.26), transparent 55%),
-          linear-gradient(135deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65));
+        background:
+          radial-gradient(circle at 25% 10%, rgba(242, 46, 118, 0.3), transparent 55%),
+          radial-gradient(circle at 70% 60%, rgba(124, 58, 237, 0.26), transparent 55%), linear-gradient(135deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65));
         filter: blur(18px) saturate(1.2);
         transform: scale(1.1);
         opacity: 0.95;
@@ -97,11 +106,16 @@
         height: 240px;
         border-radius: 999px;
         position: relative;
-        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.06), transparent 48%),
-          conic-gradient(from 0deg, #0a0a0a, #161616, #0e0e0e, #262626, #0a0a0a);
-        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 0 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.10);
+        background:
+          radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.06), transparent 48%), conic-gradient(from 0deg, #0a0a0a, #161616, #0e0e0e, #262626, #0a0a0a);
+        box-shadow:
+          0 18px 60px rgba(0, 0, 0, 0.55),
+          inset 0 0 28px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.1);
         overflow: hidden;
-        transition: transform 180ms ease, filter 180ms ease;
+        transition:
+          transform 180ms ease,
+          filter 180ms ease;
         animation: spin 2.6s linear infinite;
       }
 
@@ -119,7 +133,8 @@
         position: absolute;
         inset: 0;
         border-radius: 999px;
-        background: repeating-radial-gradient(circle, transparent 14%, rgba(255, 255, 255, 0.035) 14.7%, transparent 15.4%),
+        background:
+          repeating-radial-gradient(circle, transparent 14%, rgba(255, 255, 255, 0.035) 14.7%, transparent 15.4%),
           repeating-radial-gradient(circle, transparent 22%, rgba(255, 255, 255, 0.025) 22.5%, transparent 23%);
         opacity: 0.55;
         pointer-events: none;
@@ -133,10 +148,13 @@
         width: 40%;
         height: 40%;
         border-radius: 999px;
-        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10), transparent 60%),
+        background:
+          radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent 60%),
           linear-gradient(135deg, #2c1810 0%, #8b4513 20%, #a0522d 40%, #8b4513 60%, #654321 100%);
         border: 2px solid rgba(139, 69, 19, 0.75);
-        box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.55), 0 10px 26px rgba(0, 0, 0, 0.35);
+        box-shadow:
+          inset 0 0 12px rgba(0, 0, 0, 0.55),
+          0 10px 26px rgba(0, 0, 0, 0.35);
         overflow: hidden;
       }
 
@@ -195,7 +213,9 @@
         justify-content: center;
         opacity: 0;
         transform: scale(0.98);
-        transition: opacity 120ms ease, transform 120ms ease;
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
         pointer-events: none;
       }
 
@@ -228,7 +248,7 @@
         color: rgba(255, 255, 255, 0.7);
         padding: 6px 10px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         background: rgba(0, 0, 0, 0.22);
         backdrop-filter: blur(10px);
       }
@@ -286,7 +306,7 @@
         border-radius: 999px;
         background: var(--bar);
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
 
       .bar > .fill {
@@ -320,19 +340,22 @@
         height: 40px;
         border-radius: 999px;
         border: 1px solid var(--btnBorder);
-        background: rgba(0, 0, 0, 0.40);
+        background: rgba(0, 0, 0, 0.4);
         color: var(--btnIcon);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        transition:
+          transform 120ms ease,
+          background 120ms ease,
+          border-color 120ms ease;
       }
 
       .btn:hover {
         transform: scale(1.08);
         background: rgba(0, 0, 0, 0.58);
-        border-color: rgba(255, 255, 255, 0.20);
+        border-color: rgba(255, 255, 255, 0.2);
       }
 
       .btn:active {
@@ -440,14 +463,14 @@
 
       if (els.btnClose) els.btnClose.innerHTML = icons.close;
 
-      const formatTime = (seconds) => {
+      const formatTime = seconds => {
         const s = Math.max(0, Math.floor(Number(seconds || 0)));
         const mins = Math.floor(s / 60);
         const secs = String(s % 60).padStart(2, "0");
         return `${mins}:${secs}`;
       };
 
-      const setMarquee = (wrapEl) => {
+      const setMarquee = wrapEl => {
         if (!wrapEl) return;
         const child = wrapEl.querySelector("span");
         if (!child) return;
@@ -469,11 +492,12 @@
         artist: "—",
         thumbnail: "",
         isPlaying: false,
+        spinSpeed: 2,
         durationSeconds: 0,
         progressSeconds: 0
       };
 
-      const applySettings = (s) => {
+      const applySettings = s => {
         if (!s || typeof s !== "object") return;
         if (typeof s.showControls === "boolean") settings.showControls = s.showControls;
         if (typeof s.enableButtonFeature === "boolean") settings.enableButtonFeature = s.enableButtonFeature;
@@ -484,7 +508,7 @@
         }
       };
 
-      const update = (patch) => {
+      const update = patch => {
         if (!patch || typeof patch !== "object") return;
         state = { ...state, ...patch };
 
@@ -492,6 +516,7 @@
         const artist = String(state.artist || "");
         const cover = String(state.thumbnail || "");
         const isPlaying = Boolean(state.isPlaying);
+        const spinSpeed = Number(state.spinSpeed || 2);
         const dur = Number(state.durationSeconds || 0);
         const prog = Number(state.progressSeconds || 0);
         const pct = dur > 0 ? Math.max(0, Math.min(1, prog / dur)) : 0;
@@ -520,6 +545,11 @@
 
         // Playing state affects spin + icon
         if (els.disc) els.disc.classList.toggle("paused", !isPlaying);
+        if (els.disc) {
+          // Match the built-in vinyl player behavior: higher spinSpeed => faster spin.
+          const spinDuration = Math.max(2, 8 - spinSpeed);
+          els.disc.style.animationDuration = `${spinDuration}s`;
+        }
         const iconSvg = isPlaying ? icons.pause : icons.play;
         if (els.btnPlayPause) els.btnPlayPause.innerHTML = iconSvg;
         if (els.overlayIcon) els.overlayIcon.innerHTML = iconSvg;
@@ -556,7 +586,7 @@
 
         els.discOverlay?.addEventListener(
           "pointerdown",
-          (e) => {
+          e => {
             if (!settings.enableButtonFeature) return;
             if (!e || e.button !== 0) return;
             e.preventDefault();
@@ -572,7 +602,7 @@
 
         els.discOverlay?.addEventListener(
           "click",
-          (e) => {
+          e => {
             if (!settings.enableButtonFeature) return;
             e.preventDefault();
             e.stopPropagation();
@@ -583,8 +613,8 @@
           true
         );
 
-        ipc.on("vinyl-player:update-track", (track) => update(track));
-        ipc.on("vinyl-player:update-settings", (s) => applySettings(s));
+        ipc.on("vinyl-player:update-track", track => update(track));
+        ipc.on("vinyl-player:update-settings", s => applySettings(s));
       } else {
         // Standalone overlay: poll the local companion server /query endpoint
         applySettings({ showControls: false, enableButtonFeature: false });
@@ -615,3 +645,4 @@
     </script>
   </body>
 </html>
+

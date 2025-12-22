@@ -26,8 +26,21 @@ const sentryIntegration = new RendererSentryIntegration();
 sentryIntegration.enable();
 
 // #region agent log (debug instrumentation)
+let __ytmdIngestEnabled = false;
+// Default off. Enable only when the app's developer debug logging is enabled.
+// This prevents noisy net::ERR_CONNECTION_REFUSED logs when no ingest server is running.
+ipcRenderer
+  .invoke("settings:get", "developer.debugLoggingEnabled")
+  .then(v => {
+    __ytmdIngestEnabled = Boolean(v);
+  })
+  .catch(() => {
+    __ytmdIngestEnabled = false;
+  });
+
 const __ytmdDbgPlay = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
   try {
+    if (!__ytmdIngestEnabled) return;
     fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,24 +58,26 @@ contextBridge.exposeInMainWorld("ytmd", {
   sendVideoData: (videoDetails: unknown, playlistId: string, album: { id: string; text: string }, likeStatus: unknown, hasFullMetadata: boolean) => {
     // #region agent log (debug instrumentation)
     try {
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "resume-2",
-          hypothesisId: "R2",
-          location: "ytmview/preload.ts:sendVideoData",
-          message: "sendVideoData called",
-          data: {
-            hasVideoId: typeof videoDetails === "object" && videoDetails !== null && "videoId" in videoDetails,
-            playlistId: String(playlistId || ""),
-            hasAlbum: Boolean(album?.id),
-            hasFullMetadata: Boolean(hasFullMetadata)
-          },
-          timestamp: Date.now()
-        })
-      }).catch((): void => undefined);
+      if (__ytmdIngestEnabled) {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "resume-2",
+            hypothesisId: "R2",
+            location: "ytmview/preload.ts:sendVideoData",
+            message: "sendVideoData called",
+            data: {
+              hasVideoId: typeof videoDetails === "object" && videoDetails !== null && "videoId" in videoDetails,
+              playlistId: String(playlistId || ""),
+              hasAlbum: Boolean(album?.id),
+              hasFullMetadata: Boolean(hasFullMetadata)
+            },
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      }
     } catch {
       // ignore
     }
