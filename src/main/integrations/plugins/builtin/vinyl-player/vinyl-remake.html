@@ -61,7 +61,10 @@
           radial-gradient(circle at 70% 60%, rgba(124, 58, 237, 0.26), transparent 55%), linear-gradient(135deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65));
         filter: blur(18px) saturate(1.2);
         transform: scale(1.1);
-        opacity: 0.95;
+        opacity: 0;
+        visibility: hidden;
+        color: rgba(255, 255, 255, 0);
+        background-color: rgba(255, 255, 255, 1);
         pointer-events: none;
       }
 
@@ -148,17 +151,22 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 40%;
-        height: 40%;
+        width: clamp(28px, 18%, 72px);
+        height: clamp(28px, 18%, 72px);
         border-radius: 999px;
         background:
           radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent 60%),
           linear-gradient(135deg, #2c1810 0%, #8b4513 20%, #a0522d 40%, #8b4513 60%, #654321 100%);
+        background-repeat: repeat;
+        background-size: auto;
+        background-position: 0% 0%;
         border: 2px solid rgba(139, 69, 19, 0.75);
         box-shadow:
           inset 0 0 12px rgba(0, 0, 0, 0.55),
           0 10px 26px rgba(0, 0, 0, 0.35);
-        overflow: hidden;
+        overflow: visible;
+        opacity: 0.8;
+        z-index: 1;
       }
 
       .cover {
@@ -169,6 +177,8 @@
         background-size: cover;
         background-position: center;
         box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45);
+        opacity: 0.31;
+        z-index: 0;
       }
 
       .hole {
@@ -176,11 +186,12 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 8%;
-        height: 8%;
+        width: clamp(10px, 7%, 28px);
+        height: clamp(10px, 7%, 28px);
         border-radius: 50%;
         background: radial-gradient(circle, #000 0%, #1a1a1a 70%, #333 100%);
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.85);
+        z-index: 2;
       }
 
       .disc-overlay {
@@ -400,48 +411,44 @@
     </style>
   </head>
   <body>
-    <div class="backdrop" id="backdrop"></div>
-    <div class="frame">
-      <div class="card">
-        <div class="disc-wrap">
-          <div class="disc" id="disc">
-            <div class="grooves"></div>
-            <div class="label">
-              <div class="cover" id="cover"></div>
-            </div>
-            <div class="hole"></div>
-            <div class="disc-overlay" id="discOverlay">
-              <div class="icon" id="overlayIcon" aria-hidden="true"></div>
-            </div>
+    <div class="card">
+      <div class="disc-wrap">
+        <div class="disc" id="disc">
+          <div class="grooves">
+            <div class="label"></div>
+            <div class="cover" id="cover"></div>
           </div>
-        </div>
-
-        <div class="info">
-          <div class="badge" id="badge">YTMDesktop</div>
-          <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
-          <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
-          <div class="progress">
-            <div class="bar"><div class="fill" id="barFill"></div></div>
-            <div class="times">
-              <span id="tCur">0:00</span>
-              <span id="tDur">0:00</span>
-            </div>
+          <div class="hole"></div>
+          <div class="disc-overlay" id="discOverlay">
+            <div class="icon" id="overlayIcon" aria-hidden="true"></div>
           </div>
-        </div>
-
-        <div class="controls" id="controls">
-          <button class="btn" id="btnPlayPause" title="Play/Pause" aria-label="Play/Pause"></button>
-          <button class="btn close" id="btnClose" title="Close" aria-label="Close"></button>
         </div>
       </div>
+
+      <div class="info">
+        <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
+        <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
+        <div class="progress">
+          <div class="bar"><div class="fill" id="barFill"></div></div>
+          <div class="times">
+            <span id="tCur">0:00</span>
+            <span id="tDur">0:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls" id="controls">
+        <button class="btn" id="btnPlayPause" title="Play/Pause" aria-label="Play/Pause"></button>
+        <button class="btn close" id="btnClose" title="Close" aria-label="Close"></button>
+      </div>
     </div>
+    <div class="frame"></div>
 
     <script>
       const isElectron = Boolean(window.electron && window.electron.ipcRenderer);
       const ipc = isElectron ? window.electron.ipcRenderer : null;
 
       const els = {
-        backdrop: document.getElementById("backdrop"),
         disc: document.getElementById("disc"),
         cover: document.getElementById("cover"),
         titleWrap: document.getElementById("titleWrap"),
@@ -530,19 +537,10 @@
         if (els.tDur) els.tDur.textContent = formatTime(dur);
         if (els.barFill) els.barFill.style.width = `${pct * 100}%`;
 
-        // Cover + backdrop
+        // Cover
         if (els.cover) {
           if (cover) {
             els.cover.style.backgroundImage = `url(${cover})`;
-          }
-        }
-        if (els.backdrop) {
-          if (cover) {
-            els.backdrop.classList.add("has-cover");
-            els.backdrop.style.backgroundImage = `url(${cover})`;
-          } else {
-            els.backdrop.classList.remove("has-cover");
-            els.backdrop.style.backgroundImage = "";
           }
         }
 

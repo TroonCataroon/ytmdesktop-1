@@ -1,5 +1,7 @@
 import log from "electron-log";
 
+const BYTES_IN_MB = 1024 * 1024;
+
 /**
  * MemoryMonitor - Professional memory monitoring for development
  *
@@ -11,7 +13,14 @@ export default class MemoryMonitor {
   private isMonitoring = false;
   private initialMemory: NodeJS.MemoryUsage | null = null;
   private memoryHistory: Array<{ timestamp: number; usage: NodeJS.MemoryUsage }> = [];
-  private maxHistorySize = 100;
+  private readonly maxHistorySize = 100;
+  private readonly analysisWindowSize = 10;
+  private readonly minOverallGrowthBytesForWarning = 20 * BYTES_IN_MB;
+  private readonly minRecentGrowthBytesForLeak = 5 * BYTES_IN_MB;
+  private readonly leakWarningCooldownMs = 10 * 60 * 1000;
+  private readonly growthWarningThresholds = [50, 100, 200] as const;
+  private warnedGrowthThresholds = new Set<number>();
+  private lastLeakWarningAt = 0;
 
   /**
    * Start monitoring memory usage
@@ -28,11 +37,15 @@ export default class MemoryMonitor {
       return;
     }
 
+    this.memoryHistory = [];
+    this.warnedGrowthThresholds.clear();
+    this.lastLeakWarningAt = 0;
+
     this.initialMemory = process.memoryUsage();
     this.isMonitoring = true;
 
     log.info("Starting memory monitor");
-    this.logMemoryUsage("Initial");
+    this.logMemoryUsage("Initial", this.initialMemory);
 
     this.monitorInterval = setInterval(() => {
       this.checkMemoryUsage();
@@ -54,7 +67,7 @@ export default class MemoryMonitor {
 
     this.isMonitoring = false;
     log.info("Stopped memory monitor");
-    this.logMemoryUsage("Final");
+    this.logMemoryUsage("Final", process.memoryUsage());
     this.generateReport();
   }
 
@@ -74,7 +87,7 @@ export default class MemoryMonitor {
     }
 
     // Log current usage
-    this.logMemoryUsage("Current");
+    this.logMemoryUsage("Current", current);
 
     // Detect potential memory leaks
     this.detectMemoryLeaks(current);
@@ -83,8 +96,7 @@ export default class MemoryMonitor {
   /**
    * Log memory usage in human-readable format
    */
-  private logMemoryUsage(label: string): void {
-    const usage = process.memoryUsage();
+  private logMemoryUsage(label: string, usage: NodeJS.MemoryUsage): void {
     log.debug(`[Memory Monitor] ${label} Memory Usage:`);
     log.debug(`  RSS: ${this.formatBytes(usage.rss)} (Resident Set Size)`);
     log.debug(`  Heap Total: ${this.formatBytes(usage.heapTotal)}`);
@@ -104,36 +116,57 @@ export default class MemoryMonitor {
    * Detect potential memory leaks based on growth patterns
    */
   private detectMemoryLeaks(current: NodeJS.MemoryUsage): void {
-    if (!this.initialMemory || this.memoryHistory.length < 10) {
+    if (!this.initialMemory || this.memoryHistory.length < this.analysisWindowSize) {
       return; // Need more history to detect patterns
     }
 
-    // Check heap growth over initial
-    const heapGrowthPercent = ((current.heapUsed - this.initialMemory.heapUsed) / this.initialMemory.heapUsed) * 100;
+    const overallHeapGrowthBytes = current.heapUsed - this.initialMemory.heapUsed;
+    const overallHeapGrowthPercent = (overallHeapGrowthBytes / this.initialMemory.heapUsed) * 100;
 
-    // Check if memory is consistently growing
-    const recentHistory = this.memoryHistory.slice(-10);
-    const isGrowing = recentHistory.every((entry, idx) => {
-      if (idx === 0) return true;
-      return entry.usage.heapUsed >= recentHistory[idx - 1].usage.heapUsed;
-    });
+    const recentHistory = this.memoryHistory.slice(-this.analysisWindowSize);
+    const recentWindowGrowthBytes = recentHistory[recentHistory.length - 1].usage.heapUsed - recentHistory[0].usage.heapUsed;
 
-    // Warn if heap has grown significantly
-    if (heapGrowthPercent > 50) {
-      log.warn(`[Memory Monitor] ⚠️  Heap has grown by ${heapGrowthPercent.toFixed(1)}%`);
+    // Allow small fluctuations (GC) but treat sustained upward movement as suspect.
+    const noiseToleranceBytes = 0.5 * BYTES_IN_MB;
+    const decreaseCount = recentHistory.reduce((count, entry, idx) => {
+      if (idx === 0) return 0;
+      return entry.usage.heapUsed < recentHistory[idx - 1].usage.heapUsed - noiseToleranceBytes ? count + 1 : count;
+    }, 0);
+
+    const isMostlyGrowing = decreaseCount <= 1 && recentWindowGrowthBytes >= this.minRecentGrowthBytesForLeak;
+
+    // Warn on notable overall growth (throttled to threshold crossings).
+    for (const threshold of this.growthWarningThresholds) {
+      if (
+        overallHeapGrowthPercent >= threshold &&
+        overallHeapGrowthBytes >= this.minOverallGrowthBytesForWarning &&
+        !this.warnedGrowthThresholds.has(threshold)
+      ) {
+        this.warnedGrowthThresholds.add(threshold);
+        log.warn(`[Memory Monitor] Heap has grown by ${overallHeapGrowthPercent.toFixed(1)}% (+${this.formatBytes(overallHeapGrowthBytes)}) since start`);
+      }
     }
 
     // Alert if memory is consistently growing (potential leak)
-    if (isGrowing && heapGrowthPercent > 25) {
-      log.warn(`[Memory Monitor] 🔴 Potential memory leak detected! Heap consistently growing.`);
+    if (
+      isMostlyGrowing &&
+      overallHeapGrowthPercent > 25 &&
+      overallHeapGrowthBytes >= this.minOverallGrowthBytesForWarning &&
+      Date.now() - this.lastLeakWarningAt >= this.leakWarningCooldownMs
+    ) {
+      this.lastLeakWarningAt = Date.now();
+
+      const windowMinutes = (recentHistory[recentHistory.length - 1].timestamp - recentHistory[0].timestamp) / 60000;
+      log.warn("[Memory Monitor] Potential memory leak suspected: heap trending upward");
       log.warn(`  Initial heap: ${this.formatBytes(this.initialMemory.heapUsed)}`);
       log.warn(`  Current heap: ${this.formatBytes(current.heapUsed)}`);
-      log.warn(`  Growth: ${this.formatBytes(current.heapUsed - this.initialMemory.heapUsed)} (+${heapGrowthPercent.toFixed(1)}%)`);
+      log.warn(`  Total growth: ${this.formatBytes(overallHeapGrowthBytes)} (+${overallHeapGrowthPercent.toFixed(1)}%)`);
+      log.warn(`  Recent growth: ${this.formatBytes(recentWindowGrowthBytes)} over ${windowMinutes.toFixed(1)} min`);
     }
 
     // Alert if RSS exceeds 500MB
     if (current.rss > 500 * 1024 * 1024) {
-      log.warn(`[Memory Monitor] ⚠️  High memory usage: RSS = ${this.formatBytes(current.rss)}`);
+      log.warn(`[Memory Monitor] High memory usage: RSS = ${this.formatBytes(current.rss)}`);
     }
   }
 
@@ -170,7 +203,7 @@ export default class MemoryMonitor {
 
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
+    const i = Math.min(sizes.length - 1, Math.floor(Math.log(Math.abs(bytes)) / Math.log(k)));
     const value = bytes / Math.pow(k, i);
 
     return `${value.toFixed(2)} ${sizes[i]}`;

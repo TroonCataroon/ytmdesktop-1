@@ -57,6 +57,16 @@ declare const YTMD_UPDATE_FEED_REPOSITORY: string;
 const assetFolder = path.join(process.env.NODE_ENV === "development" ? path.join(app.getAppPath(), "src/assets") : process.resourcesPath);
 const isDarwin = process.platform === "darwin";
 
+// In development, isolate userData (and Chromium cache) from the installed/production app to avoid
+// lock/corruption issues when both are run on the same machine.
+if (process.env.NODE_ENV === "development" && process.env.YTMD_USE_PROD_USER_DATA !== "1") {
+  const userDataPath = app.getPath("userData");
+  const devSuffix = " (development)";
+  if (!userDataPath.endsWith(devSuffix)) {
+    app.setPath("userData", `${userDataPath}${devSuffix}`);
+  }
+}
+
 let applicationExited = false;
 let applicationQuitting = false;
 let appUpdateAvailable = false;
@@ -617,6 +627,7 @@ function anyShortcutChanged(newState: Readonly<StoreSchema>, oldState: Readonly<
   if (newState.shortcuts.thumbsUp !== oldState.shortcuts.thumbsUp) return true;
   if (newState.shortcuts.volumeDown !== oldState.shortcuts.volumeDown) return true;
   if (newState.shortcuts.volumeUp !== oldState.shortcuts.volumeUp) return true;
+  if (newState.shortcuts.openDevTools !== oldState.shortcuts.openDevTools) return true;
 
   return false;
 }
@@ -779,7 +790,8 @@ store.onDidAnyChange(async (newState, oldState) => {
     log.info("Integration disabled: Vinyl Player");
   }
 
-  if (anyShortcutChanged(newState, oldState)) registerShortcuts();
+  const devToolsEnabledChanged = Boolean(newState.developer?.enableDevTools) !== Boolean(oldState.developer?.enableDevTools);
+  if (anyShortcutChanged(newState, oldState) || devToolsEnabledChanged) registerShortcuts();
 });
 log.info("Created electron store");
 
@@ -1217,8 +1229,10 @@ function registerShortcuts() {
     memoryStore.set("shortcutsVolumeDownRegisterFailed", false);
   }
 
-  if (shortcuts.openDevTools) {
+  if (shortcuts.openDevTools && store.get("developer.enableDevTools")) {
     let registered = false;
+    let registrationError: unknown = null;
+
     try {
       registered = globalShortcut.register(shortcuts.openDevTools, () => {
         if (ytmView && store.get("developer.enableDevTools")) {
@@ -1227,12 +1241,13 @@ function registerShortcuts() {
           });
         }
       });
-    } catch {
-      /* empty */
+    } catch (error) {
+      registrationError = error;
     }
 
     if (!registered) {
-      log.info("Failed to register shortcut: openDevTools");
+      const errorMessage = registrationError instanceof Error ? registrationError.message : registrationError ? String(registrationError) : "";
+      log.info(`Failed to register shortcut: openDevTools (${shortcuts.openDevTools})${errorMessage ? `: ${errorMessage}` : ""}`);
       memoryStore.set("shortcutsOpenDevToolsRegisterFailed", true);
     } else {
       log.info("Registered shortcut: openDevTools");
@@ -1872,16 +1887,16 @@ const createMainWindow = (): void => {
       const csp =
         process.env.NODE_ENV === "development"
           ? "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
+            "script-src 'self' 'unsafe-inline' http://localhost:*; " +
             "style-src 'self' 'unsafe-inline' http://localhost:*; " +
-            "img-src 'self' data: blob: http://localhost:*; " +
+            "img-src 'self' data: blob: http://localhost:* https://*.ytimg.com https://*.youtube.com https://*.googleusercontent.com; " +
             "font-src 'self' data: http://localhost:*; " +
             "connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io; " +
             "worker-src 'self' blob:;"
           : "default-src 'self'; " +
             "script-src 'self' 'unsafe-inline'; " +
             "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: blob:; " +
+            "img-src 'self' data: blob: https://*.ytimg.com https://*.youtube.com https://*.googleusercontent.com; " +
             "font-src 'self' data:; " +
             "connect-src 'self' https://*.sentry.io; " +
             "worker-src 'self' blob:;";

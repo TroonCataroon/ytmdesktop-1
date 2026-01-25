@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import YTMDSetting from "../../../components/YTMDSetting.vue";
 
 // Update settings
@@ -22,7 +22,7 @@ const isUpdateDownloaded = ref(false);
 // Format the last checked time as a readable string
 const lastCheckedFormatted = computed(() => {
   if (!updateSettings.value.lastChecked) return "Never";
-  
+
   const date = new Date(updateSettings.value.lastChecked);
   return date.toLocaleString();
 });
@@ -44,6 +44,9 @@ const intervalOptions = {
   1440: "24 hours"
 };
 
+// Cleanup registry for memory leak prevention
+const cleanupFunctions: Array<() => void> = [];
+
 // Load update settings and status
 onMounted(async () => {
   try {
@@ -52,7 +55,7 @@ onMounted(async () => {
     if (settings) {
       updateSettings.value = settings;
     }
-    
+
     // Get update status
     const status = await window.ipcRenderer.invoke("app:getUpdateStatus");
     if (status) {
@@ -63,32 +66,52 @@ onMounted(async () => {
       isUpdateAvailable.value = status.isAvailable;
       isUpdateDownloaded.value = status.isDownloaded;
     }
-    
-    // Set up event listeners for update status changes
-    window.ipcRenderer.on("app:updateDownloadProgress", (_event, progressObj) => {
+
+    // Set up event listeners for update status changes with proper cleanup
+    const updateDownloadProgressHandler = (_event, progressObj) => {
       updateProgress.value = progressObj.percent || 0;
-    });
-    
-    window.ipcRenderer.on("app:updateAvailable", (_event, info) => {
+    };
+    window.ipcRenderer.on("app:updateDownloadProgress", updateDownloadProgressHandler);
+    cleanupFunctions.push(() => window.ipcRenderer.removeListener("app:updateDownloadProgress", updateDownloadProgressHandler));
+
+    const updateAvailableHandler = (_event, info) => {
       updateStatus.value = "downloading";
       updateInfo.value = info;
       isUpdateAvailable.value = true;
-    });
-    
-    window.ipcRenderer.on("app:updateDownloaded", (_event, info) => {
+    };
+    window.ipcRenderer.on("app:updateAvailable", updateAvailableHandler);
+    cleanupFunctions.push(() => window.ipcRenderer.removeListener("app:updateAvailable", updateAvailableHandler));
+
+    const updateDownloadedHandler = (_event, info) => {
       updateStatus.value = "ready";
       updateInfo.value = info;
       updateProgress.value = 100;
       isUpdateDownloaded.value = true;
-    });
-    
-    window.ipcRenderer.on("app:updateError", (_event, error) => {
+    };
+    window.ipcRenderer.on("app:updateDownloaded", updateDownloadedHandler);
+    cleanupFunctions.push(() => window.ipcRenderer.removeListener("app:updateDownloaded", updateDownloadedHandler));
+
+    const updateErrorHandler = (_event, error) => {
       updateStatus.value = "error";
       updateError.value = error;
-    });
+    };
+    window.ipcRenderer.on("app:updateError", updateErrorHandler);
+    cleanupFunctions.push(() => window.ipcRenderer.removeListener("app:updateError", updateErrorHandler));
   } catch (error) {
     console.error("Failed to load update settings:", error);
   }
+});
+
+// Professional cleanup pattern - remove ALL event listeners
+onBeforeUnmount(() => {
+  cleanupFunctions.forEach(cleanup => {
+    try {
+      cleanup();
+    } catch (error) {
+      console.error("Error during cleanup:", error);
+    }
+  });
+  cleanupFunctions.length = 0;
 });
 
 // Save update settings
@@ -119,7 +142,7 @@ function installUpdate() {
         <h3>Update Status</h3>
         <span class="status-badge">{{ updateStatus }}</span>
       </div>
-      
+
       <div v-if="updateStatus === 'idle'" class="status-content">
         <p>No updates are currently being checked or downloaded.</p>
         <p>Last checked: {{ lastCheckedFormatted }}</p>
@@ -128,14 +151,14 @@ function installUpdate() {
           Check for Updates
         </button>
       </div>
-      
+
       <div v-else-if="updateStatus === 'checking'" class="status-content">
         <p>Checking for updates...</p>
         <div class="loading-spinner">
           <span class="material-symbols-outlined rotating">progress_activity</span>
         </div>
       </div>
-      
+
       <div v-else-if="updateStatus === 'downloading'" class="status-content">
         <p v-if="updateInfo">Downloading update {{ updateInfo.version }}</p>
         <p v-else>Downloading update...</p>
@@ -144,7 +167,7 @@ function installUpdate() {
           <span class="progress-text">{{ updateProgressFormatted }}</span>
         </div>
       </div>
-      
+
       <div v-else-if="updateStatus === 'ready'" class="status-content">
         <p v-if="updateInfo">Update {{ updateInfo.version }} is ready to install</p>
         <p v-else>Update is ready to install</p>
@@ -153,7 +176,7 @@ function installUpdate() {
           Restart and Install
         </button>
       </div>
-      
+
       <div v-else-if="updateStatus === 'error'" class="status-content">
         <p>Failed to check for updates</p>
         <p v-if="updateError" class="error-message">{{ updateError }}</p>
@@ -163,17 +186,12 @@ function installUpdate() {
         </button>
       </div>
     </div>
-    
+
     <div class="update-settings-form">
       <h3>Update Settings</h3>
-      
-      <YTMDSetting
-        v-model="updateSettings.checkOnStartup"
-        type="checkbox"
-        name="Check for updates on startup"
-        @change="saveUpdateSettings"
-      />
-      
+
+      <YTMDSetting v-model="updateSettings.checkOnStartup" type="checkbox" name="Check for updates on startup" @change="saveUpdateSettings" />
+
       <YTMDSetting
         v-model="updateSettings.autoInstall"
         type="checkbox"
@@ -181,7 +199,7 @@ function installUpdate() {
         description="Updates will be installed when the app restarts"
         @change="saveUpdateSettings"
       />
-      
+
       <YTMDSetting
         v-model="updateSettings.betaChannel"
         type="checkbox"
@@ -189,7 +207,7 @@ function installUpdate() {
         description="Receive beta updates (may be unstable)"
         @change="saveUpdateSettings"
       />
-      
+
       <YTMDSetting
         v-model="updateSettings.checkIntervalMinutes"
         type="select"
@@ -280,7 +298,8 @@ function installUpdate() {
   text-align: center;
 }
 
-.check-button, .install-button {
+.check-button,
+.install-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -321,8 +340,12 @@ function installUpdate() {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .progress-bar {
@@ -373,4 +396,3 @@ function installUpdate() {
   margin-bottom: 16px;
 }
 </style>
-

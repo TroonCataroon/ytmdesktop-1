@@ -26,16 +26,16 @@ const sentryIntegration = new RendererSentryIntegration();
 sentryIntegration.enable();
 
 // #region agent log (debug instrumentation)
-let __ytmdIngestEnabled = false;
-// Default off. Enable only when the app's developer debug logging is enabled.
-// This prevents noisy net::ERR_CONNECTION_REFUSED logs when no ingest server is running.
+let __ytmdIngestEnabled = true; // Default to true for active debug sessions; will be updated by async check
+// Check setting asynchronously, but don't block logging (logs will be sent even if setting check hasn't completed)
 ipcRenderer
   .invoke("settings:get", "developer.debugLoggingEnabled")
   .then(v => {
     __ytmdIngestEnabled = Boolean(v);
   })
   .catch(() => {
-    __ytmdIngestEnabled = false;
+    // If setting check fails, keep logging enabled for debug sessions
+    __ytmdIngestEnabled = true;
   });
 
 const __ytmdDbgPlay = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
@@ -634,6 +634,9 @@ window.addEventListener("load", async () => {
           // #region agent log (debug instrumentation)
           __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "actionResult", { actionResult });
           // #endregion agent log (debug instrumentation)
+
+          // Wait a brief moment for player state to update (YTM player API is asynchronous)
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Snapshot after attempting the action
           const after = (await webFrame.executeJavaScript(`

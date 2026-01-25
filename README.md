@@ -53,14 +53,25 @@ cd ytmdesktop
 ```
 ##### And:
 ```sh
-# If you do not have Yarn Installed / New to Node as a whole you can enable Yarn with:
+# Enable Yarn via Corepack (Node 20+)
 corepack enable
+
+# Optional: avoid the interactive "Corepack is about to download ..." prompt
+# PowerShell: $env:COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# Bash: export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 # Install dependencies
 yarn install
+
 # Run the app
 yarn start
+
+# If you prefer to skip Corepack entirely, you can use the pinned Yarn binary directly:
+# node .yarn/releases/yarn-4.10.3.cjs install
+# node .yarn/releases/yarn-4.10.3.cjs start
 ```
+
+Note: in development, the app uses a separate Electron `userData` directory to avoid conflicts with the installed app. Set `YTMD_USE_PROD_USER_DATA=1` to use the production `userData` directory.
 
 ## Builder config (non-local deployments)
 This repo includes a `builder.config.json` used by some deployment/build runners. The `serverUrl` must be reachable from wherever that runner is executing.
