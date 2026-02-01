@@ -6,8 +6,34 @@
     return !!flag;
   }
 
+  // Helper function to safely set properties on elements
+  function safelySetProperty(element, property, value) {
+    try {
+      if (typeof element.set === 'function') {
+        element.set(property, value);
+      } else {
+        // Fallback for elements without .set() method
+        if (property === 'iconName') {
+          element.setAttribute('icon', value);
+        } else if (property.startsWith('data.')) {
+          // Handle nested property setting
+          const propPath = property.split('.');
+          let current = element;
+          for (let i = 0; i < propPath.length - 1; i++) {
+            if (!current[propPath[i]]) current[propPath[i]] = {};
+            current = current[propPath[i]];
+          }
+          current[propPath[propPath.length - 1]] = value;
+        } else {
+          element[property] = value;
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to set property ${property} on element:`, error);
+    }
+  }
+
   const ytmStore = window.__YTMD_HOOK__.ytmStore;
-  const wizButtonShapeEnabled = isExperimentEnabled("web_wiz_button_shape");
 
   let ytmdControlButtons = {};
 
@@ -72,8 +98,8 @@
       data: libraryButtonData
     };
   } else {
-    libraryButton.set("iconName", "yt-sys-icons:library_add");
-    libraryButton.set("data", libraryButtonData);
+    safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
+    safelySetProperty(libraryButton, "data", libraryButtonData);
   }
   document
     .querySelector("ytmusic-app-layout>ytmusic-player-bar")
@@ -119,37 +145,51 @@
       };
       this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
       this.dispatchEvent(new CustomEvent("yt-action", serviceRequestEvent));
-      returnValue[0].ajaxPromise.then(
-        response => {
-          var addToPlaylistEvent = {
-            bubbles: true,
-            cancelable: false,
-            composed: true,
-            detail: {
-              actionName: "yt-open-popup-action",
-              args: [
-                {
-                  openPopupAction: {
-                    popup: {
-                      addToPlaylistRenderer: response.data.contents[0].addToPlaylistRenderer
-                    },
-                    popupType: "DIALOG"
+      if (returnValue[0] && returnValue[0].ajaxPromise) {
+        returnValue[0].ajaxPromise.then(
+          response => {
+            try {
+              if (response && response.data && response.data.contents && response.data.contents[0] && response.data.contents[0].addToPlaylistRenderer) {
+                var addToPlaylistEvent = {
+                  bubbles: true,
+                  cancelable: false,
+                  composed: true,
+                  detail: {
+                    actionName: "yt-open-popup-action",
+                    args: [
+                      {
+                        openPopupAction: {
+                          popup: {
+                            addToPlaylistRenderer: response.data.contents[0].addToPlaylistRenderer
+                          },
+                          popupType: "DIALOG"
+                        }
+                      },
+                      this
+                    ],
+                    optionalAction: false,
+                    returnValue: []
                   }
-                },
-                this
-              ],
-              optionalAction: false,
-              returnValue: []
+                };
+                this.dispatchEvent(new CustomEvent("yt-action", addToPlaylistEvent));
+              } else {
+                console.warn("No playlists available or unexpected response structure");
+              }
+            } catch (error) {
+              console.warn("Error processing playlist response:", error);
             }
-          };
-          this.dispatchEvent(new CustomEvent("yt-action", addToPlaylistEvent));
-          this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
-        },
-        () => {
-          // service request errored
-        },
-        this
-      );
+            this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+          },
+          error => {
+            console.warn("Playlist API request failed:", error);
+            // Show user-friendly message for API errors
+            this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+          }
+        );
+      } else {
+        console.warn("No playlist API response received");
+        this.dispatchEvent(new CustomEvent("yt-action", closePopupEvent));
+      }
     }.bind(playlistButton),
     style: "mono",
     toggled: false,
@@ -161,8 +201,8 @@
       data: playlistButtonData
     };
   } else {
-    playlistButton.set("iconName", "yt-sys-icons:playlist_add");
-    playlistButton.set("data", playlistButtonData);
+    safelySetProperty(playlistButton, "iconName", "yt-sys-icons:playlist_add");
+    safelySetProperty(playlistButton, "data", playlistButtonData);
   }
   libraryButton.insertAdjacentElement("afterend", playlistButton);
 
@@ -173,12 +213,17 @@
   });
 
   let rightControls = document.querySelector("ytmusic-app-layout>ytmusic-player-bar").querySelector(".right-controls-buttons");
-  let sleepTimerButton = document.createElement("tp-yt-paper-icon-button");
+    let sleepTimerButton = document.createElement("yt-icon-button");
+
+    let sleepTimerIcon = document.createElement("yt-icon");
+    sleepTimerIcon.set("icon", "TIMER");
+    sleepTimerButton.appendChild(sleepTimerIcon);
+
   sleepTimerButton.setAttribute("title", "Sleep timer off");
   sleepTimerButton.classList.add("ytmusic-player-bar");
   sleepTimerButton.classList.add("ytmd-player-bar-control");
   sleepTimerButton.classList.add("sleep-timer-button");
-  sleepTimerButton.set("icon", "yt-sys-icons:stopwatch");
+  safelySetProperty(sleepTimerButton, "icon", "yt-sys-icons:stopwatch");
   sleepTimerButton.onclick = () => {
     sleepTimerButton.dispatchEvent(
       new CustomEvent("yt-action", {
@@ -330,7 +375,27 @@
                             }
                           }
                         }
-                        : {}
+                        : {},
+                      // Divider
+                      { menuSectionRenderer: { items: [] } },
+                      // Vinyl Player Option
+                      {
+                        menuServiceItemRenderer: {
+                          icon: {
+                            iconType: "ALBUM"
+                          },
+                          serviceEndpoint: {
+                            ytmdVinylPlayerServiceEndpoint: {}
+                          },
+                          text: {
+                            runs: [
+                              {
+                                text: "Vinyl Player"
+                              }
+                            ]
+                          }
+                        }
+                      }
                     ]
                   }
                 },
@@ -496,6 +561,10 @@
           );
         }
       }
+      // Handle Vinyl Player menu item
+      if (e.detail.args[1].ytmdVinylPlayerServiceEndpoint !== undefined) {
+        window.__YTMD_HOOK__.ipcRenderer.send("vinyl-player:toggle-window");
+      }
     }
   });
 
@@ -529,14 +598,14 @@
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                libraryButton.set("data.toggled", libraryButtonData.toggled);
+                safelySetProperty(libraryButton, "data.toggled", libraryButtonData.toggled);
               }
             } else {
               libraryButtonData.toggled = false;
               if (wizButtonShapeEnabled) {
                 libraryButton.setters.data(libraryButtonData); 
               } else {
-                libraryButton.set("data.toggled", libraryButtonData.toggled);
+                safelySetProperty(libraryButton, "data.toggled", libraryButtonData.toggled);
               }
             }
 
@@ -546,13 +615,13 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_saved");
                 } 
               }
             } else if (item.toggleMenuServiceItemRenderer.defaultIcon.iconType === "LIBRARY_ADD") {
@@ -561,13 +630,13 @@
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_saved");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_saved");
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_saved");
                 }
               } else {
                 if (wizButtonShapeEnabled) {
                   libraryButton.setters.iconName("yt-sys-icons:library_add");
                 } else {
-                  libraryButton.set("iconName", "yt-sys-icons:library_add");
+                  safelySetProperty(libraryButton, "iconName", "yt-sys-icons:library_add");
                 }
               }
             }
