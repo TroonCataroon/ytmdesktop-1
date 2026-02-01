@@ -34,7 +34,6 @@
   }
 
   const ytmStore = window.__YTMD_HOOK__.ytmStore;
-  const wizButtonShapeEnabled = isExperimentEnabled("web_wiz_button_shape");
 
   let ytmdControlButtons = {};
 
@@ -214,7 +213,12 @@
   });
 
   let rightControls = document.querySelector("ytmusic-app-layout>ytmusic-player-bar").querySelector(".right-controls-buttons");
-  let sleepTimerButton = document.createElement("tp-yt-paper-icon-button");
+    let sleepTimerButton = document.createElement("yt-icon-button");
+
+    let sleepTimerIcon = document.createElement("yt-icon");
+    sleepTimerIcon.set("icon", "TIMER");
+    sleepTimerButton.appendChild(sleepTimerIcon);
+
   sleepTimerButton.setAttribute("title", "Sleep timer off");
   sleepTimerButton.classList.add("ytmusic-player-bar");
   sleepTimerButton.classList.add("ytmd-player-bar-control");
