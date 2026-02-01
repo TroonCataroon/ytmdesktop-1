@@ -1,8 +1,9 @@
-import * as Sentry from '@sentry/electron/main';
-import { app } from 'electron';
-import BaseIntegration from '../../integrations/base-integration';
-import { SENTRY_CONFIG } from '../../../shared/sentry.config';
-import log from 'electron-log';
+import * as Sentry from "@sentry/electron/main";
+import { app } from "electron";
+import path from "path";
+import BaseIntegration from "../../integrations/base-integration";
+import { SENTRY_CONFIG } from "../../../shared/sentry.config";
+import log from "electron-log";
 
 /**
  * Sentry Integration for the main process
@@ -22,7 +23,7 @@ export default class SentryIntegration extends BaseIntegration {
 
   private initialize(): void {
     // Don't initialize Sentry in development unless configured to do so
-    if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
+    if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
       return;
     }
 
@@ -31,47 +32,50 @@ export default class SentryIntegration extends BaseIntegration {
         dsn: SENTRY_CONFIG.dsn,
         environment: SENTRY_CONFIG.environment,
         release: SENTRY_CONFIG.release,
-        
+
         // Performance monitoring
         tracesSampleRate: SENTRY_CONFIG.tracesSampleRate,
-        
+
         // Set maximum breadcrumbs
         maxBreadcrumbs: SENTRY_CONFIG.maxBreadcrumbs,
-        
+
         // Debug mode to help with troubleshooting
-        debug: process.env.NODE_ENV === 'development',
-        
+        debug: process.env.NODE_ENV === "development",
+
         // Include app info
         initialScope: {
           tags: {
             ...SENTRY_CONFIG.initialTags,
-            process: 'main'
-          },
+            process: "main"
+          }
         },
-        
+
         // Specify which errors to ignore
         ignoreErrors: SENTRY_CONFIG.ignoreErrors,
-        
+
         // Before sending an event to Sentry
         beforeSend(event) {
           // Don't send events in development unless configured to do so
-          if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
+          if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
             return null;
           }
           return event;
-        },
+        }
       });
 
-      // Set user information once available
-      app.on('ready', () => {
-        Sentry.setTag('app_version', app.getVersion());
-        Sentry.setTag('executable_path', app.getPath('exe'));
-        Sentry.setTag('user_data_path', app.getPath('userData'));
+      // Set user information once available (anonymize paths to avoid PII)
+      app.on("ready", () => {
+        Sentry.setTag("app_version", app.getVersion());
+        const exePath = app.getPath("exe");
+        const userDataPath = app.getPath("userData");
+        Sentry.setTag("executable_path", exePath ? `${path.basename(path.dirname(exePath))}/${path.basename(exePath)}` : "unknown");
+        Sentry.setTag("user_data_path", userDataPath ? path.basename(userDataPath) : "unknown");
       });
 
-      log.info('Sentry integration initialized in main process');
+      this.isEnabled = true;
+      log.info("Sentry integration initialized in main process");
     } catch (error) {
-      log.error('Failed to initialize Sentry in main process:', error);
+      log.error("Failed to initialize Sentry in main process:", error);
     }
   }
 
@@ -79,9 +83,9 @@ export default class SentryIntegration extends BaseIntegration {
     if (this.isEnabled) {
       return;
     }
-    
-    if (process.env.NODE_ENV === 'development' && !SENTRY_CONFIG.captureInDevelopment) {
-      log.info('Sentry integration not enabled in development mode');
+
+    if (process.env.NODE_ENV === "development" && !SENTRY_CONFIG.captureInDevelopment) {
+      log.info("Sentry integration not enabled in development mode");
       return;
     }
 
@@ -92,9 +96,9 @@ export default class SentryIntegration extends BaseIntegration {
         client.getOptions().enabled = true;
       }
       this.isEnabled = true;
-      log.info('Sentry integration enabled in main process');
+      log.info("Sentry integration enabled in main process");
     } catch (error) {
-      log.error('Failed to enable Sentry in main process:', error);
+      log.error("Failed to enable Sentry in main process:", error);
     }
   }
 
@@ -109,9 +113,9 @@ export default class SentryIntegration extends BaseIntegration {
         client.getOptions().enabled = false;
       }
       super.disable();
-      log.info('Sentry integration disabled in main process');
+      log.info("Sentry integration disabled in main process");
     } catch (error) {
-      log.error('Failed to disable Sentry in main process:', error);
+      log.error("Failed to disable Sentry in main process:", error);
     }
   }
 
@@ -126,11 +130,11 @@ export default class SentryIntegration extends BaseIntegration {
     }
 
     try {
-      return Sentry.captureException(error, { 
-        contexts: { additional: context || {} } 
+      return Sentry.captureException(error, {
+        contexts: { additional: context || {} }
       });
     } catch (captureError) {
-      log.error('Failed to capture exception with Sentry:', captureError);
+      log.error("Failed to capture exception with Sentry:", captureError);
       return null;
     }
   }
@@ -141,18 +145,18 @@ export default class SentryIntegration extends BaseIntegration {
    * @param level The severity level
    * @param context Additional context information
    */
-  captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, unknown>): string | null {
+  captureMessage(message: string, level: Sentry.SeverityLevel = "info", context?: Record<string, unknown>): string | null {
     if (!this.isEnabled) {
       return null;
     }
 
     try {
-      return Sentry.captureMessage(message, { 
+      return Sentry.captureMessage(message, {
         level,
-        contexts: { additional: context || {} } 
+        contexts: { additional: context || {} }
       });
     } catch (captureError) {
-      log.error('Failed to capture message with Sentry:', captureError);
+      log.error("Failed to capture message with Sentry:", captureError);
       return null;
     }
   }
@@ -169,7 +173,7 @@ export default class SentryIntegration extends BaseIntegration {
     try {
       Sentry.addBreadcrumb(breadcrumb);
     } catch (error) {
-      log.error('Failed to add breadcrumb to Sentry:', error);
+      log.error("Failed to add breadcrumb to Sentry:", error);
     }
   }
 
@@ -186,7 +190,7 @@ export default class SentryIntegration extends BaseIntegration {
     try {
       Sentry.setTag(key, value);
     } catch (error) {
-      log.error('Failed to set Sentry tag:', error);
+      log.error("Failed to set Sentry tag:", error);
     }
   }
 
@@ -202,7 +206,7 @@ export default class SentryIntegration extends BaseIntegration {
     try {
       Sentry.setUser(user);
     } catch (error) {
-      log.error('Failed to set Sentry user:', error);
+      log.error("Failed to set Sentry user:", error);
     }
   }
 }

@@ -1,7 +1,7 @@
-import * as Sentry from '@sentry/electron/main';
-import { app } from 'electron';
-import log from 'electron-log';
-import { SENTRY_CONFIG } from '../../../shared/sentry.config';
+import * as Sentry from "@sentry/electron/main";
+import { app } from "electron";
+import log from "electron-log";
+import { SENTRY_CONFIG } from "../../../shared/sentry.config";
 
 /**
  * Update monitoring for Sentry integration
@@ -9,13 +9,13 @@ import { SENTRY_CONFIG } from '../../../shared/sentry.config';
  */
 export class SentryUpdateMonitor {
   private enabled = SENTRY_CONFIG.updateMonitoring?.enabled ?? false;
-  
+
   constructor() {
     if (!this.enabled) {
-      log.info('Sentry update monitoring is disabled');
+      log.info("Sentry update monitoring is disabled");
       return;
     }
-    log.info('Sentry update monitoring initialized');
+    log.info("Sentry update monitoring initialized");
   }
 
   /**
@@ -24,16 +24,16 @@ export class SentryUpdateMonitor {
    * @param currentVersion Current app version
    */
   trackUpdateCheck(isManualCheck: boolean, currentVersion = app.getVersion()): void {
-    if (!this.enabled || !SENTRY_CONFIG.updateMonitoring?.trackEvents.updateCheck) {
+    if (!this.enabled || !SENTRY_CONFIG.updateMonitoring?.trackEvents?.updateCheck) {
       return;
     }
 
     try {
-      Sentry.captureMessage('Auto-update check started', {
-        level: 'info',
+      Sentry.captureMessage("Auto-update check started", {
+        level: "info",
         tags: {
-          update_event: 'check_started',
-          update_manual: isManualCheck ? 'true' : 'false'
+          update_event: "check_started",
+          update_manual: isManualCheck ? "true" : "false"
         },
         contexts: {
           update: {
@@ -42,9 +42,9 @@ export class SentryUpdateMonitor {
           }
         }
       });
-      log.debug('Tracked update check event in Sentry');
+      log.debug("Tracked update check event in Sentry");
     } catch (error) {
-      log.error('Failed to track update check in Sentry:', error);
+      log.error("Failed to track update check in Sentry:", error);
     }
   }
 
@@ -60,11 +60,11 @@ export class SentryUpdateMonitor {
     }
 
     try {
-      Sentry.captureMessage('Auto-update available', {
-        level: 'info',
+      Sentry.captureMessage("Auto-update available", {
+        level: "info",
         tags: {
-          update_event: 'update_available',
-          update_startup: isStartupCheck ? 'true' : 'false'
+          update_event: "update_available",
+          update_startup: isStartupCheck ? "true" : "false"
         },
         contexts: {
           update: {
@@ -74,9 +74,9 @@ export class SentryUpdateMonitor {
           }
         }
       });
-      log.debug('Tracked update available event in Sentry');
+      log.debug("Tracked update available event in Sentry");
     } catch (error) {
-      log.error('Failed to track update available in Sentry:', error);
+      log.error("Failed to track update available in Sentry:", error);
     }
   }
 
@@ -92,11 +92,11 @@ export class SentryUpdateMonitor {
     }
 
     try {
-      Sentry.captureMessage('Auto-update downloaded', {
-        level: 'info',
+      Sentry.captureMessage("Auto-update downloaded", {
+        level: "info",
         tags: {
-          update_event: 'update_downloaded',
-          update_auto_install: autoInstall ? 'true' : 'false'
+          update_event: "update_downloaded",
+          update_auto_install: autoInstall ? "true" : "false"
         },
         contexts: {
           update: {
@@ -106,27 +106,27 @@ export class SentryUpdateMonitor {
           }
         }
       });
-      log.debug('Tracked update downloaded event in Sentry');
+      log.debug("Tracked update downloaded event in Sentry");
     } catch (error) {
-      log.error('Failed to track update downloaded in Sentry:', error);
+      log.error("Failed to track update downloaded in Sentry:", error);
     }
   }
 
   /**
    * Tracks when an update is installed
-   * @param newVersion New version that was installed
    * @param previousVersion Previous app version
+   * @param newVersion New version that was installed (defaults to current app version)
    */
-  trackUpdateInstalled(newVersion = app.getVersion(), previousVersion: string): void {
+  trackUpdateInstalled(previousVersion: string, newVersion = app.getVersion()): void {
     if (!this.enabled || !SENTRY_CONFIG.updateMonitoring?.trackEvents.updateInstalled) {
       return;
     }
 
     try {
-      Sentry.captureMessage('Auto-update installed', {
-        level: 'info',
+      Sentry.captureMessage("Auto-update installed", {
+        level: "info",
         tags: {
-          update_event: 'update_installed'
+          update_event: "update_installed"
         },
         contexts: {
           update: {
@@ -135,9 +135,9 @@ export class SentryUpdateMonitor {
           }
         }
       });
-      log.debug('Tracked update installed event in Sentry');
+      log.debug("Tracked update installed event in Sentry");
     } catch (error) {
-      log.error('Failed to track update installed in Sentry:', error);
+      log.error("Failed to track update installed in Sentry:", error);
     }
   }
 
@@ -147,18 +147,18 @@ export class SentryUpdateMonitor {
    * @param currentVersion Current app version
    * @param updateStatus Current update status
    */
-  trackUpdateError(error: Error | string, currentVersion = app.getVersion(), updateStatus = 'unknown'): void {
+  trackUpdateError(error: Error | string, currentVersion = app.getVersion(), updateStatus = "unknown"): void {
     if (!this.enabled || !SENTRY_CONFIG.updateMonitoring?.trackEvents.updateError) {
       return;
     }
 
     try {
-      const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown update error');
-      
+      const errorObj = error instanceof Error ? error : new Error(String(error) || "Unknown update error");
+
       Sentry.captureException(errorObj, {
-        level: 'error',
+        level: "error",
         tags: {
-          update_event: 'update_error',
+          update_event: "update_error",
           update_status: updateStatus
         },
         contexts: {
@@ -168,9 +168,9 @@ export class SentryUpdateMonitor {
           }
         }
       });
-      log.debug('Tracked update error event in Sentry');
+      log.debug("Tracked update error event in Sentry");
     } catch (captureError) {
-      log.error('Failed to track update error in Sentry:', captureError);
+      log.error("Failed to track update error in Sentry:", captureError);
     }
   }
 }
