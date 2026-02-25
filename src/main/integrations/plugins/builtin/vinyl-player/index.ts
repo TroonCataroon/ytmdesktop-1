@@ -211,8 +211,6 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
 
       // Send updated settings to the vinyl player window (local modes: custom + remake)
-      if (nextWidgetMode === "custom" || nextWidgetMode === "remake") {
-      // Send updated settings to the vinyl player window (local modes: custom + remake)
       if (!nextUse6KLabs) {
         window.webContents.send("vinyl-player:update-settings", {
           showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls,
@@ -222,7 +220,6 @@ export class VinylPlayerPlugin extends BasePlugin {
         // Keep the injected overlay in sync (6K Labs widget mode)
         window.webContents
           .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${Boolean(newSettings.enableButtonFeature)});`)
-          .catch((): void => undefined);
           .catch((): void => undefined);
       }
     }
