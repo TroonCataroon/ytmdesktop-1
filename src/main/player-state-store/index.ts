@@ -290,6 +290,7 @@ class PlayerStateStore {
   private adPlaying: boolean = false;
   private hasFullMetadata: boolean = false;
   private eventEmitter = new EventEmitter();
+  private listenerMap = new Map<(state: PlayerState) => void, (state: PlayerState) => void>();
 
   constructor() {
     this.eventEmitter.on("error", error => {
@@ -462,6 +463,9 @@ class PlayerStateStore {
   public addEventListener(listener: (state: PlayerState) => void) {
     if (typeof listener === "function") {
       try {
+        // Avoid registering the same listener multiple times.
+        if (this.listenerMap.has(listener)) return;
+
         // Wrap the listener in a try-catch to prevent errors from propagating
         const safeListener = (state: PlayerState) => {
           try {
@@ -470,6 +474,7 @@ class PlayerStateStore {
             console.error("Error in player state listener:", error);
           }
         };
+        this.listenerMap.set(listener, safeListener);
         this.eventEmitter.addListener("stateChanged", safeListener);
       } catch (error) {
         console.error("Error adding event listener:", error);
@@ -481,7 +486,10 @@ class PlayerStateStore {
 
   public removeEventListener(listener: (state: PlayerState) => void) {
     try {
-      this.eventEmitter.removeListener("stateChanged", listener);
+      const safeListener = this.listenerMap.get(listener);
+      if (!safeListener) return;
+      this.eventEmitter.removeListener("stateChanged", safeListener);
+      this.listenerMap.delete(listener);
     } catch (error) {
       console.error("Error removing event listener:", error);
     }

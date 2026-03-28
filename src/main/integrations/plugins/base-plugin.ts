@@ -65,7 +65,39 @@ export abstract class BasePlugin {
 
   // Settings management
   updateSettings(newSettings: Record<string, unknown>): void {
-    this.settings = { ...this.settings, ...newSettings };
+    const prevSettings = this.settings;
+    const nextSettings = { ...this.settings, ...newSettings };
+
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "wallpaper-stuck-2",
+          hypothesisId: "S1",
+          location: "base-plugin.ts:updateSettings",
+          message: "updateSettings called",
+          data: {
+            pluginId: this.config?.id ?? null,
+            changedKeys: Object.keys(newSettings ?? {}),
+            prevWallpaperMode: Boolean((prevSettings as Record<string, unknown>)?.wallpaperMode),
+            nextWallpaperMode: Boolean((nextSettings as Record<string, unknown>)?.wallpaperMode),
+            newWallpaperMode: Boolean((newSettings as Record<string, unknown>)?.wallpaperMode),
+            prevWidgetMode: (prevSettings as Record<string, unknown>)?.widgetMode ?? null,
+            nextWidgetMode: (nextSettings as Record<string, unknown>)?.widgetMode ?? null,
+            newWidgetMode: (newSettings as Record<string, unknown>)?.widgetMode ?? null
+          },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
+
+    this.settings = nextSettings;
     this.onSettingsChanged?.(this.settings);
   }
 

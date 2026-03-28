@@ -1860,8 +1860,11 @@ const createMainWindow = (): void => {
       mainWindow.hide();
     }
 
-    store.set("state.windowBounds", mainWindow.getNormalBounds());
-    store.set("state.windowMaximized", mainWindow.isMaximized());
+    // `mainWindow` can be null/destroyed during shutdown paths.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      store.set("state.windowBounds", mainWindow.getNormalBounds());
+      store.set("state.windowMaximized", mainWindow.isMaximized());
+    }
   });
 
   mainWindow.once("closed", () => {

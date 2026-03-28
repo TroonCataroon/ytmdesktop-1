@@ -3,6 +3,7 @@ import { BrowserWindow, ipcMain, globalShortcut, app, screen } from "electron";
 import path from "path";
 import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
 import { pluginManager } from "../../index";
+import { attachToDesktop } from "../../../../windows/wallpaper";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
@@ -24,6 +25,10 @@ export class VinylPlayerPlugin extends BasePlugin {
   private static readonly REMAKE_DEFAULT_HEIGHT = 282;
   private static readonly REMAKE_ASPECT = VinylPlayerPlugin.REMAKE_DEFAULT_WIDTH / VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT;
 
+  private static readonly WORKSHOP_DEFAULT_WIDTH = 600;
+  private static readonly WORKSHOP_DEFAULT_HEIGHT = 480;
+  private static readonly WORKSHOP_ASPECT = VinylPlayerPlugin.WORKSHOP_DEFAULT_WIDTH / VinylPlayerPlugin.WORKSHOP_DEFAULT_HEIGHT;
+
   private vinylWindow: VinylPlayerWindow | null = null;
   private isPlaying = false;
   private currentTrack: TrackInfo | null = null;
@@ -44,13 +49,14 @@ export class VinylPlayerPlugin extends BasePlugin {
         spinSpeed: 2,
         showControls: true,
         opacity: 0.9,
-        widgetMode: "remake", // 'custom' | 'remake' | '6klabs'
-        use6KLabsWidget: true, // Legacy toggle (kept for backward compatibility); prefer widgetMode
+        widgetMode: "remake", // 'custom' | 'remake' | '6klabs' | 'workshop'
+        use6KLabsWidget: false, // Legacy toggle (kept for backward compatibility); prefer widgetMode
         enableBoundaryCollision: true, // Prevent window from going off-screen
         enableBoundaryMagnetism: true, // Snap to screen edges
         magnetismThreshold: 20, // Pixels from edge to trigger magnetism
         enableResizing: true, // Allow window resizing
         showOnStartup: false, // Show window when app starts (if plugin is enabled)
+        wallpaperMode: false, // Fullscreen desktop mode
         // Persistent window state (saved automatically)
         savedWindowX: undefined,
         savedWindowY: undefined,
@@ -145,15 +151,95 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "wallpaper-stuck-1",
+          hypothesisId: "A",
+          location: "vinyl-player/index.ts:onSettingsChanged:entry",
+          message: "settings changed",
+          data: {
+            oldWallpaperMode: Boolean((this.settings as Record<string, unknown>)?.wallpaperMode),
+            newWallpaperMode: Boolean((newSettings as Record<string, unknown>)?.wallpaperMode),
+            oldWidgetMode: (this.settings as Record<string, unknown>)?.widgetMode ?? null,
+            newWidgetMode: (newSettings as Record<string, unknown>)?.widgetMode ?? null,
+            hadWindow: Boolean(this.vinylWindow?.window),
+            wasVisible: Boolean(this.vinylWindow?.isVisible)
+          },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
+
     // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
     if (
       newSettings.widgetMode !== this.settings.widgetMode ||
       newSettings.use6KLabsWidget !== this.settings.use6KLabsWidget ||
-      newSettings.enableResizing !== this.settings.enableResizing
+      newSettings.enableResizing !== this.settings.enableResizing ||
+      newSettings.wallpaperMode !== this.settings.wallpaperMode
     ) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
+
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "wallpaper-stuck-1",
+            hypothesisId: "B",
+            location: "vinyl-player/index.ts:onSettingsChanged:recreate-branch",
+            message: "recreate branch taken; destroying+creating window",
+            data: {
+              wasVisible,
+              oldWallpaperMode: Boolean((this.settings as Record<string, unknown>)?.wallpaperMode),
+              newWallpaperMode: Boolean((newSettings as Record<string, unknown>)?.wallpaperMode),
+              windowDestroyedBefore: this.vinylWindow?.window ? this.vinylWindow.window.isDestroyed() : null,
+              windowIdBefore: this.vinylWindow?.window ? this.vinylWindow.window.id : null
+            },
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
       this.destroyVinylWindow();
       this.createVinylWindow();
+
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "wallpaper-stuck-1",
+            hypothesisId: "C",
+            location: "vinyl-player/index.ts:onSettingsChanged:recreate-after",
+            message: "recreate completed",
+            data: {
+              hasWindowAfter: Boolean(this.vinylWindow?.window),
+              windowIdAfter: this.vinylWindow?.window ? this.vinylWindow.window.id : null,
+              windowDestroyedAfter: this.vinylWindow?.window ? this.vinylWindow.window.isDestroyed() : null
+            },
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
       if (wasVisible) {
         this.showVinylWindow();
       }
@@ -172,6 +258,7 @@ export class VinylPlayerPlugin extends BasePlugin {
               : "custom";
 
       const isRemake = nextWidgetMode === "remake";
+      const isWorkshop = nextWidgetMode === "workshop";
       const nextUse6KLabs = nextWidgetMode === "6klabs";
 
       if (newSettings.alwaysOnTop !== this.settings.alwaysOnTop) {
@@ -182,7 +269,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      if (newSettings.windowSize !== this.settings.windowSize && (nextWidgetMode === "custom" || isRemake)) {
+      if (newSettings.windowSize !== this.settings.windowSize && (nextWidgetMode === "custom" || isRemake || isWorkshop)) {
         const size = Number(newSettings.windowSize as number);
         const enableResizing = newSettings.enableResizing as boolean;
         if (isRemake) {
@@ -190,6 +277,11 @@ export class VinylPlayerPlugin extends BasePlugin {
           // This makes the remake widget scale nicely without inventing new UI controls.
           const height = Math.max(160, Math.min(size, 800));
           const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
+          window.setSize(width, height);
+        } else if (isWorkshop) {
+          // Workshop mode scaling
+          const height = Math.max(240, Math.min(size * 1.5, 800)); // Scale up a bit since slider is small
+          const width = Math.round(height * VinylPlayerPlugin.WORKSHOP_ASPECT);
           window.setSize(width, height);
         } else {
           window.setSize(size, size);
@@ -203,6 +295,11 @@ export class VinylPlayerPlugin extends BasePlugin {
             const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
             window.setMinimumSize(width, height);
             window.setMaximumSize(width, height);
+          } else if (isWorkshop) {
+            const height = Math.max(240, Math.min(size * 1.5, 800));
+            const width = Math.round(height * VinylPlayerPlugin.WORKSHOP_ASPECT);
+            window.setMinimumSize(width, height);
+            window.setMaximumSize(width, height);
           } else {
             window.setMinimumSize(size, size);
             window.setMaximumSize(size, size);
@@ -210,8 +307,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         }
       }
 
-      // Send updated settings to the vinyl player window (local modes: custom + remake)
-      if (nextWidgetMode === "custom" || nextWidgetMode === "remake") {
+      // Send updated settings to the vinyl player window (local modes: custom + remake + workshop)
+      if (nextWidgetMode === "custom" || nextWidgetMode === "remake" || nextWidgetMode === "workshop") {
         if (!nextUse6KLabs) {
           window.webContents.send("vinyl-player:update-settings", {
             showControls: newSettings.showControls !== undefined ? newSettings.showControls : this.settings.showControls,
@@ -426,6 +523,28 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
     });
 
+    ipcMain.on("vinyl-player:seek", (_event, time) => {
+      const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
+      if (target) {
+        try {
+          target.send("remoteControl:execute", "seekTo", time);
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    ipcMain.on("vinyl-player:set-volume", (_event, volume) => {
+      const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
+      if (target) {
+        try {
+          target.send("remoteControl:execute", "setVolume", volume);
+        } catch {
+          // ignore
+        }
+      }
+    });
+
     // Handle close from vinyl player window
     ipcMain.on("vinyl-player:close", () => {
       this.hideVinylWindow();
@@ -446,6 +565,8 @@ export class VinylPlayerPlugin extends BasePlugin {
     ipcMain.removeAllListeners("vinyl-player:play-pause");
     ipcMain.removeAllListeners("vinyl-player:next");
     ipcMain.removeAllListeners("vinyl-player:previous");
+    ipcMain.removeAllListeners("vinyl-player:seek");
+    ipcMain.removeAllListeners("vinyl-player:set-volume");
     ipcMain.removeAllListeners("vinyl-player:close");
     ipcMain.removeAllListeners("vinyl-player:register-shortcuts");
     ipcMain.removeAllListeners("vinyl-player:unregister-shortcuts");
@@ -474,9 +595,20 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const use6KLabs = this.settings.use6KLabsWidget as boolean;
     const enableResizing = this.settings.enableResizing as boolean;
-    const widgetMode = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) : use6KLabs ? "6klabs" : "custom";
+    const wallpaperMode = this.settings.wallpaperMode as boolean;
+    const rawWidgetMode = this.settings.widgetMode;
+    const widgetMode =
+      rawWidgetMode === "custom" || rawWidgetMode === "remake" || rawWidgetMode === "6klabs" || rawWidgetMode === "workshop"
+        ? rawWidgetMode
+        : use6KLabs
+          ? "6klabs"
+          : "remake";
     const use6K = widgetMode === "6klabs";
     const useRemake = widgetMode === "remake";
+    const useWorkshop = widgetMode === "workshop";
+
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
 
     const size = use6K ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
 
@@ -490,23 +622,37 @@ export class VinylPlayerPlugin extends BasePlugin {
     const remakeHeight = Math.max(160, Math.min(desiredSquareSize || VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT, 800));
     const remakeWidth = Math.round(remakeHeight * VinylPlayerPlugin.REMAKE_ASPECT);
 
-    const width = savedWidth || (useRemake ? remakeWidth : size);
-    const height = savedHeight || (use6K ? 200 : useRemake ? remakeHeight : size);
+    const workshopHeight = Math.max(240, Math.min((desiredSquareSize || 300) * 1.5, 800));
+    const workshopWidth = Math.round(workshopHeight * VinylPlayerPlugin.WORKSHOP_ASPECT);
+
+    let width = savedWidth || (useRemake ? remakeWidth : useWorkshop ? workshopWidth : size);
+    let height = savedHeight || (use6K ? 200 : useRemake ? remakeHeight : useWorkshop ? workshopHeight : size);
+    let x = savedX;
+    let y = savedY;
+
+    if (wallpaperMode) {
+      width = screenW;
+      height = screenH;
+      x = 0;
+      y = 0;
+    }
 
     const browserWindowOptions: Electron.BrowserWindowConstructorOptions = {
       width,
       height,
+      x,
+      y,
       minWidth: use6K ? 400 : enableResizing ? 160 : size,
       minHeight: use6K ? 100 : enableResizing ? 160 : size,
-      maxWidth: use6K || enableResizing || useRemake ? undefined : size, // Allow resizing if enabled
-      maxHeight: use6K || enableResizing || useRemake ? undefined : size,
+      maxWidth: use6K || enableResizing || useRemake || useWorkshop || wallpaperMode ? undefined : size, // Allow resizing if enabled
+      maxHeight: use6K || enableResizing || useRemake || useWorkshop || wallpaperMode ? undefined : size,
       frame: false,
       transparent: true,
-      alwaysOnTop: this.settings.alwaysOnTop as boolean,
-      resizable: use6K || useRemake || enableResizing, // Allow resizing based on setting
-      skipTaskbar: false,
+      alwaysOnTop: wallpaperMode ? false : (this.settings.alwaysOnTop as boolean),
+      resizable: !wallpaperMode && (use6K || useRemake || useWorkshop || enableResizing), // Allow resizing based on setting
+      skipTaskbar: wallpaperMode,
       show: false,
-      title: use6K ? "6K Labs Widget" : useRemake ? "Remake Widget" : "Vinyl Player",
+      title: use6K ? "6K Labs Widget" : useRemake ? "Remake Widget" : useWorkshop ? "Workshop Widget" : "Vinyl Player",
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -516,8 +662,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
     };
 
-    // Set position if saved (validate it's on-screen)
-    if (savedX !== undefined && savedY !== undefined) {
+    // Set position if saved (validate it's on-screen) - SKIP if wallpaper mode
+    if (!wallpaperMode && savedX !== undefined && savedY !== undefined) {
       const display = screen.getDisplayNearestPoint({ x: savedX, y: savedY });
       if (display) {
         browserWindowOptions.x = savedX;
@@ -531,6 +677,66 @@ export class VinylPlayerPlugin extends BasePlugin {
     };
 
     const window = this.vinylWindow.window;
+
+    // #region agent log (debug instrumentation)
+    try {
+      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "wallpaper-stuck-1",
+          hypothesisId: "D",
+          location: "vinyl-player/index.ts:createVinylWindow:created",
+          message: "vinyl window created",
+          data: {
+            wallpaperMode: Boolean(wallpaperMode),
+            widgetMode,
+            use6K,
+            useRemake,
+            useWorkshop,
+            windowId: window.id,
+            skipTaskbar: Boolean((browserWindowOptions as Record<string, unknown>)?.skipTaskbar),
+            alwaysOnTop: Boolean((browserWindowOptions as Record<string, unknown>)?.alwaysOnTop),
+            bounds: window.getBounds()
+          },
+          timestamp: Date.now()
+        })
+      }).catch((): void => undefined);
+    } catch {
+      // ignore
+    }
+    // #endregion agent log (debug instrumentation)
+
+    if (wallpaperMode && process.platform === "win32") {
+      // Attach to desktop on Windows
+      // #region agent log (debug instrumentation)
+      try {
+        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "wallpaper-stuck-1",
+            hypothesisId: "E",
+            location: "vinyl-player/index.ts:createVinylWindow:attachToDesktop:before",
+            message: "calling attachToDesktop",
+            data: {
+              windowId: window.id,
+              wallpaperMode: Boolean(wallpaperMode)
+            },
+            timestamp: Date.now()
+          })
+        }).catch((): void => undefined);
+      } catch {
+        // ignore
+      }
+      // #endregion agent log (debug instrumentation)
+
+      attachToDesktop(window).catch(err => {
+        console.error("Failed to attach vinyl player to desktop:", err);
+      });
+    }
 
     if (use6K) {
       // For 6K Labs widget, load external URL with permissive CSP
@@ -830,7 +1036,7 @@ export class VinylPlayerPlugin extends BasePlugin {
               }
             } catch {}
 
-            const state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
+            var state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
             let enabled = ${Boolean(this.settings.enableButtonFeature)};
             let playing = ${Boolean(this.isPlaying)};
             let overlay = null;
@@ -1092,7 +1298,7 @@ export class VinylPlayerPlugin extends BasePlugin {
               }
             } catch {}
 
-            const state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
+            var state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
             let enabled = ${Boolean(this.settings.enableButtonFeature)};
             let playing = ${Boolean(this.isPlaying)};
             let overlay = null;
@@ -1429,7 +1635,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       // Send settings to the renderer
       window.webContents.send("vinyl-player:update-settings", {
         showControls: Boolean(this.settings.showControls),
-        enableButtonFeature: Boolean(this.settings.enableButtonFeature)
+        enableButtonFeature: Boolean(this.settings.enableButtonFeature),
+        scale: this.settings.windowSize ? Number(this.settings.windowSize) / 200 : 1 // Pass scale factor
       });
 
       // Keep the injected 6K overlay in sync (play/pause icon + enabled state)
@@ -1485,6 +1692,9 @@ export class VinylPlayerPlugin extends BasePlugin {
   private constrainWindowToScreen(window: BrowserWindow): void {
     if (!window || window.isDestroyed()) return;
 
+    // Don't constrain in wallpaper mode
+    if (this.settings.wallpaperMode) return;
+
     const enableBoundaryCollision = this.settings.enableBoundaryCollision as boolean;
     if (!enableBoundaryCollision) return;
 
@@ -1531,6 +1741,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         options: [
           { value: "custom", label: "Custom Vinyl Player (built-in)" },
           { value: "remake", label: "Remake Widget (local, customizable)" },
+          { value: "workshop", label: "Workshop (Cozy)" },
           { value: "6klabs", label: "6K Labs Widget (external URL)" }
         ]
       },
@@ -1611,6 +1822,12 @@ export class VinylPlayerPlugin extends BasePlugin {
         label: "Enable Button Feature",
         description: "Allow clicking the vinyl record to play/pause music",
         default: true
+      },
+      wallpaperMode: {
+        type: "boolean",
+        label: "Wallpaper Mode",
+        description: "Make the player act as a desktop wallpaper (fullscreen, bottom layer)",
+        default: false
       }
       // Note: savedWindow* and wasVisibleOnClose settings are hidden - they're managed automatically
     };

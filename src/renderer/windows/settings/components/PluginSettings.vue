@@ -41,6 +41,23 @@
                 <div class="vinyl-grid">
                   <div class="vinyl-control">
                     <div class="vc-label">
+                      <span class="material-symbols-outlined">dashboard</span>
+                      Widget Mode
+                    </div>
+                    <select
+                      class="select-input"
+                      :value="String(getPluginSetting(plugin.id, 'widgetMode') ?? 'remake')"
+                      @change="onSelectChange(plugin.id, 'widgetMode', $event)"
+                    >
+                      <option value="remake">Remake Widget (local)</option>
+                      <option value="workshop">Workshop (Cozy)</option>
+                      <option value="custom">Custom Vinyl Player (local)</option>
+                      <option value="6klabs">6K Labs Widget (external)</option>
+                    </select>
+                  </div>
+
+                  <div class="vinyl-control">
+                    <div class="vc-label">
                       <span class="material-symbols-outlined">open_in_full</span>
                       Window Size
                     </div>
@@ -180,6 +197,16 @@
                     <label class="switch">
                       <input
                         type="checkbox"
+                        :checked="Boolean(getPluginSetting(plugin.id, 'wallpaperMode'))"
+                        @change="onCheckboxChange(plugin.id, 'wallpaperMode', $event)"
+                      />
+                      <span class="slider"></span>
+                      <span class="switch-label">Wallpaper Mode</span>
+                    </label>
+
+                    <label class="switch">
+                      <input
+                        type="checkbox"
                         :checked="Boolean(getPluginSetting(plugin.id, 'enableButtonFeature'))"
                         @change="onCheckboxChange(plugin.id, 'enableButtonFeature', $event)"
                       />
@@ -229,12 +256,12 @@
                   <div class="vinyl-control">
                     <div class="vc-label">
                       <span class="material-symbols-outlined">key</span>
-                      Widget Token
+                      Widget Token / Link
                     </div>
                     <input
                       class="text-input"
                       type="text"
-                      placeholder="Enter your 6K Labs widget token"
+                      placeholder="Paste your 6K Labs widget token or full widget link"
                       :value="String(getPluginSetting(plugin.id, 'widgetToken') ?? '')"
                       @input="onTextInput(plugin.id, 'widgetToken', $event)"
                     />
@@ -490,7 +517,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted, ref } from "vue";
 
 interface Plugin {
   id: string;
@@ -625,7 +652,7 @@ async function loadPluginSettingsSchemas(): Promise<void> {
 
 async function togglePlugin(pluginId: string): Promise<void> {
   try {
-    const plugin = plugins.value.find(p => p.id === pluginId);
+    const plugin = plugins.value.find((p: Plugin) => p.id === pluginId);
     if (plugin) {
       const newState = !plugin.enabled;
 
