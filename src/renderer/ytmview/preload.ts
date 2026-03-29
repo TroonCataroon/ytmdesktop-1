@@ -135,6 +135,7 @@ function createNavigationMenuArrows() {
   if (!pivotBar) {
     // New YTM UI
     const searchBar = document.querySelector("ytmusic-search-box");
+    if (!searchBar?.parentNode) return;
     const navBar = searchBar.parentNode;
     navBar.insertBefore(historyForwardElement, searchBar);
     navBar.insertBefore(historyBackElement, historyForwardElement);
@@ -175,8 +176,10 @@ async function hookPlayerApiEvents() {
 }
 
 function overrideHistoryButtonDisplay() {
+  const historyButton = document.querySelector<HTMLElement>("#history-link .history-button");
+  if (!historyButton) return;
   // @ts-expect-error Style is reported as readonly but this still works
-  document.querySelector<HTMLElement>("#history-link .history-button").style = "display: inline-block !important;";
+  historyButton.style = "display: inline-block !important;";
 }
 
 function getYTMTextRun(runs: { text: string }[]) {

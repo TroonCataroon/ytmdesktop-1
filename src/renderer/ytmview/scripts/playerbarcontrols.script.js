@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 (function () {
   function isExperimentEnabled(experimentFlag) {
-    const flag = window.ytcfg.data_.EXPERIMENT_FLAGS[experimentFlag];
-    if (flag && typeof flag === "string") return flag === "false" ? false : true;
+    const flag = window.ytcfg?.data_?.EXPERIMENT_FLAGS?.[experimentFlag];
+    if (typeof flag === "string") return flag !== "false";
     return !!flag;
   }
 
