@@ -5,6 +5,7 @@ import log from "electron-log";
 import os from "os";
 // Importing Sentry as a type only to avoid a circular dependency
 import type SentryIntegration from "../sentry";
+import { notifySlackBugReport } from "../slack-bug-notifier";
 
 export interface CrashReport {
   timestamp: string;
@@ -155,6 +156,8 @@ export default class CrashReporter {
     try {
       await fs.writeFile(filepath, JSON.stringify(report, null, 2));
       log.info(`Crash report saved: ${filename}`);
+
+      notifySlackBugReport(report, filename);
 
       // Clean up old reports
       await this.cleanupOldReports();
