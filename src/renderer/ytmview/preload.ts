@@ -439,7 +439,7 @@ window.addEventListener("load", async () => {
         )();
 
         let newVolumeUp = currentVolumeUp + 10;
-        if (currentVolumeUp > 100) {
+        if (newVolumeUp > 100) {
           newVolumeUp = 100;
         }
         (
@@ -463,7 +463,7 @@ window.addEventListener("load", async () => {
         )();
 
         let newVolumeDown = currentVolumeDown - 10;
-        if (currentVolumeDown < 0) {
+        if (newVolumeDown < 0) {
           newVolumeDown = 0;
         }
         (
