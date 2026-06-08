@@ -34,8 +34,13 @@ export default defineConfig({
         authorize_companion_window: "src/renderer/windows/authorize-companion/index.html"
       },
       output: {
-        manualChunks: {
-          vue: ["vue"]
+        // Vite 8 uses Rolldown, which only supports the function form of manualChunks
+        // (the object form throws "manualChunks is not a function"). Group the Vue
+        // runtime into its own chunk to preserve the previous chunking behavior.
+        manualChunks(id) {
+          if (id.includes("node_modules/vue/") || id.includes("node_modules/@vue/")) {
+            return "vue";
+          }
         }
       }
     }
