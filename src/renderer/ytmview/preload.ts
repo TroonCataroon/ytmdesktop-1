@@ -25,49 +25,10 @@ const store = new Store<StoreSchema>();
 const sentryIntegration = new RendererSentryIntegration();
 sentryIntegration.enable();
 
-// #region agent log (debug instrumentation) — dev only; never runs in production
-let __ytmdIngestEnabled = true;
-let __ytmdIngest: (runId: string, hypothesisId: string, location: string, message: string, data: Record<string, unknown>) => void = () => undefined;
-if (process.env.NODE_ENV === "development") {
-  ipcRenderer
-    .invoke("settings:get", "developer.debugLoggingEnabled")
-    .then(v => {
-      __ytmdIngestEnabled = Boolean(v);
-    })
-    .catch(() => {
-      __ytmdIngestEnabled = true;
-    });
-  __ytmdIngest = (runId: string, hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
-    try {
-      if (!__ytmdIngestEnabled) return;
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: "debug-session", runId, hypothesisId, location, message, data, timestamp: Date.now() })
-      }).catch((): void => undefined);
-    } catch {
-      // ignore
-    }
-  };
-}
-const __ytmdDbgPlay = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
-  if (process.env.NODE_ENV !== "development") return;
-  __ytmdIngest("vinyl-play-1", hypothesisId, location, message, data);
-};
-// #endregion agent log (debug instrumentation)
-
 contextBridge.exposeInMainWorld("ytmd", {
   sendVideoProgress: (volume: number) => ipcRenderer.send("ytmView:videoProgressChanged", volume),
   sendVideoState: (state: number) => ipcRenderer.send("ytmView:videoStateChanged", state),
   sendVideoData: (videoDetails: unknown, playlistId: string, album: { id: string; text: string }, likeStatus: unknown, hasFullMetadata: boolean) => {
-    if (process.env.NODE_ENV === "development") {
-      __ytmdIngest("resume-2", "R2", "ytmview/preload.ts:sendVideoData", "sendVideoData called", {
-        hasVideoId: typeof videoDetails === "object" && videoDetails !== null && "videoId" in videoDetails,
-        playlistId: String(playlistId || ""),
-        hasAlbum: Boolean(album?.id),
-        hasFullMetadata: Boolean(hasFullMetadata)
-      });
-    }
     ipcRenderer.send("ytmView:videoDataChanged", videoDetails, playlistId, album, likeStatus, hasFullMetadata);
   },
   sendStoreUpdate: (queueState: unknown, likeStatus: string, volume: number, muted: boolean, adPlaying: boolean) =>
@@ -478,35 +439,15 @@ window.addEventListener("load", async () => {
     await hookPlayerApiEvents();
     overrideHistoryButtonDisplay();
 
-    const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
-      if (process.env.NODE_ENV !== "development") return;
-      __ytmdIngest("resume-1", hypothesisId, location, message, data);
-    };
-
     const integrationScripts: { [integrationName: string]: { [scriptName: string]: string } } = await ipcRenderer.invoke("ytmView:getIntegrationScripts");
 
     const state = await store.get("state");
     const continueWhereYouLeftOff = (await store.get("playback")).continueWhereYouLeftOff;
 
-    // #region agent log (debug instrumentation)
-    __ytmdDbg("R1", "ytmview/preload.ts:resume", "resume check", {
-      continueWhereYouLeftOff: Boolean(continueWhereYouLeftOff),
-      lastUrl: String(state.lastUrl || ""),
-      lastVideoId: String(state.lastVideoId || ""),
-      lastPlaylistId: String(state.lastPlaylistId || "")
-    });
-    // #endregion agent log (debug instrumentation)
-
     if (continueWhereYouLeftOff) {
       // The last page the user was on is already a page where it will be playing a song from (no point telling YTM to play it again)
       if (!state.lastUrl.startsWith("https://music.youtube.com/watch")) {
         if (state.lastVideoId) {
-          // #region agent log (debug instrumentation)
-          __ytmdDbg("R2", "ytmview/preload.ts:resume", "dispatching yt-navigate to last video", {
-            lastVideoId: String(state.lastVideoId),
-            lastPlaylistId: String(state.lastPlaylistId || "")
-          });
-          // #endregion agent log (debug instrumentation)
           // This height transition check is a hack to fix the `Start playback` hint from not being in the correct position https://github.com/ytmdesktop/ytmdesktop/issues/1159
           let heightTransitionCount = 0;
           const transitionEnd = async (e: TransitionEvent) => {
@@ -542,9 +483,6 @@ window.addEventListener("load", async () => {
           );
         }
       } else {
-        // #region agent log (debug instrumentation)
-        __ytmdDbg("R3", "ytmview/preload.ts:resume", "lastUrl is watch page; sending videoData snapshot", {});
-        // #endregion agent log (debug instrumentation)
         (
           await webFrame.executeJavaScript(`
           (function() {
@@ -563,58 +501,20 @@ window.addEventListener("load", async () => {
     ipcRenderer.on("remoteControl:execute", async (_event, command, value) => {
       switch (command) {
         case "playPause": {
-          if (process.env.NODE_ENV === "development") {
-            __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "received", { value: value ?? null });
-          }
-
-          const actionResult = await webFrame.executeJavaScript(
+          await webFrame.executeJavaScript(
             `
             (function() {
-              try {
-                const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
-                if (!bar || !bar.playerApi) return { ok: false, reason: "no-bar-or-api" };
-                if (bar.playing) {
-                  bar.playerApi.pauseVideo();
-                } else {
-                  bar.playerApi.playVideo();
-                }
-                return { ok: true };
-              } catch (e) {
-                return { ok: false, error: String(e) };
+              const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
+              if (!bar || !bar.playerApi) return;
+              if (bar.playing) {
+                bar.playerApi.pauseVideo();
+              } else {
+                bar.playerApi.playVideo();
               }
             })()
           `,
             true
           );
-
-          // #region agent log (debug instrumentation)
-          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "actionResult", { actionResult });
-          // #endregion agent log (debug instrumentation)
-
-          // Wait a brief moment for player state to update (YTM player API is asynchronous)
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          // Snapshot after attempting the action
-          const after = (await webFrame.executeJavaScript(`
-            (function() {
-              try {
-                const bar = document.querySelector("ytmusic-app-layout>ytmusic-player-bar");
-                return {
-                  hasBar: Boolean(bar),
-                  hasApi: Boolean(bar && bar.playerApi),
-                  playing: Boolean(bar && bar.playing),
-                  userActivation: (navigator.userActivation ? { isActive: navigator.userActivation.isActive, hasBeenActive: navigator.userActivation.hasBeenActive } : null)
-                };
-              } catch (e) {
-                return { error: String(e) };
-              }
-            })()
-          `)) as unknown;
-
-          // #region agent log (debug instrumentation)
-          __ytmdDbgPlay("VP3", "ytmview/preload.ts:remoteControl:playPause", "after", { after });
-          // #endregion agent log (debug instrumentation)
-
           break;
         }
 

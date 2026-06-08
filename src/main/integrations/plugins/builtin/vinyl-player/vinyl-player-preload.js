@@ -20,18 +20,6 @@ contextBridge.exposeInMainWorld('electron', {
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, data);
       } else {
-        // #region agent log (debug instrumentation)
-        try {
-          const f = globalThis.fetch;
-          if (typeof f === 'function') {
-            f('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({sessionId:'debug-session',runId:'multiclick-1',hypothesisId:'MC',location:'vinyl-player-preload.js:send',message:'blocked channel',data:{channel},timestamp:Date.now()})
-            }).catch(()=>{});
-          }
-        } catch {}
-        // #endregion agent log (debug instrumentation)
       }
     },
     on: (channel, func) => {

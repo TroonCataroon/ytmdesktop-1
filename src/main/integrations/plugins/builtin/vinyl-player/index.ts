@@ -1,9 +1,9 @@
-import { BasePlugin, PluginSettings } from "../../base-plugin";
-import { BrowserWindow, ipcMain, globalShortcut, app, screen } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, screen } from "electron";
 import path from "path";
 import playerStateStore, { PlayerState, VideoState } from "../../../../player-state-store";
-import { pluginManager } from "../../index";
 import { attachToDesktop } from "../../../../windows/wallpaper";
+import { BasePlugin, PluginSettings } from "../../base-plugin";
+import { pluginManager } from "../../index";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
@@ -33,6 +33,10 @@ export class VinylPlayerPlugin extends BasePlugin {
   private isPlaying = false;
   private currentTrack: TrackInfo | null = null;
   private initialized = false;
+  private playerStateListener: ((state: PlayerState) => void) | null = null;
+  private showOnStartupTimeout: ReturnType<typeof setTimeout> | null = null;
+  private vinylCspSession: Electron.Session | null = null;
+  private last6KOverlayState = { enabled: false, playing: false };
 
   constructor() {
     super({
@@ -84,47 +88,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     if (this.initialized) return;
     this.initialized = true;
 
-    // #region agent log (debug instrumentation)
-    try {
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "vinyl-ready-1",
-          hypothesisId: "VR",
-          location: "vinyl-player/index.ts:onEnable",
-          message: "onEnable called",
-          data: { appIsReady: app.isReady() },
-          timestamp: Date.now()
-        })
-      }).catch((): void => undefined);
-    } catch {
-      // ignore
-    }
-    // #endregion agent log (debug instrumentation)
-
     void app.whenReady().then(() => {
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "vinyl-ready-1",
-            hypothesisId: "VR",
-            location: "vinyl-player/index.ts:onEnable",
-            message: "app.whenReady resolved; initializing vinyl plugin",
-            data: {},
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
-
       this.createVinylWindow();
       this.setupPlayerStateListener();
       this.setupIpcHandlers();
@@ -135,7 +99,11 @@ export class VinylPlayerPlugin extends BasePlugin {
 
       if (showOnStartup || wasVisible) {
         // Small delay to ensure player state is loaded
-        setTimeout(() => {
+        if (this.showOnStartupTimeout) {
+          clearTimeout(this.showOnStartupTimeout);
+        }
+        this.showOnStartupTimeout = setTimeout(() => {
+          this.showOnStartupTimeout = null;
           this.showVinylWindow();
         }, 1000);
       }
@@ -143,6 +111,15 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onDisable(): void {
+    if (this.showOnStartupTimeout) {
+      clearTimeout(this.showOnStartupTimeout);
+      this.showOnStartupTimeout = null;
+    }
+    if (this.playerStateListener) {
+      playerStateStore.removeEventListener(this.playerStateListener);
+      this.playerStateListener = null;
+    }
+    this.unregisterKeyboardShortcuts();
     // Save window state before destroying
     this.saveWindowState();
     this.destroyVinylWindow();
@@ -151,33 +128,6 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>): void {
-    // #region agent log (debug instrumentation)
-    try {
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "wallpaper-stuck-1",
-          hypothesisId: "A",
-          location: "vinyl-player/index.ts:onSettingsChanged:entry",
-          message: "settings changed",
-          data: {
-            oldWallpaperMode: Boolean((this.settings as Record<string, unknown>)?.wallpaperMode),
-            newWallpaperMode: Boolean((newSettings as Record<string, unknown>)?.wallpaperMode),
-            oldWidgetMode: (this.settings as Record<string, unknown>)?.widgetMode ?? null,
-            newWidgetMode: (newSettings as Record<string, unknown>)?.widgetMode ?? null,
-            hadWindow: Boolean(this.vinylWindow?.window),
-            wasVisible: Boolean(this.vinylWindow?.isVisible)
-          },
-          timestamp: Date.now()
-        })
-      }).catch((): void => undefined);
-    } catch {
-      // ignore
-    }
-    // #endregion agent log (debug instrumentation)
-
     // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
     if (
       newSettings.widgetMode !== this.settings.widgetMode ||
@@ -187,58 +137,8 @@ export class VinylPlayerPlugin extends BasePlugin {
     ) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
 
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "wallpaper-stuck-1",
-            hypothesisId: "B",
-            location: "vinyl-player/index.ts:onSettingsChanged:recreate-branch",
-            message: "recreate branch taken; destroying+creating window",
-            data: {
-              wasVisible,
-              oldWallpaperMode: Boolean((this.settings as Record<string, unknown>)?.wallpaperMode),
-              newWallpaperMode: Boolean((newSettings as Record<string, unknown>)?.wallpaperMode),
-              windowDestroyedBefore: this.vinylWindow?.window ? this.vinylWindow.window.isDestroyed() : null,
-              windowIdBefore: this.vinylWindow?.window ? this.vinylWindow.window.id : null
-            },
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
-
       this.destroyVinylWindow();
       this.createVinylWindow();
-
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "wallpaper-stuck-1",
-            hypothesisId: "C",
-            location: "vinyl-player/index.ts:onSettingsChanged:recreate-after",
-            message: "recreate completed",
-            data: {
-              hasWindowAfter: Boolean(this.vinylWindow?.window),
-              windowIdAfter: this.vinylWindow?.window ? this.vinylWindow.window.id : null,
-              windowDestroyedAfter: this.vinylWindow?.window ? this.vinylWindow.window.isDestroyed() : null
-            },
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
 
       if (wasVisible) {
         this.showVinylWindow();
@@ -315,10 +215,7 @@ export class VinylPlayerPlugin extends BasePlugin {
             enableButtonFeature: newSettings.enableButtonFeature !== undefined ? newSettings.enableButtonFeature : this.settings.enableButtonFeature
           });
         } else if (newSettings.enableButtonFeature !== undefined) {
-          // Keep the injected overlay in sync (6K Labs widget mode)
-          window.webContents
-            .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${Boolean(newSettings.enableButtonFeature)});`)
-            .catch((): void => undefined);
+          this.sync6KOverlayState(true);
         }
       }
     }
@@ -428,30 +325,6 @@ export class VinylPlayerPlugin extends BasePlugin {
     ipcMain.on("vinyl-player:play-pause", () => {
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
 
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "vinyl-play-1",
-            hypothesisId: "VP2",
-            location: "vinyl-player/index.ts:ipc:play-pause",
-            message: "received; forwarding remoteControl:execute",
-            data: {
-              hasTarget: Boolean(target),
-              targetUrl: target ? String(target.getURL?.() || "") : "",
-              appIsReady: app.isReady()
-            },
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
-
       if (target) {
         try {
           target.send("remoteControl:execute", "playPause");
@@ -462,26 +335,6 @@ export class VinylPlayerPlugin extends BasePlugin {
     });
 
     ipcMain.on("vinyl-player:next", () => {
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "multiclick-1",
-            hypothesisId: "MC",
-            location: "vinyl-player/index.ts:ipc:next",
-            message: "received",
-            data: {},
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
-
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
       if (target) {
         try {
@@ -493,26 +346,6 @@ export class VinylPlayerPlugin extends BasePlugin {
     });
 
     ipcMain.on("vinyl-player:previous", () => {
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "multiclick-1",
-            hypothesisId: "MC",
-            location: "vinyl-player/index.ts:ipc:previous",
-            message: "received",
-            data: {},
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
-
       const target = this.getYtmViewWebContents() ?? this.getMainWindowWebContentsFallback();
       if (target) {
         try {
@@ -678,65 +511,15 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     const window = this.vinylWindow.window;
 
-    // #region agent log (debug instrumentation)
-    try {
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "wallpaper-stuck-1",
-          hypothesisId: "D",
-          location: "vinyl-player/index.ts:createVinylWindow:created",
-          message: "vinyl window created",
-          data: {
-            wallpaperMode: Boolean(wallpaperMode),
-            widgetMode,
-            use6K,
-            useRemake,
-            useWorkshop,
-            windowId: window.id,
-            skipTaskbar: Boolean((browserWindowOptions as Record<string, unknown>)?.skipTaskbar),
-            alwaysOnTop: Boolean((browserWindowOptions as Record<string, unknown>)?.alwaysOnTop),
-            bounds: window.getBounds()
-          },
-          timestamp: Date.now()
-        })
-      }).catch((): void => undefined);
-    } catch {
-      // ignore
-    }
-    // #endregion agent log (debug instrumentation)
-
     if (wallpaperMode && process.platform === "win32") {
       // Attach to desktop on Windows
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "wallpaper-stuck-1",
-            hypothesisId: "E",
-            location: "vinyl-player/index.ts:createVinylWindow:attachToDesktop:before",
-            message: "calling attachToDesktop",
-            data: {
-              windowId: window.id,
-              wallpaperMode: Boolean(wallpaperMode)
-            },
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
 
       attachToDesktop(window).catch(err => {
         console.error("Failed to attach vinyl player to desktop:", err);
       });
     }
+
+    this.vinylCspSession = window.webContents.session;
 
     if (use6K) {
       // For 6K Labs widget, load external URL with permissive CSP
@@ -864,17 +647,28 @@ export class VinylPlayerPlugin extends BasePlugin {
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
-    // Track mouse position
-    const updateMousePosition = setInterval(() => {
-      if (isDragging && window && !window.isDestroyed()) {
-        const cursor = screen.getCursorScreenPoint();
-        // Only update if mouse actually moved
-        if (cursor.x !== lastMousePos.x || cursor.y !== lastMousePos.y) {
-          lastMousePos = cursor;
-          handleWindowMove(cursor);
-        }
+    let dragInterval: ReturnType<typeof setInterval> | null = null;
+
+    const stopDragTracking = (): void => {
+      if (dragInterval) {
+        clearInterval(dragInterval);
+        dragInterval = null;
       }
-    }, 16); // ~60fps
+    };
+
+    const startDragTracking = (): void => {
+      if (dragInterval) return;
+      lastMousePos = screen.getCursorScreenPoint();
+      dragInterval = setInterval(() => {
+        if (isDragging && window && !window.isDestroyed()) {
+          const cursor = screen.getCursorScreenPoint();
+          if (cursor.x !== lastMousePos.x || cursor.y !== lastMousePos.y) {
+            lastMousePos = cursor;
+            handleWindowMove(cursor);
+          }
+        }
+      }, 16);
+    };
 
     // Listen for drag start/end from renderer
     ipcMain.on("vinyl-player:drag-start", () => {
@@ -885,10 +679,12 @@ export class VinylPlayerPlugin extends BasePlugin {
         y: cursor.y - y
       };
       isDragging = true;
+      startDragTracking();
     });
 
     ipcMain.on("vinyl-player:drag-end", () => {
       isDragging = false;
+      stopDragTracking();
     });
 
     // Handle window movement with magnetism and collision
@@ -937,7 +733,7 @@ export class VinylPlayerPlugin extends BasePlugin {
 
     // Clean up intervals when window is closed
     window.on("closed", () => {
-      clearInterval(updateMousePosition);
+      stopDragTracking();
       ipcMain.removeAllListeners("vinyl-player:drag-start");
       ipcMain.removeAllListeners("vinyl-player:drag-end");
     });
@@ -948,10 +744,7 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Send initial settings to the vinyl player window once it's ready (custom player only)
     window.webContents.on("did-finish-load", () => {
       if (!use6K) {
-        window.webContents.send("vinyl-player:update-settings", {
-          showControls: this.settings.showControls as boolean,
-          enableButtonFeature: this.settings.enableButtonFeature as boolean
-        });
+        this.sendVinylSettingsToWindow();
 
         // Get current player state and update vinyl display
         const currentState = playerStateStore.getState();
@@ -976,18 +769,6 @@ export class VinylPlayerPlugin extends BasePlugin {
               document.body.style.webkitAppRegion = 'drag';
               document.body.style.userSelect = 'none';
             } catch {}
-
-            // #region agent log (debug instrumentation)
-            const __ytmdDbg = (hypothesisId, location, message, data) => {
-              try {
-                fetch('http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af',{
-                  method:'POST',
-                  headers:{'Content-Type':'application/json'},
-                  body:JSON.stringify({sessionId:'debug-session',runId:'overlay-align-1',hypothesisId,location,message,data,timestamp:Date.now()})
-                }).catch(()=>{});
-              } catch {}
-            };
-            // #endregion agent log (debug instrumentation)
 
             // Click overlay CSS (kept minimal to avoid affecting widget styles)
             try {
@@ -1042,6 +823,8 @@ export class VinylPlayerPlugin extends BasePlugin {
             let overlay = null;
             let icon = null;
             let lastTarget = null;
+            let lastTargetRect = null;
+            let overlayInterval = null;
             const MULTI_CLICK_WINDOW_MS = 350;
             let clickCount = 0;
             let clickTimer = null;
@@ -1130,22 +913,6 @@ export class VinylPlayerPlugin extends BasePlugin {
                   best = el;
                 }
               }
-              // #region agent log (debug instrumentation)
-              try {
-                if (best) {
-                  const rect = best.getBoundingClientRect();
-                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:findCircleTarget', 'best circle candidate', {
-                    tag: best.tagName,
-                    id: best.id || null,
-                    className: (best.className && String(best.className)) || null,
-                    score: bestScore,
-                    rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
-                  });
-                } else {
-                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:findCircleTarget', 'no circle candidate', {});
-                }
-              } catch {}
-              // #endregion agent log (debug instrumentation)
               return best;
             };
 
@@ -1196,240 +963,61 @@ export class VinylPlayerPlugin extends BasePlugin {
               }
             };
 
+            const rectsEqual = (a, b) =>
+              a && b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height;
+
+            const stopOverlayInterval = () => {
+              if (!overlayInterval) return;
+              clearInterval(overlayInterval);
+              overlayInterval = null;
+            };
+
+            const startOverlayInterval = () => {
+              if (overlayInterval || !enabled) return;
+              overlayInterval = setInterval(() => positionOverlay(), 2000);
+            };
+
             const positionOverlay = () => {
               ensureOverlay();
               if (!overlay) return;
               if (!enabled) {
                 overlay.style.display = 'none';
+                stopOverlayInterval();
                 return;
               }
 
-              const target = findCircleTarget();
-              if (!target) {
-                overlay.style.display = 'none';
-                return;
-              }
-              // #region agent log (debug instrumentation)
-              try {
-                if (target !== lastTarget) {
-                  const r = target.getBoundingClientRect();
-                  __ytmdDbg('OA', 'vinyl-player/index.ts:6k:positionOverlay', 'target changed', {
-                    playing,
-                    enabled,
-                    tag: target.tagName,
-                    id: target.id || null,
-                    className: (target.className && String(target.className)) || null,
-                    rect: { left: r.left, top: r.top, width: r.width, height: r.height }
-                  });
-                }
-              } catch {}
-              // #endregion agent log (debug instrumentation)
-              lastTarget = target;
-
-              const rect = target.getBoundingClientRect();
-              overlay.style.display = 'flex';
-              overlay.style.left = Math.round(rect.left) + 'px';
-              overlay.style.top = Math.round(rect.top) + 'px';
-              overlay.style.width = Math.round(rect.width) + 'px';
-              overlay.style.height = Math.round(rect.height) + 'px';
-            };
-
-            // Drag start/end - ignore overlay clicks
-            let isDragging = false;
-            document.addEventListener('mousedown', (e) => {
-              if (e && e.target && e.target.closest && e.target.closest('#ytmd-vinyl-click-overlay')) return;
-              isDragging = true;
-              ipc && ipc.send && ipc.send('vinyl-player:drag-start');
-            }, true);
-
-            document.addEventListener('mouseup', () => {
-              if (!isDragging) return;
-              isDragging = false;
-              ipc && ipc.send && ipc.send('vinyl-player:drag-end');
-            }, true);
-
-            document.addEventListener('mouseleave', () => {
-              if (!isDragging) return;
-              isDragging = false;
-              ipc && ipc.send && ipc.send('vinyl-player:drag-end');
-            }, true);
-
-            // Click overlay CSS (kept minimal to avoid affecting widget styles)
-            try {
-              const styleId = 'ytmd-vinyl-click-overlay-style';
-              if (!document.getElementById(styleId)) {
-                const st = document.createElement('style');
-                st.id = styleId;
-                st.textContent = \`
-                  #ytmd-vinyl-click-overlay {
-                    position: fixed;
-                    border-radius: 50%;
-                    z-index: 2147483647;
-                    background: rgba(255, 255, 255, 0);
-                    transition: background 120ms ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    -webkit-app-region: no-drag;
-                  }
-                  #ytmd-vinyl-click-overlay.enabled { cursor: pointer; }
-                  #ytmd-vinyl-click-overlay.enabled:hover { background: rgba(255, 255, 255, 0.06); }
-                  #ytmd-vinyl-click-overlay .ytmd-icon {
-                    width: 54px;
-                    height: 54px;
-                    border-radius: 999px;
-                    background: rgba(0, 0, 0, 0.55);
-                    color: white;
-                    font-size: 24px;
-                    line-height: 1;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
-                    opacity: 0;
-                    transform: scale(0.98);
-                    transition: opacity 120ms ease, transform 120ms ease;
-                    pointer-events: none;
-                  }
-                  #ytmd-vinyl-click-overlay.enabled:hover .ytmd-icon { opacity: 1; transform: scale(1); }
-                  #ytmd-vinyl-click-overlay.active .ytmd-icon { opacity: 1; transform: scale(0.98); }
-                \`;
-                document.head.appendChild(st);
-              }
-            } catch {}
-
-            var state = (window.__YTMD_VINYL_OVERLAY__ = window.__YTMD_VINYL_OVERLAY__ || {});
-            let enabled = ${Boolean(this.settings.enableButtonFeature)};
-            let playing = ${Boolean(this.isPlaying)};
-            let overlay = null;
-            let icon = null;
-            let lastTarget = null;
-
-            const clamp01 = (n) => Math.max(0, Math.min(1, n));
-            const isVisible = (el) => {
-              if (!el) return false;
-              const rect = el.getBoundingClientRect();
-              if (rect.width < 40 || rect.height < 40) return false;
-              if (rect.bottom < 0 || rect.right < 0) return false;
-              if (rect.top > window.innerHeight || rect.left > window.innerWidth) return false;
-              const cs = window.getComputedStyle(el);
-              if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity || '1') === 0) return false;
-              return true;
-            };
-
-            const approxCircleScore = (el) => {
-              const rect = el.getBoundingClientRect();
-              const w = rect.width;
-              const h = rect.height;
-              if (w < 80 || h < 80) return -1;
-              const aspect = Math.min(w, h) / Math.max(w, h);
-              if (aspect < 0.85) return -1;
-
-              const cs = window.getComputedStyle(el);
-              const br = cs.borderRadius || '';
-              let circleish = 0;
-
-              // Accept 50% radii or very large pixel radii
-              if (br.includes('%')) {
-                const pct = parseFloat(br);
-                if (!Number.isNaN(pct)) circleish = clamp01(1 - Math.abs(pct - 50) / 50);
+              let target = null;
+              if (lastTarget && isVisible(lastTarget)) {
+                target = lastTarget;
               } else {
-                const px = parseFloat(br);
-                const minDim = Math.min(w, h);
-                if (!Number.isNaN(px) && minDim > 0) circleish = clamp01(px / (minDim / 2));
+                target = findCircleTarget();
+                lastTarget = target;
+                lastTargetRect = null;
               }
 
-              // Favor large, near-center elements
-              const area = w * h;
-              const cx = rect.left + w / 2;
-              const cy = rect.top + h / 2;
-              const dx = Math.abs(cx - window.innerWidth / 2) / (window.innerWidth / 2);
-              const dy = Math.abs(cy - window.innerHeight / 2) / (window.innerHeight / 2);
-              const centerScore = clamp01(1 - (dx + dy) / 2);
-
-              return area * aspect * (0.25 + 0.75 * circleish) * (0.4 + 0.6 * centerScore);
-            };
-
-            const findCircleTarget = () => {
-              const selectors = 'img,canvas,svg,div';
-              const els = Array.from(document.querySelectorAll(selectors));
-              let best = null;
-              let bestScore = -1;
-              for (const el of els) {
-                if (!isVisible(el)) continue;
-                const score = approxCircleScore(el);
-                if (score > bestScore) {
-                  bestScore = score;
-                  best = el;
-                }
-              }
-              return best;
-            };
-
-            const ensureOverlay = () => {
-              if (overlay && document.body.contains(overlay)) return;
-              overlay = document.createElement('div');
-              overlay.id = 'ytmd-vinyl-click-overlay';
-              overlay.innerHTML = '<div class=\"ytmd-icon\" aria-hidden=\"true\"></div>';
-              icon = overlay.querySelector('.ytmd-icon');
-
-              // Prevent window drag handlers from starting when clicking overlay
-              overlay.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }, true);
-
-              overlay.addEventListener('click', (e) => {
-                if (!enabled) return;
-                e.preventDefault();
-                e.stopPropagation();
-                ipc && ipc.send && ipc.send('vinyl-player:play-pause');
-              }, true);
-
-              overlay.addEventListener('pointerdown', (e) => {
-                if (!enabled) return;
-                e.preventDefault();
-                e.stopPropagation();
-                overlay.classList.add('active');
-              }, true);
-
-              const clearActive = () => overlay && overlay.classList.remove('active');
-              overlay.addEventListener('pointerup', clearActive, true);
-              overlay.addEventListener('pointercancel', clearActive, true);
-              overlay.addEventListener('pointerleave', clearActive, true);
-
-              document.body.appendChild(overlay);
-            };
-
-            const updateIcon = () => {
-              if (icon) icon.textContent = playing ? '⏸️' : '▶️';
-              if (overlay) {
-                overlay.classList.toggle('enabled', Boolean(enabled));
-                overlay.style.display = enabled ? 'flex' : 'none';
-              }
-            };
-
-            const positionOverlay = () => {
-              ensureOverlay();
-              if (!overlay) return;
-              if (!enabled) {
-                overlay.style.display = 'none';
-                return;
-              }
-
-              const target = findCircleTarget();
               if (!target) {
                 overlay.style.display = 'none';
                 return;
               }
-              lastTarget = target;
 
               const rect = target.getBoundingClientRect();
+              const rectKey = {
+                left: Math.round(rect.left),
+                top: Math.round(rect.top),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+              };
+
+              if (lastTargetRect && rectsEqual(lastTargetRect, rectKey)) {
+                return;
+              }
+
+              lastTargetRect = rectKey;
               overlay.style.display = 'flex';
-              overlay.style.left = Math.round(rect.left) + 'px';
-              overlay.style.top = Math.round(rect.top) + 'px';
-              overlay.style.width = Math.round(rect.width) + 'px';
-              overlay.style.height = Math.round(rect.height) + 'px';
+              overlay.style.left = rectKey.left + 'px';
+              overlay.style.top = rectKey.top + 'px';
+              overlay.style.width = rectKey.width + 'px';
+              overlay.style.height = rectKey.height + 'px';
             };
 
             // Drag start/end - ignore overlay clicks
@@ -1476,13 +1064,34 @@ export class VinylPlayerPlugin extends BasePlugin {
             } catch {}
 
             state.setPlaying = (v) => { playing = Boolean(v); updateIcon(); };
-            state.setEnabled = (v) => { enabled = Boolean(v); updateIcon(); positionOverlay(); };
-            state.refresh = () => { positionOverlay(); };
+            state.setEnabled = (v) => {
+              enabled = Boolean(v);
+              updateIcon();
+              if (enabled) {
+                lastTarget = null;
+                lastTargetRect = null;
+                positionOverlay();
+                startOverlayInterval();
+              } else {
+                stopOverlayInterval();
+                positionOverlay();
+              }
+            };
+            state.refresh = () => {
+              lastTarget = null;
+              lastTargetRect = null;
+              positionOverlay();
+            };
 
             updateIcon();
-            positionOverlay();
-            window.addEventListener('resize', () => positionOverlay(), { passive: true });
-            setInterval(() => positionOverlay(), 450);
+            if (enabled) {
+              positionOverlay();
+              startOverlayInterval();
+            }
+            window.addEventListener('resize', () => {
+              lastTargetRect = null;
+              positionOverlay();
+            }, { passive: true });
           })();
         `
           )
@@ -1493,34 +1102,24 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   private destroyVinylWindow(): void {
+    if (this.vinylCspSession) {
+      try {
+        this.vinylCspSession.webRequest.onHeadersReceived(null);
+      } catch {
+        // ignore
+      }
+      this.vinylCspSession = null;
+    }
     if (this.vinylWindow?.window) {
       this.vinylWindow.window.destroy();
       this.vinylWindow = null;
     }
+    this.last6KOverlayState = { enabled: false, playing: false };
   }
 
   // Public methods for external control
   public showVinylWindow(): boolean {
     if (!app.isReady()) {
-      // #region agent log (debug instrumentation)
-      try {
-        fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "vinyl-ready-1",
-            hypothesisId: "VR",
-            location: "vinyl-player/index.ts:showVinylWindow",
-            message: "called before app ready; deferring",
-            data: {},
-            timestamp: Date.now()
-          })
-        }).catch((): void => undefined);
-      } catch {
-        // ignore
-      }
-      // #endregion agent log (debug instrumentation)
       void app.whenReady().then(() => this.showVinylWindow());
       return false;
     }
@@ -1553,9 +1152,23 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   private setupPlayerStateListener(): void {
-    // Listen to actual player state changes
-    playerStateStore.addEventListener((state: PlayerState) => {
+    if (this.playerStateListener) {
+      playerStateStore.removeEventListener(this.playerStateListener);
+    }
+    this.playerStateListener = (state: PlayerState) => {
       this.updatePlayerState(state);
+    };
+    playerStateStore.addEventListener(this.playerStateListener);
+  }
+
+  private trackDisplayKey(track: TrackInfo, playing: boolean): string {
+    return JSON.stringify({
+      title: track.title,
+      artist: track.artist,
+      thumbnail: track.thumbnail,
+      isPlaying: playing,
+      spinSpeed: track.spinSpeed,
+      durationSeconds: track.durationSeconds
     });
   }
 
@@ -1574,14 +1187,21 @@ export class VinylPlayerPlugin extends BasePlugin {
         progressSeconds: Number(state.videoProgress ?? 0)
       };
 
-      // Only update if track info has changed
-      if (JSON.stringify(track) !== JSON.stringify(this.currentTrack)) {
-        this.currentTrack = track;
+      const prevTrack = this.currentTrack;
+      const prevPlaying = this.isPlaying;
+      const displayChanged = !prevTrack || this.trackDisplayKey(track, isPlaying) !== this.trackDisplayKey(prevTrack, prevPlaying);
+      const progressChanged = track.progressSeconds !== prevTrack?.progressSeconds;
+
+      this.currentTrack = track;
+      this.isPlaying = isPlaying;
+
+      if (displayChanged) {
         this.updateVinylDisplay();
+      } else if (progressChanged) {
+        this.sendVinylProgressOnly();
       }
     } else {
-      // No video playing
-      this.currentTrack = {
+      const idleTrack: TrackInfo = {
         title: "No track playing",
         artist: "",
         thumbnail: "",
@@ -1590,13 +1210,14 @@ export class VinylPlayerPlugin extends BasePlugin {
         durationSeconds: 0,
         progressSeconds: 0
       };
-      this.updateVinylDisplay();
-    }
+      const displayChanged = !this.currentTrack || this.trackDisplayKey(idleTrack, false) !== this.trackDisplayKey(this.currentTrack, this.isPlaying);
 
-    // Update playing state
-    if (this.isPlaying !== isPlaying) {
-      this.isPlaying = isPlaying;
-      this.updateVinylDisplay();
+      this.currentTrack = idleTrack;
+      this.isPlaying = false;
+
+      if (displayChanged) {
+        this.updateVinylDisplay();
+      }
     }
   }
 
@@ -1608,6 +1229,47 @@ export class VinylPlayerPlugin extends BasePlugin {
     // Try to get the highest quality thumbnail
     const sortedThumbnails = (thumbnails as Array<{ width?: number; url?: string }>).sort((a, b) => (b.width || 0) - (a.width || 0));
     return sortedThumbnails[0]?.url || "";
+  }
+
+  private sendVinylProgressOnly(): void {
+    if (!this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
+      return;
+    }
+
+    const use6KLabs = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) === "6klabs" : Boolean(this.settings.use6KLabsWidget);
+    if (use6KLabs) {
+      return;
+    }
+
+    try {
+      this.vinylWindow.window.webContents.send("vinyl-player:update-track", {
+        progressSeconds: Number(this.currentTrack?.progressSeconds ?? 0)
+      });
+    } catch (error) {
+      console.error("Error updating vinyl progress:", error);
+    }
+  }
+
+  private sync6KOverlayState(force = false): void {
+    if (!this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
+      return;
+    }
+
+    const use6KLabs = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) === "6klabs" : Boolean(this.settings.use6KLabsWidget);
+    if (!use6KLabs) {
+      return;
+    }
+
+    const enabled = Boolean(this.settings.enableButtonFeature);
+    const playing = Boolean(this.isPlaying);
+    if (!force && this.last6KOverlayState.enabled === enabled && this.last6KOverlayState.playing === playing) {
+      return;
+    }
+
+    this.last6KOverlayState = { enabled, playing };
+    this.vinylWindow.window.webContents
+      .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${enabled}); window.__YTMD_VINYL_OVERLAY__?.setPlaying?.(${playing});`)
+      .catch((): void => undefined);
   }
 
   private updateVinylDisplay(): void {
@@ -1629,24 +1291,11 @@ export class VinylPlayerPlugin extends BasePlugin {
         progressSeconds: Number(this.currentTrack?.progressSeconds ?? 0)
       };
 
-      // Send track info to the renderer
-      window.webContents.send("vinyl-player:update-track", trackData);
-
-      // Send settings to the renderer
-      window.webContents.send("vinyl-player:update-settings", {
-        showControls: Boolean(this.settings.showControls),
-        enableButtonFeature: Boolean(this.settings.enableButtonFeature),
-        scale: this.settings.windowSize ? Number(this.settings.windowSize) / 200 : 1 // Pass scale factor
-      });
-
-      // Keep the injected 6K overlay in sync (play/pause icon + enabled state)
-      if (use6KLabs) {
-        const enabled = Boolean(this.settings.enableButtonFeature);
-        const playing = Boolean(this.isPlaying);
-        window.webContents
-          .executeJavaScript(`window.__YTMD_VINYL_OVERLAY__?.setEnabled?.(${enabled}); window.__YTMD_VINYL_OVERLAY__?.setPlaying?.(${playing});`)
-          .catch((): void => undefined);
+      if (!use6KLabs) {
+        window.webContents.send("vinyl-player:update-track", trackData);
       }
+
+      this.sync6KOverlayState();
 
       // Show window if auto-show is enabled and a track is playing
       if (Boolean(this.settings.autoShow) && this.isPlaying && !this.vinylWindow.isVisible) {
@@ -1655,6 +1304,24 @@ export class VinylPlayerPlugin extends BasePlugin {
     } catch (error) {
       console.error("Error updating vinyl display:", error);
     }
+  }
+
+  private sendVinylSettingsToWindow(): void {
+    if (!this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
+      return;
+    }
+
+    const use6KLabs = typeof this.settings.widgetMode === "string" ? String(this.settings.widgetMode) === "6klabs" : Boolean(this.settings.use6KLabsWidget);
+    if (use6KLabs) {
+      this.sync6KOverlayState();
+      return;
+    }
+
+    this.vinylWindow.window.webContents.send("vinyl-player:update-settings", {
+      showControls: Boolean(this.settings.showControls),
+      enableButtonFeature: Boolean(this.settings.enableButtonFeature),
+      scale: this.settings.windowSize ? Number(this.settings.windowSize) / 200 : 1
+    });
   }
 
   // Public methods for external control

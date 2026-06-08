@@ -1,11 +1,12 @@
+import Conf from "conf";
 import {
   app,
   autoUpdater,
   BrowserView,
   BrowserWindow,
   clipboard,
-  crashReporter as electronCrashReporter,
   dialog,
+  crashReporter as electronCrashReporter,
   globalShortcut,
   ipcMain,
   Menu,
@@ -19,27 +20,26 @@ import {
   shell,
   Tray
 } from "electron";
-import Conf from "conf";
 import log from "electron-log";
-import path from "path";
-import fs from "fs/promises";
 import electronSquirrelStartup from "electron-squirrel-startup";
+import fs from "fs/promises";
+import path from "path";
 
+import { MemoryStoreSchema, StoreSchema, TrayIconStyle } from "../shared/store/schema";
 import MemoryStore from "./memory-store";
 import playerStateStore, { PlayerState, VideoState } from "./player-state-store";
-import { MemoryStoreSchema, StoreSchema, TrayIconStyle } from "../shared/store/schema";
 import CleanupRegistry from "./utils/cleanup-registry";
 import { memoryMonitor } from "./utils/memory-monitor";
 
 import CompanionServer from "./integrations/companion-server";
+import CrashReporter from "./integrations/crash-reporter";
 import CustomCSS from "./integrations/custom-css";
 import DiscordPresence from "./integrations/discord-presence";
 import LastFM from "./integrations/last-fm";
 import NowPlayingNotifications from "./integrations/notifications";
-import VolumeRatio from "./integrations/volume-ratio";
 import { pluginManager } from "./integrations/plugins";
-import CrashReporter from "./integrations/crash-reporter";
 import SentryIntegration from "./integrations/sentry";
+import VolumeRatio from "./integrations/volume-ratio";
 
 // Initialize Sentry integration (only once, through the integration class)
 const sentryIntegration = new SentryIntegration();
@@ -830,22 +830,6 @@ store.onDidAnyChange(async (newState, oldState) => {
 });
 log.info("Created electron store");
 
-// #region agent log (debug instrumentation)
-const __ytmdDbg = (hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void => {
-  if (process.env.NODE_ENV !== "development") return;
-
-  try {
-    fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: "debug-session", runId: "resume-1", hypothesisId, location, message, data, timestamp: Date.now() })
-    }).catch((): void => undefined);
-  } catch {
-    // swallow
-  }
-};
-// #endregion agent log (debug instrumentation)
-
 if (store.get("general").disableHardwareAcceleration) {
   app.disableHardwareAcceleration();
 }
@@ -859,13 +843,6 @@ function saveState() {
     // Only save if values have actually changed
     const currentState = store.get("state");
     if (currentState.lastUrl !== lastUrl || currentState.lastVideoId !== lastVideoId || currentState.lastPlaylistId !== lastPlaylistId) {
-      // #region agent log (debug instrumentation)
-      __ytmdDbg("S1", "main/index.ts:saveState", "saving state", {
-        lastUrl,
-        lastVideoId,
-        lastPlaylistId
-      });
-      // #endregion agent log (debug instrumentation)
       store.set("state.lastUrl", lastUrl);
       store.set("state.lastVideoId", lastVideoId);
       store.set("state.lastPlaylistId", lastPlaylistId);
@@ -1509,16 +1486,6 @@ const createYTMView = (): void => {
       autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required"
     }
   });
-  // #region agent log (debug instrumentation)
-  __ytmdDbg("S2", "main/index.ts:createYTMView", "ytmView created", {
-    continueWhereYouLeftOff: Boolean(store.get("playback.continueWhereYouLeftOff")),
-    continueWhereYouLeftOffPaused: Boolean(store.get("playback.continueWhereYouLeftOffPaused")),
-    autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required",
-    storedLastUrl: String(store.get("state.lastUrl") || ""),
-    storedLastVideoId: String(store.get("state.lastVideoId") || ""),
-    storedLastPlaylistId: String(store.get("state.lastPlaylistId") || "")
-  });
-  // #endregion agent log (debug instrumentation)
   companionServer.provide(store, memoryStore, ytmView);
   customCss.provide(store, ytmView);
   pluginManager.provideYtmView(ytmView);
@@ -1741,9 +1708,6 @@ const createYTMView = (): void => {
     const lastUrl: string = store.get("state.lastUrl");
     if (lastUrl) {
       if (lastUrl.startsWith("https://music.youtube.com/")) {
-        // #region agent log (debug instrumentation)
-        __ytmdDbg("S3", "main/index.ts:createYTMView", "loading lastUrl", { lastUrl });
-        // #endregion agent log (debug instrumentation)
         ytmView.webContents.loadURL(lastUrl);
         navigateDefault = false;
       }
@@ -2272,30 +2236,6 @@ app.on("ready", async () => {
     // Update in-memory state
     lastVideoId = videoDetails.videoId;
     lastPlaylistId = playlistId;
-
-    // #region agent log (debug instrumentation)
-    try {
-      fetch("http://127.0.0.1:7244/ingest/0a7fc512-60ca-4a36-8768-23f664c122af", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "resume-2",
-          hypothesisId: "R3",
-          location: "main/index.ts:ytmView:videoDataChanged",
-          message: "received videoDataChanged",
-          data: {
-            lastUrl,
-            lastVideoId: String(lastVideoId || ""),
-            lastPlaylistId: String(lastPlaylistId || "")
-          },
-          timestamp: Date.now()
-        })
-      }).catch((): void => undefined);
-    } catch {
-      // ignore
-    }
-    // #endregion agent log (debug instrumentation)
 
     // Update player state store
     playerStateStore.updateVideoDetails(videoDetails, playlistId, album, likeStatus, hasFullMetadata);

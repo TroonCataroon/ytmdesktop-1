@@ -946,17 +946,7 @@
 
       // Debug ingest logging (disabled by default to avoid console noise)
       // To re-enable temporarily, set: localStorage.setItem('ytmd_ingest','1') and reload.
-      const __ytmdIngestEnabled = (() => {
-        try {
-          return localStorage.getItem("ytmd_ingest") === "1";
-        } catch {
-          return false;
-        }
-      })();
-      const __ytmdDbg = (_location, _message, _data) => {};
-      const __ytmdDbgPlay = (_location, _message, _data) => {};
-
-      // DOM elements
+// DOM elements
       const trackTitle = document.getElementById("track-title");
       const trackArtist = document.getElementById("track-artist");
       const albumArt = document.getElementById("album-art");
@@ -1059,9 +1049,6 @@
 
       // Event listeners
       playPauseBtn.addEventListener("click", () => {
-        // #region agent log (debug instrumentation)
-        if (__ytmdIngestEnabled) __ytmdDbgPlay("vinyl-player.html:playPauseBtn", "click", { via: "control-btn" });
-        // #endregion agent log (debug instrumentation)
         ipcRenderer.send("vinyl-player:play-pause");
       });
 
@@ -1072,16 +1059,6 @@
       // Listen for track updates from main process
       // Note: preload strips the event, so the first arg is the actual data
       ipcRenderer.on("vinyl-player:update-track", track => {
-        // #region agent log (debug instrumentation)
-        try {
-          if (__ytmdIngestEnabled)
-            __ytmdDbgPlay("vinyl-player.html:update-track", "received", {
-              title: String(track?.title || ""),
-              artist: String(track?.artist || ""),
-              isPlaying: Boolean(track?.isPlaying)
-            });
-        } catch {}
-        // #endregion agent log (debug instrumentation)
         updateTrackInfo(track);
       });
 
@@ -1146,19 +1123,9 @@
 
         if (!isOverlayEnabled()) return;
 
-        // #region agent log (debug instrumentation)
-        if (__ytmdIngestEnabled) __ytmdDbg("vinyl-player.html:flushClicks", "flush", { n, enabled: isOverlayEnabled() });
-        // #endregion agent log (debug instrumentation)
-
         if (n === 1) ipcRenderer.send("vinyl-player:play-pause");
         else if (n === 2) ipcRenderer.send("vinyl-player:next");
         else if (n >= 3) ipcRenderer.send("vinyl-player:previous");
-
-        // #region agent log (debug instrumentation)
-        if (n === 1) {
-          if (__ytmdIngestEnabled) __ytmdDbgPlay("vinyl-player.html:flushClicks", "sent play-pause", { via: "overlay" });
-        }
-        // #endregion agent log (debug instrumentation)
       };
 
       buttonOverlay?.addEventListener(
@@ -1172,9 +1139,6 @@
           const now = Date.now();
           const dt = lastClickTs ? now - lastClickTs : null;
           lastClickTs = now;
-          // #region agent log (debug instrumentation)
-          if (__ytmdIngestEnabled) __ytmdDbg("vinyl-player.html:overlayClick", "click", { clickCount, dt, windowMs: MULTI_CLICK_WINDOW_MS });
-          // #endregion agent log (debug instrumentation)
           if (clickTimer) clearTimeout(clickTimer);
           clickTimer = setTimeout(flushClicks, MULTI_CLICK_WINDOW_MS);
         },
