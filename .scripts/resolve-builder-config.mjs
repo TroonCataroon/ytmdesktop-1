@@ -77,10 +77,8 @@ function resolveServerUrl({ config, nodeEnv }) {
   const fallback = "http://localhost:9863/";
   if (nodeEnv !== "local") {
     // eslint-disable-next-line no-console
-    console.warn(
-      `[builder-config] Warning: no valid serverUrl resolved for NODE_ENV=${nodeEnv}. ` +
-        `Set BUILDER_SERVER_URL to an externally reachable URL. Falling back to ${fallback}`
-    );
+    console.error(`[builder-config] Error: no valid serverUrl resolved for NODE_ENV=${nodeEnv}. ` + "Set BUILDER_SERVER_URL to an externally reachable URL.");
+    process.exit(1);
   }
   return fallback;
 }
