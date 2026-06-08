@@ -71,9 +71,7 @@ function resolveConfigFilePath({ repoRoot, nodeEnv }) {
 
 function resolveServerUrl({ config, nodeEnv }) {
   const envOverride = process.env.BUILDER_SERVER_URL?.trim();
-  if (envOverride) return ensureTrailingSlash(envOverride);
-
-  const expanded = ensureTrailingSlash(expandEnvTemplate(config.serverUrl));
+  const expanded = ensureTrailingSlash(envOverride || expandEnvTemplate(config.serverUrl));
   if (isValidUrl(expanded)) return expanded;
 
   const fallback = "http://localhost:9863/";
