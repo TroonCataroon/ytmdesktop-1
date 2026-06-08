@@ -1,8 +1,12 @@
-import { BasePlugin, PluginSettings } from "../../base-plugin";
+import { BrowserView } from "electron";
 import log from "electron-log";
+import { BasePlugin, PluginSettings } from "../../base-plugin";
 
 export class CustomThemesPlugin extends BasePlugin {
   private currentTheme: string | null = null;
+  private ytmView: BrowserView | null = null;
+  private themeCssKey: string | null = null;
+  private customCssKey: string | null = null;
 
   constructor() {
     super({
@@ -21,65 +25,101 @@ export class CustomThemesPlugin extends BasePlugin {
     });
   }
 
+  provide(ytmView: BrowserView): void {
+    this.ytmView = ytmView;
+    if (this.enabled) {
+      void this.syncStylesToYtmView();
+    }
+  }
+
   onEnable(): void {
     log.debug("Custom Themes Plugin enabled");
-    const selectedTheme = typeof this.settings.selectedTheme === "string" ? this.settings.selectedTheme : "default";
-    this.applyTheme(selectedTheme);
+    void this.syncStylesToYtmView();
   }
 
   onDisable(): void {
     log.debug("Custom Themes Plugin disabled");
-    this.removeTheme();
+    void this.removeAllStyles();
   }
 
-  onSettingsChanged(newSettings: Record<string, unknown>): void {
-    log.debug("Custom Themes settings changed:", Object.keys(newSettings));
-
-    if (newSettings.selectedTheme !== undefined) {
-      const themeName = typeof newSettings.selectedTheme === "string" ? newSettings.selectedTheme : String(newSettings.selectedTheme);
-      this.applyTheme(themeName);
-    }
-
-    if (newSettings.customCSS !== undefined) {
-      const cssValue = typeof newSettings.customCSS === "string" ? newSettings.customCSS : String(newSettings.customCSS ?? "");
-      this.applyCustomCSS(cssValue);
+  onAppReady(): void {
+    if (this.enabled) {
+      void this.syncStylesToYtmView();
     }
   }
 
-  private applyTheme(themeName: string): void {
-    this.removeTheme(); // Remove previous theme
+  onSettingsChanged(_settings: Record<string, unknown>): void {
+    void _settings;
+    if (!this.enabled) {
+      return;
+    }
+
+    log.debug("Custom Themes settings changed");
+    void this.syncStylesToYtmView();
+  }
+
+  private canInject(): boolean {
+    return Boolean(this.ytmView && !this.ytmView.webContents.isDestroyed());
+  }
+
+  private async syncStylesToYtmView(): Promise<void> {
+    if (!this.canInject()) {
+      return;
+    }
+
+    const themeName = typeof this.settings.selectedTheme === "string" ? this.settings.selectedTheme : "default";
+    await this.applyTheme(themeName);
+
+    const cssValue = typeof this.settings.customCSS === "string" ? this.settings.customCSS : String(this.settings.customCSS ?? "");
+    await this.applyCustomCSS(cssValue);
+  }
+
+  private async applyTheme(themeName: string): Promise<void> {
+    await this.removeThemeCSS();
 
     if (themeName === "default") {
+      this.currentTheme = null;
       return;
     }
 
     const theme = this.getTheme(themeName);
-    if (theme) {
-      this.injectThemeCSS(theme);
+    if (theme && this.canInject()) {
+      this.themeCssKey = await this.ytmView!.webContents.insertCSS(theme);
       this.currentTheme = themeName;
       log.debug(`Applied theme: ${themeName}`);
     }
   }
 
-  private removeTheme(): void {
-    if (this.currentTheme) {
-      // Remove theme CSS
-      const themeStyle = document.getElementById("custom-theme-style");
-      if (themeStyle) {
-        themeStyle.remove();
-      }
-      this.currentTheme = null;
+  private async removeThemeCSS(): Promise<void> {
+    if (this.themeCssKey && this.canInject()) {
+      await this.ytmView!.webContents.removeInsertedCSS(this.themeCssKey);
+    }
+    this.themeCssKey = null;
+    this.currentTheme = null;
+  }
+
+  private async applyCustomCSS(css: string): Promise<void> {
+    if (!this.canInject()) {
+      return;
+    }
+
+    if (this.customCssKey) {
+      await this.ytmView!.webContents.removeInsertedCSS(this.customCssKey);
+      this.customCssKey = null;
+    }
+
+    if (css.trim()) {
+      this.customCssKey = await this.ytmView!.webContents.insertCSS(css);
     }
   }
 
-  private applyCustomCSS(css: string): void {
-    let customStyle = document.getElementById("custom-css-style");
-    if (!customStyle) {
-      customStyle = document.createElement("style");
-      customStyle.id = "custom-css-style";
-      document.head.appendChild(customStyle);
+  private async removeAllStyles(): Promise<void> {
+    await this.removeThemeCSS();
+
+    if (this.customCssKey && this.canInject()) {
+      await this.ytmView!.webContents.removeInsertedCSS(this.customCssKey);
     }
-    customStyle.textContent = css;
+    this.customCssKey = null;
   }
 
   private getTheme(themeName: string): string | null {
@@ -111,13 +151,6 @@ export class CustomThemesPlugin extends BasePlugin {
     };
 
     return themes[themeName] || null;
-  }
-
-  private injectThemeCSS(css: string): void {
-    const style = document.createElement("style");
-    style.id = "custom-theme-style";
-    style.textContent = css;
-    document.head.appendChild(style);
   }
 
   static getSettingsSchema(): PluginSettings {

@@ -446,6 +446,45 @@ function shouldDisableUpdates() {
   return false;
 }
 
+function isAutoUpdaterConfigured(): boolean {
+  return app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES && !memoryStore.get("autoUpdaterDisabled");
+}
+
+function notifyUpdateCheckUnavailable(message: string): void {
+  log.info(`Update check skipped: ${message}`);
+  memoryStore.set("updateStatus", "error");
+  memoryStore.set("updateError", message);
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send("app:updateError", new Error(message));
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("app:updateError", new Error(message));
+  }
+}
+
+function checkForApplicationUpdates(source: string): void {
+  if (!isAutoUpdaterConfigured()) {
+    notifyUpdateCheckUnavailable(
+      app.isPackaged ? "Update server is not configured for this build." : "Automatic updates are only available in packaged releases."
+    );
+    return;
+  }
+
+  try {
+    autoUpdater.checkForUpdates();
+  } catch (error) {
+    log.error(`Update check failed (${source}):`, error);
+    memoryStore.set("updateStatus", "error");
+    memoryStore.set("updateError", error instanceof Error ? error.message : String(error));
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send("app:updateError", error);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("app:updateError", error);
+    }
+  }
+}
+
 // Configure the autoupdater
 // macOS cannot use the autoUpdater without a code signature at this time
 if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
@@ -588,11 +627,7 @@ if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
       const currentStatus = memoryStore.get("updateStatus");
       if (currentStatus !== "downloading" && currentStatus !== "ready") {
         log.info("Running scheduled update check");
-        try {
-          autoUpdater.checkForUpdates();
-        } catch (error) {
-          log.error("Scheduled update check failed:", error);
-        }
+        checkForApplicationUpdates("scheduled");
       }
     },
     1000 * 60 * updateCheckIntervalMinutes
@@ -724,7 +759,7 @@ store.onDidAnyChange(async (newState, oldState) => {
 
     if (companionServerAuthWindowEnabled) {
       memoryStore.set("companionServerAuthWindowEnabled", false);
-      clearInterval(companionAuthWindowEnableTimeout);
+      clearTimeout(companionAuthWindowEnableTimeout);
       companionAuthWindowEnableTimeout = null;
       companionServerAuthWindowEnabled = false;
     }
@@ -1486,6 +1521,7 @@ const createYTMView = (): void => {
   // #endregion agent log (debug instrumentation)
   companionServer.provide(store, memoryStore, ytmView);
   customCss.provide(store, ytmView);
+  pluginManager.provideYtmView(ytmView);
   ratioVolume.provide(ytmView);
 
   // Attach events to ytm view
@@ -2479,11 +2515,7 @@ app.on("ready", async () => {
     const currentStatus = memoryStore.get("updateStatus");
     if (currentStatus !== "downloading" && currentStatus !== "ready") {
       log.info("Manual update check triggered");
-      try {
-        autoUpdater.checkForUpdates();
-      } catch (error) {
-        log.error("Manual update check failed:", error);
-      }
+      checkForApplicationUpdates("manual");
     } else {
       log.info("Update check skipped - update already in progress");
       // Notify the sender of the current status
@@ -2694,8 +2726,8 @@ app.on("ready", async () => {
   memoryStore.set("ytmViewLoadingStatus", "Checking for updates...");
 
   // Check for application updates
-  if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
-    autoUpdater.checkForUpdates();
+  if (isAutoUpdaterConfigured()) {
+    checkForApplicationUpdates("startup");
     await new Promise<void>(resolve => {
       const checkInterval = setInterval(() => {
         if (!appLaunchUpdateCheck) {
@@ -2777,7 +2809,9 @@ app.on("ready", async () => {
   }
 
   // Vinyl Player Plugin
-  if (store.get("integrations").vinylPlayerEnabled) {
+  // PluginManager.init() already auto-enables plugins whose persisted state is enabled,
+  // so only enable here when the integration flag is set but the plugin isn't already running.
+  if (store.get("integrations").vinylPlayerEnabled && !pluginManager.isPluginEnabled("vinyl-player")) {
     const vinylPlayerPlugin = pluginManager.getPlugin("vinyl-player");
     if (vinylPlayerPlugin) {
       pluginManager.enablePlugin("vinyl-player");

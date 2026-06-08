@@ -1,13 +1,13 @@
+import Conf from "conf";
+import { app, BrowserView } from "electron";
+import log from "electron-log";
 import { BasePlugin, PluginSettings } from "./base-plugin";
-import { NotificationEnhancerPlugin } from "./builtin/notification-enhancer";
+import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
 import { CustomThemesPlugin } from "./builtin/custom-themes";
 import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
-import { VinylPlayerPlugin } from "./builtin/vinyl-player";
+import { NotificationEnhancerPlugin } from "./builtin/notification-enhancer";
 import { NotionSyncPlugin } from "./builtin/notion-sync";
-import { SixKLabsWidgetPlugin } from "./builtin/6klabs-widget";
-import Conf from "conf";
-import { app } from "electron";
-import log from "electron-log";
+import { VinylPlayerPlugin } from "./builtin/vinyl-player";
 
 type PluginStoreSchema = Record<string, { enabled?: boolean; settings: Record<string, unknown> }>;
 
@@ -235,6 +235,13 @@ export class PluginManager {
     }
 
     return plugin.currentSettings[key];
+  }
+
+  provideYtmView(ytmView: BrowserView): void {
+    const customThemes = this.plugins.get("custom-themes");
+    if (customThemes instanceof CustomThemesPlugin) {
+      customThemes.provide(ytmView);
+    }
   }
 
   updatePluginSetting(pluginId: string, key: string, value: unknown): boolean {
