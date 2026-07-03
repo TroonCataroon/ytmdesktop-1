@@ -28,12 +28,12 @@ jobs:
       - name: Corepack Enable Yarn
         run: corepack enable yarn
 
-      - name: Setup Node (v20)
+      - name: Setup Node (v22)
         uses: actions/setup-node@v4
         with:
           # https://github.com/actions/setup-node/blob/main/docs/advanced-usage.md#caching-packages-data
           cache: 'yarn'
-          node-version: "20.18.0"
+          node-version: "22.20.0"
 
       - name: Install dependencies
         run: yarn --immutable

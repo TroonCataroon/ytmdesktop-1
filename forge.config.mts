@@ -1,3 +1,4 @@
+import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { MakerDeb } from "@electron-forge/maker-deb";
@@ -15,7 +16,7 @@ for (let i = 0; i < process.argv.length; i++) {
   }
 }
 
-const config = {
+const config: ForgeConfig = {
   packagerConfig: {
     executableName: "youtube-music-desktop-app",
     icon: "./src/assets/icons/ytmd",
