@@ -1583,6 +1583,7 @@ const createYTMView = (): void => {
     } catch (error) {
       log.error("Failed to save state after render process crash:", error);
     }
+    cleanupYTMView();
     createYTMView();
   });
   ytmView.webContents.on("page-title-updated", (_event, title) => {
