@@ -6,9 +6,15 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      # Forge discovers draft releases by tag. Serializing prevents parallel
+      # jobs from creating sibling drafts before the first draft is visible.
+      max-parallel: 1
       matrix:
         os: ['ubuntu-latest', 'windows-latest', 'macos-latest']
         arch: [ 'x64', 'arm64' ]
@@ -16,7 +22,7 @@ jobs:
           # Mitigation for Electron Forge naming conflict. See #1183.
           - os: 'windows-latest'
             arch: 'arm64'
-        
+
       fail-fast: true # Explicitly failing fast because this is a publish. We want to bail the entire release if something went wrong with another build
 
     runs-on: ${{ matrix.os }}
@@ -50,3 +56,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
           YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
+
+  finalize-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish the completed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
+        run: >-
+          gh release edit "$GITHUB_REF_NAME"
+          --repo "$YTMD_UPDATE_FEED_OWNER/$YTMD_UPDATE_FEED_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --notes "Cross-platform desktop release built and verified by GitHub Actions."
+          --draft=false
