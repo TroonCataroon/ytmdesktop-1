@@ -323,7 +323,7 @@ export default class CompanionServer extends BaseIntegration {
     this.fastifyServer.get("/overlay/vinyl", async (_request, reply) => {
       try {
         const htmlPath = app.isPackaged
-          ? path.join(__dirname, "..", "plugins", "builtin", "vinyl-player", "vinyl-remake.html")
+          ? path.join(process.resourcesPath, "vinyl-remake.html")
           : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-remake.html");
         const html = await fs.readFile(htmlPath, { encoding: "utf-8" });
         reply.header("Cache-Control", "no-store");

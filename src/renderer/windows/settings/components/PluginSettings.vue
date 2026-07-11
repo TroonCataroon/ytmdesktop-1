@@ -50,7 +50,6 @@
                       @change="onSelectChange(plugin.id, 'widgetMode', $event)"
                     >
                       <option value="remake">Remake Widget (local)</option>
-                      <option value="workshop">Workshop (Cozy)</option>
                       <option value="custom">Custom Vinyl Player (local)</option>
                       <option value="6klabs">6K Labs Widget (external)</option>
                     </select>

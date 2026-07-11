@@ -32,7 +32,7 @@ export abstract class BasePlugin {
   abstract onDisable(): Promise<void> | void;
 
   // Optional lifecycle methods
-  onSettingsChanged?(newSettings: Record<string, unknown>): void;
+  onSettingsChanged?(newSettings: Record<string, unknown>, previousSettings: Record<string, unknown>): void;
   onAppReady?(): Promise<void> | void;
   onAppClose?(): Promise<void> | void;
 
@@ -65,10 +65,11 @@ export abstract class BasePlugin {
 
   // Settings management
   updateSettings(newSettings: Record<string, unknown>): void {
+    const previousSettings = { ...this.settings };
     const nextSettings = { ...this.settings, ...newSettings };
 
     this.settings = nextSettings;
-    this.onSettingsChanged?.(this.settings);
+    this.onSettingsChanged?.(this.settings, previousSettings);
   }
 
   // Plugin metadata

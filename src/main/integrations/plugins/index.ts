@@ -183,7 +183,7 @@ export class PluginManager {
     plugin.updateSettings(settings);
 
     // Save to persistent store
-    this.savePluginSettings(pluginId, settings);
+    this.savePluginSettings(pluginId, plugin.currentSettings);
 
     return true;
   }
@@ -256,7 +256,7 @@ export class PluginManager {
     plugin.updateSettings(newSettings);
 
     // Save to persistent store
-    this.savePluginSettings(pluginId, newSettings);
+    this.savePluginSettings(pluginId, plugin.currentSettings);
 
     return true;
   }

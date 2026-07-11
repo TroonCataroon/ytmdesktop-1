@@ -13,6 +13,7 @@
     "builder:config": "node .scripts/resolve-builder-config.mjs",
     "builder:config:write": "node .scripts/resolve-builder-config.mjs --write",
     "package": "electron-forge package",
+    "verify:package": "node scripts/verify-package-assets.mjs",
     "make": "electron-forge make",
     "publish:dry": "electron-forge publish --dry-run",
     "publish:fromdry": "electron-forge publish --from-dry-run",

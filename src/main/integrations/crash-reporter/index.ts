@@ -5,6 +5,7 @@ import log from "electron-log";
 import os from "os";
 // Importing Sentry as a type only to avoid a circular dependency
 import type SentryIntegration from "../sentry";
+import { resolveCrashReportPath } from "./report-path";
 
 export interface CrashReport {
   timestamp: string;
@@ -308,7 +309,11 @@ export default class CrashReporter {
 
   public async getCrashReport(filename: string): Promise<CrashReport | null> {
     try {
-      const filepath = path.join(this.crashReportsDir, filename);
+      const filepath = resolveCrashReportPath(this.crashReportsDir, filename);
+      if (!filepath) {
+        log.warn(`Rejected invalid crash report filename: ${String(filename)}`);
+        return null;
+      }
       const content = await fs.readFile(filepath, "utf-8");
       return JSON.parse(content) as CrashReport;
     } catch (error) {
@@ -319,7 +324,11 @@ export default class CrashReporter {
 
   public async deleteCrashReport(filename: string): Promise<boolean> {
     try {
-      const filepath = path.join(this.crashReportsDir, filename);
+      const filepath = resolveCrashReportPath(this.crashReportsDir, filename);
+      if (!filepath) {
+        log.warn(`Rejected invalid crash report filename: ${String(filename)}`);
+        return false;
+      }
       await fs.unlink(filepath);
       log.info(`Deleted crash report: ${filename}`);
       return true;

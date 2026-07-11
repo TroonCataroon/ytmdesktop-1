@@ -22,6 +22,7 @@ import {
 } from "electron";
 import log from "electron-log";
 import electronSquirrelStartup from "electron-squirrel-startup";
+import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
 
@@ -446,8 +447,13 @@ function shouldDisableUpdates() {
   return false;
 }
 
+function hasSquirrelUpdateExecutable(): boolean {
+  if (process.platform !== "win32" || !app.isPackaged) return false;
+  return existsSync(path.resolve(path.dirname(process.execPath), "..", "Update.exe"));
+}
+
 function isAutoUpdaterConfigured(): boolean {
-  return app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES && !memoryStore.get("autoUpdaterDisabled");
+  return hasSquirrelUpdateExecutable() && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES && !memoryStore.get("autoUpdaterDisabled");
 }
 
 function notifyUpdateCheckUnavailable(message: string): void {
@@ -487,7 +493,7 @@ function checkForApplicationUpdates(source: string): void {
 
 // Configure the autoupdater
 // macOS cannot use the autoUpdater without a code signature at this time
-if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
+if (isAutoUpdaterConfigured()) {
   const updateServer = "https://update.electronjs.org";
   const updateFeed = `${updateServer}/${YTMD_UPDATE_FEED_OWNER}/${YTMD_UPDATE_FEED_REPOSITORY}/${process.platform}-${process.arch}/${app.getVersion()}`;
 
@@ -2308,15 +2314,21 @@ app.on("ready", async () => {
   });
 
   // Plugin management IPC handlers
-  ipcMain.handle("plugins:getList", () => {
+  const isSettingsWindowSender = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
+    Boolean(settingsWindow && !settingsWindow.isDestroyed() && event.sender === settingsWindow.webContents);
+
+  ipcMain.handle("plugins:getList", event => {
+    if (!isSettingsWindowSender(event)) return [];
     return pluginManager.getAllPlugins();
   });
 
-  ipcMain.handle("plugins:getSettingsSchemas", () => {
+  ipcMain.handle("plugins:getSettingsSchemas", event => {
+    if (!isSettingsWindowSender(event)) return {};
     return pluginManager.getAllPluginSettingsSchemas();
   });
 
   ipcMain.handle("plugins:toggle", (event, pluginId: string, enabled: boolean) => {
+    if (!isSettingsWindowSender(event)) return false;
     if (enabled) {
       return pluginManager.enablePlugin(pluginId);
     } else {
@@ -2325,6 +2337,10 @@ app.on("ready", async () => {
   });
 
   ipcMain.on("plugins:getSetting", (event, pluginId: string, key: string) => {
+    if (!isSettingsWindowSender(event)) {
+      event.returnValue = null;
+      return;
+    }
     try {
       const setting = pluginManager.getPluginSetting(pluginId, key);
       event.returnValue = setting;
@@ -2334,11 +2350,13 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("plugins:updateSetting", (event, pluginId: string, key: string, value: unknown) => {
+    if (!isSettingsWindowSender(event)) return false;
     return pluginManager.updatePluginSetting(pluginId, key, value);
   });
 
   // Vinyl player specific handlers
-  ipcMain.handle("vinyl-player:show", () => {
+  ipcMain.handle("vinyl-player:show", event => {
+    if (!isSettingsWindowSender(event)) return false;
     const vinylPlayerPlugin = pluginManager.getPlugin("vinyl-player");
     if (vinylPlayerPlugin && vinylPlayerPlugin.enabled && "showVinylWindow" in vinylPlayerPlugin) {
       return (vinylPlayerPlugin as { showVinylWindow: () => boolean }).showVinylWindow();
@@ -2346,7 +2364,8 @@ app.on("ready", async () => {
     return false;
   });
 
-  ipcMain.handle("vinyl-player:hide", () => {
+  ipcMain.handle("vinyl-player:hide", event => {
+    if (!isSettingsWindowSender(event)) return false;
     const vinylPlayerPlugin = pluginManager.getPlugin("vinyl-player");
     if (vinylPlayerPlugin && vinylPlayerPlugin.enabled && "hideVinylWindow" in vinylPlayerPlugin) {
       return (vinylPlayerPlugin as { hideVinylWindow: () => boolean }).hideVinylWindow();
@@ -2355,7 +2374,8 @@ app.on("ready", async () => {
   });
 
   // 6K Labs Widget specific handlers
-  ipcMain.handle("6klabs-widget:getUrl", () => {
+  ipcMain.handle("6klabs-widget:getUrl", event => {
+    if (!isSettingsWindowSender(event)) return "";
     const widgetPlugin = pluginManager.getPlugin("6klabs-widget");
     if (widgetPlugin && "getWidgetUrl" in widgetPlugin) {
       return (widgetPlugin as { getWidgetUrl: () => string }).getWidgetUrl();
@@ -2914,7 +2934,11 @@ ipcMain.on("renderer:reportError", async (_, errorInfo) => {
 });
 
 // Crash report management IPC handlers
-ipcMain.handle("crashReports:list", async () => {
+const isCrashReportSender = (event: Electron.IpcMainInvokeEvent): boolean =>
+  Boolean(settingsWindow && !settingsWindow.isDestroyed() && event.sender === settingsWindow.webContents);
+
+ipcMain.handle("crashReports:list", async event => {
+  if (!isCrashReportSender(event)) return [];
   try {
     return await crashReporter.getCrashReports();
   } catch (error) {
@@ -2923,7 +2947,8 @@ ipcMain.handle("crashReports:list", async () => {
   }
 });
 
-ipcMain.handle("crashReports:get", async (_, filename: string) => {
+ipcMain.handle("crashReports:get", async (event, filename: string) => {
+  if (!isCrashReportSender(event)) return null;
   try {
     return await crashReporter.getCrashReport(filename);
   } catch (error) {
@@ -2932,7 +2957,8 @@ ipcMain.handle("crashReports:get", async (_, filename: string) => {
   }
 });
 
-ipcMain.handle("crashReports:delete", async (_, filename: string) => {
+ipcMain.handle("crashReports:delete", async (event, filename: string) => {
+  if (!isCrashReportSender(event)) return false;
   try {
     return await crashReporter.deleteCrashReport(filename);
   } catch (error) {
@@ -2941,7 +2967,8 @@ ipcMain.handle("crashReports:delete", async (_, filename: string) => {
   }
 });
 
-ipcMain.handle("crashReports:generateTest", async () => {
+ipcMain.handle("crashReports:generateTest", async event => {
+  if (!isCrashReportSender(event)) return null;
   try {
     const testError = new Error("This is a test crash report");
     testError.stack = "Test stack trace";

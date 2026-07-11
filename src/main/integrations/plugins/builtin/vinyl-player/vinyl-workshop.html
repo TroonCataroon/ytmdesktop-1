@@ -548,7 +548,13 @@
     </div>
 
     <script>
-      const { ipcRenderer } = window.electron;
+      const isElectron = Boolean(window.electron && window.electron.ipcRenderer);
+      const ipcRenderer = isElectron
+        ? window.electron.ipcRenderer
+        : {
+            send: () => {},
+            on: () => {}
+          };
 
       const els = {
         scene: document.getElementById("scene"),
@@ -745,6 +751,18 @@
           }
         }
       });
+
+      if (!isElectron) {
+        update({
+          title: "Workshop Player",
+          artist: "Ready for YouTube Music",
+          thumbnail: "",
+          isPlaying: false,
+          spinSpeed: 2,
+          durationSeconds: 0,
+          progressSeconds: 0
+        });
+      }
 
       // --- Interaction Logic ---
 

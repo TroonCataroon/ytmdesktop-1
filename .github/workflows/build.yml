@@ -44,6 +44,10 @@ jobs:
           YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
         run: yarn make --arch ${{ matrix.arch }}
 
+      - name: Verify packaged runtime assets
+        if: matrix.os.name == 'windows'
+        run: yarn verify:package
+
       - name: Upload artifacts (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
         with:
