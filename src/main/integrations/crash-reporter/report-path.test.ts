@@ -1,12 +1,13 @@
+import path from "path";
 import { describe, expect, it } from "vitest";
 import { resolveCrashReportPath } from "./report-path";
 
 describe("resolveCrashReportPath", () => {
-  const reportsDir = "C:\\Users\\listener\\AppData\\Roaming\\YTMD\\crash-reports";
+  const reportsDir = path.resolve("tmp", "crash-reports");
 
   it("accepts generated crash report filenames", () => {
     expect(resolveCrashReportPath(reportsDir, "crash-error-2026-07-10T12-00-00-000Z.json")).toBe(
-      "C:\\Users\\listener\\AppData\\Roaming\\YTMD\\crash-reports\\crash-error-2026-07-10T12-00-00-000Z.json"
+      path.join(reportsDir, "crash-error-2026-07-10T12-00-00-000Z.json")
     );
   });
 
