@@ -7,6 +7,10 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
+// CI may set these vars to empty strings when repo vars are unset; use || not ??.
+const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || "ytmdesktop";
+const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop";
+
 // There is probably a better way to do this, such as fetching it directly from forge
 let makerArch = null;
 for (let i = 0; i < process.argv.length; i++) {
@@ -31,7 +35,10 @@ const config: ForgeConfig = {
       "./src/assets/icons/controls/pause-button.png",
       "./src/assets/icons/controls/play-button.png",
       "./src/assets/icons/controls/play-next-button.png",
-      "./src/assets/icons/controls/play-previous-button.png"
+      "./src/assets/icons/controls/play-previous-button.png",
+      "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js",
+      "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html",
+      "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-remake.html"
     ],
     protocols: [
       {
@@ -45,7 +52,15 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      iconUrl: `https://raw.githubusercontent.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`
+      iconUrl: `https://raw.githubusercontent.com/${updateFeedOwner}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`,
+      loadingGif: "./src/assets/icons/ytmd_installer.gif",
+      setupIcon: "./src/assets/icons/ytmd.ico",
+      ...(process.env.YTMD_UPDATE_FEED_OWNER && process.env.YTMD_UPDATE_FEED_REPOSITORY
+        ? {
+            remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER}/${process.env.YTMD_UPDATE_FEED_REPOSITORY}/releases`,
+            remoteToken: process.env.GITHUB_TOKEN
+          }
+        : {})
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({
@@ -69,8 +84,8 @@ const config: ForgeConfig = {
       name: "@electron-forge/publisher-github",
       config: {
         repository: {
-          owner: process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop",
-          name: process.env.YTMD_UPDATE_FEED_REPOSITORY ?? "ytmdesktop"
+          owner: updateFeedOwner,
+          name: updateFeedRepository
         }
       }
     }
