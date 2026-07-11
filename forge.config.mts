@@ -8,8 +8,9 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 // CI may set these vars to empty strings when repo vars are unset; use || not ??.
-const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || "ytmdesktop";
-const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop";
+const [workflowOwner, workflowRepository] = (process.env.GITHUB_REPOSITORY || "").split("/");
+const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || workflowOwner || "ytmdesktop";
+const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || workflowRepository || "ytmdesktop";
 
 // There is probably a better way to do this, such as fetching it directly from forge
 let makerArch = null;
@@ -52,15 +53,9 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      iconUrl: `https://raw.githubusercontent.com/${updateFeedOwner}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`,
+      iconUrl: `https://raw.githubusercontent.com/${updateFeedOwner}/${updateFeedRepository}/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`,
       loadingGif: "./src/assets/icons/ytmd_installer.gif",
-      setupIcon: "./src/assets/icons/ytmd.ico",
-      ...(process.env.YTMD_UPDATE_FEED_OWNER && process.env.YTMD_UPDATE_FEED_REPOSITORY
-        ? {
-            remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER}/${process.env.YTMD_UPDATE_FEED_REPOSITORY}/releases`,
-            remoteToken: process.env.GITHUB_TOKEN
-          }
-        : {})
+      setupIcon: "./src/assets/icons/ytmd.ico"
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({

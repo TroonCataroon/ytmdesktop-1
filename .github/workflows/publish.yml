@@ -40,13 +40,13 @@ jobs:
 
       - name: Publish Dry (${{ matrix.arch }})
         env:
-          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER }}
-          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
         run: yarn publish:dry --arch ${{ matrix.arch }}
 
       - name: Publish From Dry (${{ matrix.arch }})
         run: yarn publish:fromdry
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER }}
-          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
