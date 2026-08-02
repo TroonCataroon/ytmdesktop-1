@@ -204,6 +204,7 @@
         background: rgba(255, 255, 255, 0);
         transition: background 120ms ease;
         cursor: pointer;
+        -webkit-app-region: no-drag;
       }
 
       .disc-overlay.disabled {
@@ -411,38 +412,39 @@
     </style>
   </head>
   <body>
-    <div class="card">
-      <div class="disc-wrap">
-        <div class="disc" id="disc">
-          <div class="grooves">
-            <div class="label"></div>
-            <div class="cover" id="cover"></div>
-          </div>
-          <div class="hole"></div>
-          <div class="disc-overlay" id="discOverlay">
-            <div class="icon" id="overlayIcon" aria-hidden="true"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="info">
-        <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
-        <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
-        <div class="progress">
-          <div class="bar"><div class="fill" id="barFill"></div></div>
-          <div class="times">
-            <span id="tCur">0:00</span>
-            <span id="tDur">0:00</span>
+    <div class="frame">
+      <div class="card">
+        <div class="disc-wrap">
+          <div class="disc" id="disc">
+            <div class="grooves">
+              <div class="label"></div>
+              <div class="cover" id="cover"></div>
+            </div>
+            <div class="hole"></div>
+            <div class="disc-overlay" id="discOverlay">
+              <div class="icon" id="overlayIcon" aria-hidden="true"></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="controls" id="controls">
-        <button class="btn" id="btnPlayPause" title="Play/Pause" aria-label="Play/Pause"></button>
-        <button class="btn close" id="btnClose" title="Close" aria-label="Close"></button>
+        <div class="info">
+          <div class="title marquee" id="titleWrap"><span id="title">Loading…</span></div>
+          <div class="artist marquee" id="artistWrap"><span id="artist">—</span></div>
+          <div class="progress">
+            <div class="bar"><div class="fill" id="barFill"></div></div>
+            <div class="times">
+              <span id="tCur">0:00</span>
+              <span id="tDur">0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls" id="controls">
+          <button class="btn" id="btnPlayPause" title="Play/Pause" aria-label="Play/Pause"></button>
+          <button class="btn close" id="btnClose" title="Close" aria-label="Close"></button>
+        </div>
       </div>
     </div>
-    <div class="frame"></div>
 
     <script>
       const isElectron = Boolean(window.electron && window.electron.ipcRenderer);

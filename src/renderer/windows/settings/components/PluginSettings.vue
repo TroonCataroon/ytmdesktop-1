@@ -46,9 +46,10 @@
                     </div>
                     <select
                       class="select-input"
-                      :value="String(getPluginSetting(plugin.id, 'widgetMode') ?? 'remake')"
+                      :value="String(getPluginSetting(plugin.id, 'widgetMode') ?? 'workshop')"
                       @change="onSelectChange(plugin.id, 'widgetMode', $event)"
                     >
+                      <option value="workshop">Workshop (cozy turntable)</option>
                       <option value="remake">Remake Widget (local)</option>
                       <option value="custom">Custom Vinyl Player (local)</option>
                       <option value="6klabs">6K Labs Widget (external)</option>
@@ -206,7 +207,7 @@
                     <label class="switch">
                       <input
                         type="checkbox"
-                        :checked="Boolean(getPluginSetting(plugin.id, 'enableButtonFeature'))"
+                        :checked="getPluginSetting(plugin.id, 'enableButtonFeature') !== false"
                         @change="onCheckboxChange(plugin.id, 'enableButtonFeature', $event)"
                       />
                       <span class="slider"></span>

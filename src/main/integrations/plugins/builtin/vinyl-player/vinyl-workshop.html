@@ -24,6 +24,8 @@
         user-select: none;
         font-family: "Segoe UI", sans-serif;
         background-color: #000;
+        /* Drag the window from empty desk areas; interactive controls opt out. */
+        -webkit-app-region: drag;
       }
 
       /* Scene Container - Fixed Aspect Ratio 16:9 (1920x1080) */
@@ -178,6 +180,7 @@
         transition: transform 0.5s ease-out;
         cursor: grab;
         pointer-events: auto;
+        -webkit-app-region: no-drag;
       }
 
       .tonearm-wrap:active {
@@ -202,6 +205,7 @@
         width: 250px;
         height: 250px;
         z-index: 4;
+        pointer-events: none;
       }
 
       .geode-stand {
@@ -211,10 +215,12 @@
         transform: translateX(-50%);
         width: 180px;
         height: 60px;
-        background-image: url("assets/geode-stand.png");
-        background-size: contain;
-        background-position: bottom center;
+        /* Optional user asset; CSS pedestal fallback if geode-stand.png is absent. */
+        background-image: url("assets/geode-stand.png"), linear-gradient(180deg, rgba(80, 60, 40, 0.55), rgba(30, 20, 15, 0.85));
+        background-size: contain, 70% 55%;
+        background-position: bottom center, bottom center;
         background-repeat: no-repeat;
+        border-radius: 40% 40% 20% 20%;
         filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.6));
       }
 
@@ -225,10 +231,14 @@
         transform: translateX(-50%);
         width: 200px;
         height: 200px;
-        background-image: url("assets/geode.png");
-        background-size: contain;
+        /* Optional user asset; CSS crystal fallback if geode.png is absent. */
+        background-image:
+          url("assets/geode.png"),
+          radial-gradient(circle at 35% 30%, rgba(220, 180, 255, 0.85), rgba(120, 60, 200, 0.55) 45%, rgba(40, 20, 70, 0.9) 75%);
+        background-size: contain, 70% 70%;
         background-position: center;
         background-repeat: no-repeat;
+        clip-path: polygon(50% 8%, 82% 28%, 92% 62%, 68% 92%, 32% 92%, 8% 62%, 18% 28%);
         filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.5));
         transition: filter 0.5s ease;
       }
