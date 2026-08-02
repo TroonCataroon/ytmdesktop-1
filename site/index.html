@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Install YouTube Music Desktop — native app with a guided setup wizard."
+    />
+    <title>YouTube Music Desktop</title>
+    <link rel="icon" type="image/png" href="/assets/ytmd.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Syne:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+
+    <main class="shell">
+      <header class="brand">
+        <img class="brand__mark" src="/assets/ytmd.png" alt="" width="72" height="72" />
+        <h1 class="brand__name">YouTube Music Desktop</h1>
+        <p class="brand__tag">
+          A native desktop player for YouTube Music — install in a few guided steps.
+        </p>
+      </header>
+
+      <section class="wizard" id="wizard" aria-labelledby="wizard-title">
+        <div class="wizard__progress" role="list" aria-label="Install steps">
+          <span class="step-dot is-active" data-step="0" role="listitem">1</span>
+          <span class="step-dot" data-step="1" role="listitem">2</span>
+          <span class="step-dot" data-step="2" role="listitem">3</span>
+          <span class="step-dot" data-step="3" role="listitem">4</span>
+        </div>
+
+        <h2 id="wizard-title" class="wizard__title">Install wizard</h2>
+        <p class="wizard__lede" id="wizard-lede">Detecting your system…</p>
+
+        <div class="wizard__panel" id="panel-detect">
+          <dl class="detect-grid">
+            <div>
+              <dt>Platform</dt>
+              <dd id="detect-os">—</dd>
+            </div>
+            <div>
+              <dt>Architecture</dt>
+              <dd id="detect-arch">—</dd>
+            </div>
+            <div>
+              <dt>Release</dt>
+              <dd id="detect-release">—</dd>
+            </div>
+            <div>
+              <dt>Installer</dt>
+              <dd id="detect-asset">—</dd>
+            </div>
+          </dl>
+          <p class="hint" id="detect-hint"></p>
+          <div class="actions">
+            <button type="button" class="btn btn--primary" id="btn-continue" disabled>
+              Continue
+            </button>
+          </div>
+        </div>
+
+        <div class="wizard__panel is-hidden" id="panel-download">
+          <p class="panel-copy">
+            Download the official installer for your system. On Windows this is the
+            <strong>Squirrel Setup</strong> wizard (<code>.Setup.exe</code>).
+          </p>
+          <div class="actions">
+            <a class="btn btn--primary" id="btn-download" href="#" rel="noopener">
+              Download installer
+            </a>
+            <button type="button" class="btn btn--ghost" id="btn-downloaded">
+              I’ve downloaded it
+            </button>
+          </div>
+          <p class="hint">
+            Source:
+            <a id="release-link" href="#" target="_blank" rel="noopener">GitHub Releases</a>
+          </p>
+          <div class="alt-list" id="alt-downloads" hidden>
+            <p class="alt-list__label">Other builds</p>
+            <ul id="alt-download-list"></ul>
+          </div>
+        </div>
+
+        <div class="wizard__panel is-hidden" id="panel-run">
+          <ol class="run-steps" id="run-steps"></ol>
+          <div class="actions">
+            <button type="button" class="btn btn--primary" id="btn-installed">
+              Installation finished
+            </button>
+            <button type="button" class="btn btn--ghost" id="btn-back-download">
+              Back
+            </button>
+          </div>
+        </div>
+
+        <div class="wizard__panel is-hidden" id="panel-done">
+          <p class="panel-copy">
+            You’re set. Launch <strong>YouTube Music Desktop</strong> from your apps menu
+            or Start menu. Optional: open Settings → Plugins and enable Vinyl Player
+            (Workshop mode) for the turntable widget.
+          </p>
+          <div class="actions">
+            <a
+              class="btn btn--ghost"
+              href="https://github.com/TroonCataroon/ytmdesktop-1"
+              target="_blank"
+              rel="noopener"
+            >
+              View source
+            </a>
+            <button type="button" class="btn btn--primary" id="btn-restart">
+              Start over
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Desktop app via Electron Forge · Site is not the app runtime</span>
+    </footer>
+
+    <script type="module" src="/wizard.js"></script>
+  </body>
+</html>
