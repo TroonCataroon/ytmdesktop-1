@@ -78,6 +78,16 @@ body {
   box-shadow: 0 0 0 1px var(--line), 0 16px 40px var(--accent-soft);
 }
 
+.companion-badge {
+  margin: 0 auto 0.65rem;
+  max-width: fit-content;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ff8a93;
+}
+
 .brand__name {
   margin: 0;
   font-family: var(--font-display);
@@ -85,6 +95,61 @@ body {
   font-size: clamp(2.1rem, 6vw, 3.4rem);
   letter-spacing: -0.03em;
   line-height: 1.05;
+}
+
+.pwa-install {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+  margin: 0.75rem auto 0;
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(225, 29, 46, 0.18), rgba(255, 255, 255, 0.04));
+  box-shadow: var(--shadow);
+  animation: rise 0.55s ease-out both;
+}
+
+.pwa-install[hidden] {
+  display: none !important;
+}
+
+.pwa-install__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff8a93;
+}
+
+.pwa-install__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.pwa-install__lede {
+  margin: 0.35rem 0 0;
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.pwa-install__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+html.is-pwa-standalone .pwa-install {
+  display: none !important;
 }
 
 .brand__tag {
@@ -306,13 +371,20 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .actions {
+  .actions,
+  .pwa-install__actions {
     flex-direction: column;
   }
 
-  .btn {
+  .btn,
+  .pwa-install__actions .btn {
     width: 100%;
     text-align: center;
+  }
+
+  .pwa-install {
+    margin-left: 1rem;
+    margin-right: 1rem;
   }
 }
 

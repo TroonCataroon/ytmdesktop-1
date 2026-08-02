@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Install YouTube Music Desktop — native app with a guided setup wizard."
+      content="Install guide companion for YouTube Music Desktop — detect your OS, download the official GitHub Release installer, and finish setup. This site is not the desktop player."
     />
-    <title>YouTube Music Desktop</title>
-    <link rel="icon" type="image/png" href="/assets/ytmd.png" />
+    <meta name="theme-color" content="#0a0b0f" />
+    <meta name="application-name" content="YTMD Install Guide" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="YTMD Install" />
+    <title>YTMD Install Guide · YouTube Music Desktop</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/assets/icon-192.png" />
+    <link rel="apple-touch-icon" href="/assets/icon-512.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,12 +27,41 @@
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
 
+    <aside
+      class="pwa-install"
+      id="pwa-install"
+      hidden
+      aria-hidden="true"
+      aria-labelledby="pwa-install-title"
+    >
+      <div class="pwa-install__copy">
+        <p class="pwa-install__eyebrow">Web companion</p>
+        <h2 id="pwa-install-title" class="pwa-install__title">
+          Install this install guide
+        </h2>
+        <p class="pwa-install__lede">
+          Adds a home-screen shortcut to this wizard. The desktop music player still
+          installs from the GitHub Release below.
+        </p>
+      </div>
+      <div class="pwa-install__actions">
+        <button type="button" class="btn btn--primary" id="btn-pwa-install">
+          Add install guide
+        </button>
+        <button type="button" class="btn btn--ghost" id="btn-pwa-dismiss">
+          Not now
+        </button>
+      </div>
+    </aside>
+
     <main class="shell">
       <header class="brand">
         <img class="brand__mark" src="/assets/ytmd.png" alt="" width="72" height="72" />
+        <p class="companion-badge" id="companion-badge">Install guide · web companion</p>
         <h1 class="brand__name">YouTube Music Desktop</h1>
         <p class="brand__tag">
-          A native desktop player for YouTube Music — install in a few guided steps.
+          Guided setup for the native desktop player — download the official Forge
+          installer from GitHub Releases, then run it on your machine.
         </p>
       </header>
 
@@ -37,7 +73,7 @@
           <span class="step-dot" data-step="3" role="listitem">4</span>
         </div>
 
-        <h2 id="wizard-title" class="wizard__title">Install wizard</h2>
+        <h2 id="wizard-title" class="wizard__title">Desktop install wizard</h2>
         <p class="wizard__lede" id="wizard-lede">Detecting your system…</p>
 
         <div class="wizard__panel" id="panel-detect">
@@ -71,6 +107,7 @@
           <p class="panel-copy">
             Download the official installer for your system. On Windows this is the
             <strong>Squirrel Setup</strong> wizard (<code>.Setup.exe</code>).
+            These binaries come from GitHub Releases — not from this website’s runtime.
           </p>
           <div class="actions">
             <a class="btn btn--primary" id="btn-download" href="#" rel="noopener">
@@ -126,9 +163,13 @@
     </main>
 
     <footer class="footer">
-      <span>Desktop app via Electron Forge · Site is not the app runtime</span>
+      <span>
+        Desktop app via Electron Forge · This PWA is the install guide companion, not
+        the player runtime
+      </span>
     </footer>
 
     <script type="module" src="/wizard.js"></script>
+    <script type="module" src="/pwa.js"></script>
   </body>
 </html>

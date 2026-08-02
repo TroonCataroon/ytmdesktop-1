@@ -11,6 +11,13 @@ Static landing + install wizard deployed on **Vercel**. It does **not** run the 
    - **macOS**: `*-darwin-arm64|x64-*.zip`
    - **Linux**: `.deb` / `.rpm`
 4. Shows short run-installer steps
+5. Optional **PWA** (“YTMD Install Guide”): installable shortcut for this companion wizard only — desktop binaries still come from GitHub Releases
+
+## PWA notes
+
+- Manifest: `manifest.webmanifest` (standalone display, companion naming)
+- Service worker: `sw.js` (caches the guide shell; does not proxy Electron)
+- Install UX: `pwa.js` + `beforeinstallprompt` banner labeled “Add install guide”
 
 ## Deploy
 
