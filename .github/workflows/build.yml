@@ -45,8 +45,8 @@ jobs:
 
       - name: Build (${{ matrix.arch }})
         env:
-          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER }}
-          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || 'TroonCataroon' }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || 'ytmdesktop-1' }}
         run: yarn make --arch ${{ matrix.arch }}
 
       - name: Verify packaged runtime assets

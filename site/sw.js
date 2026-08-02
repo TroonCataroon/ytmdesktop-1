@@ -4,10 +4,10 @@
  * Does NOT ship or run the Electron desktop app.
  */
 
-const CACHE = "ytmd-install-guide-v1";
+const CACHE = "ytmd-install-guide-v2";
+// Precache "/" only (not /index.html) — Vercel cleanUrls redirects /index.html → / and cache.addAll rejects redirects.
 const PRECACHE = [
   "/",
-  "/index.html",
   "/styles.css",
   "/wizard.js",
   "/pwa.js",
@@ -54,11 +54,13 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("/index.html", copy));
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put("/", copy));
+          }
           return response;
         })
-        .catch(() => caches.match("/index.html"))
+        .catch(() => caches.match("/"))
     );
     return;
   }

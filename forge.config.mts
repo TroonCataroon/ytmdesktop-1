@@ -42,11 +42,7 @@ for (let i = 0; i < process.argv.length; i++) {
   }
 }
 
-const enableSquirrelRemoteReleases = Boolean(
-  process.env.YTMD_UPDATE_FEED_OWNER &&
-    process.env.YTMD_UPDATE_FEED_REPOSITORY &&
-    process.env.GITHUB_TOKEN
-);
+const enableSquirrelRemoteReleases = Boolean(process.env.GITHUB_TOKEN);
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -95,7 +91,7 @@ const config: ForgeConfig = {
       setupIcon: "./src/assets/icons/ytmd.ico",
       ...(enableSquirrelRemoteReleases
         ? {
-            remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER}/${process.env.YTMD_UPDATE_FEED_REPOSITORY}/releases`,
+            remoteReleases: `https://github.com/${updateFeedOwner}/${updateFeedRepository}/releases`,
             remoteToken: process.env.GITHUB_TOKEN
           }
         : {})
