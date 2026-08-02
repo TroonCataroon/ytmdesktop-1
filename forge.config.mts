@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
@@ -7,9 +8,30 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
+const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+  version: string;
+  productName: string;
+  author?: { name?: string };
+};
+
+/**
+ * Packaging strategy (Windows): harden MakerSquirrel — do NOT add NSIS.
+ * Reasons tied to this repo:
+ * 1) Main already uses electron-squirrel-startup + Electron autoUpdater (Update.exe / nupkg / RELEASES).
+ * 2) site/ wizard + published v2.1.0 assets already key off `*.Setup.exe`.
+ * 3) build.yml / publish.yml already produce and upload squirrel.windows artifacts.
+ * 4) A second NSIS maker would fork update UX and artifact contracts without benefit.
+ *
+ * See release-artifacts.contract.json for the filename contract the web install surface must use.
+ */
+
 // CI may set these vars to empty strings when repo vars are unset; use || not ??.
-const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || "ytmdesktop";
-const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop";
+// Defaults target this fork so tag publishes land where site/ links (not upstream ytmdesktop/ytmdesktop).
+const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || "TroonCataroon";
+const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop-1";
+
+// Stable Setup.exe name used by site/wizard.js and GitHub Release download URLs.
+const windowsSetupExe = `YouTube.Music.Desktop.App-${packageJson.version}.Setup.exe`;
 
 // There is probably a better way to do this, such as fetching it directly from forge
 let makerArch = null;
@@ -19,6 +41,12 @@ for (let i = 0; i < process.argv.length; i++) {
     makerArch = process.argv[i + 1];
   }
 }
+
+const enableSquirrelRemoteReleases = Boolean(
+  process.env.YTMD_UPDATE_FEED_OWNER &&
+    process.env.YTMD_UPDATE_FEED_REPOSITORY &&
+    process.env.GITHUB_TOKEN
+);
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -54,10 +82,18 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      iconUrl: `https://raw.githubusercontent.com/${updateFeedOwner}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`,
+      // NuGet / AppId cannot contain spaces or hyphens.
+      name: "youtube_music_desktop_app",
+      title: packageJson.productName,
+      authors: packageJson.author?.name || "YTMD",
+      exe: "youtube-music-desktop-app.exe",
+      setupExe: windowsSetupExe,
+      noMsi: true,
+      // Content-addressed URL so Control Panel icon stays valid after branch renames.
+      iconUrl: "https://raw.githubusercontent.com/ytmdesktop/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico",
       loadingGif: "./src/assets/icons/ytmd_installer.gif",
       setupIcon: "./src/assets/icons/ytmd.ico",
-      ...(process.env.YTMD_UPDATE_FEED_OWNER && process.env.YTMD_UPDATE_FEED_REPOSITORY
+      ...(enableSquirrelRemoteReleases
         ? {
             remoteReleases: `https://github.com/${process.env.YTMD_UPDATE_FEED_OWNER}/${process.env.YTMD_UPDATE_FEED_REPOSITORY}/releases`,
             remoteToken: process.env.GITHUB_TOKEN
@@ -88,7 +124,10 @@ const config: ForgeConfig = {
         repository: {
           owner: updateFeedOwner,
           name: updateFeedRepository
-        }
+        },
+        draft: false,
+        prerelease: process.env.YTMD_RELEASE_PRERELEASE === "true",
+        generateReleaseNotes: true
       }
     }
   ],

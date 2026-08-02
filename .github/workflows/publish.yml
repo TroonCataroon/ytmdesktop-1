@@ -38,15 +38,24 @@ jobs:
       - name: Install dependencies
         run: yarn --immutable
 
+      # GITHUB_TOKEN is required here so MakerSquirrel can fetch prior RELEASES for delta nupkgs.
       - name: Publish Dry (${{ matrix.arch }})
         env:
-          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER }}
-          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || 'TroonCataroon' }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || 'ytmdesktop-1' }}
+          YTMD_RELEASE_PRERELEASE: ${{ vars.YTMD_RELEASE_PRERELEASE }}
         run: yarn publish:dry --arch ${{ matrix.arch }}
+
+      - name: Verify make artifact names
+        env:
+          VERIFY_MAKE_ARCH: ${{ matrix.arch }}
+        run: yarn verify:make
 
       - name: Publish From Dry (${{ matrix.arch }})
         run: yarn publish:fromdry
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER }}
-          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY }}
+          YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || 'TroonCataroon' }}
+          YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || 'ytmdesktop-1' }}
+          YTMD_RELEASE_PRERELEASE: ${{ vars.YTMD_RELEASE_PRERELEASE }}
