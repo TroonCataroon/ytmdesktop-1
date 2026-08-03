@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ytmd.release-artifacts",
+  "version": "1.0.0",
+  "description": "Shared contract for Electron Forge release asset names. Consumed by CI verification and the site install wizard (do not invent alternate filenames).",
+  "repository": {
+    "owner": "TroonCataroon",
+    "repo": "ytmdesktop-1",
+    "releaseUrlTemplate": "https://github.com/{owner}/{repo}/releases/download/{tag}/{asset}"
+  },
+  "packager": "electron-forge",
+  "windows": {
+    "maker": "squirrel",
+    "wizard": "Squirrel.Windows Setup.exe (loading GIF + setup icon; silent per-user install under %LocalAppData%)",
+    "primaryAsset": "YouTube.Music.Desktop.App-{version}.Setup.exe",
+    "match": "\\.Setup\\.exe$",
+    "outputGlob": "out/make/squirrel.windows/{arch}/*.Setup.exe",
+    "alsoPublishes": [
+      "RELEASES",
+      "youtube_music_desktop_app-{version}-full.nupkg",
+      "youtube_music_desktop_app-{version}-delta.nupkg"
+    ],
+    "notes": "Site wizards must link the *.Setup.exe asset only. RELEASES/nupkg are for Squirrel auto-update, not end-user download CTAs."
+  },
+  "macos": {
+    "maker": "zip",
+    "wizard": "ZIP archive; user opens .app from Finder (no signed DMG/notarization in this pipeline)",
+    "primaryAssets": [
+      "YouTube.Music.Desktop.App-darwin-arm64-{version}.zip",
+      "YouTube.Music.Desktop.App-darwin-x64-{version}.zip"
+    ],
+    "match": "darwin-(arm64|x64).+\\.zip$",
+    "outputGlob": "out/make/zip/darwin/{arch}/*.zip"
+  },
+  "linux": {
+    "makers": ["deb", "rpm"],
+    "wizard": "Native package managers (.deb via apt/dpkg, .rpm via dnf/yum)",
+    "primaryAssets": [
+      "youtube-music-desktop-app_{version}_amd64.deb",
+      "youtube-music-desktop-app_{version}_arm64.deb",
+      "youtube-music-desktop-app-{version}-1.x86_64.rpm",
+      "youtube-music-desktop-app-{version}-1.arm64.rpm"
+    ],
+    "matchDeb": "\\.deb$",
+    "matchRpm": "\\.rpm$",
+    "outputGlobs": [
+      "out/make/deb/{arch}/*.deb",
+      "out/make/rpm/{arch}/*.rpm"
+    ]
+  },
+  "publish": {
+    "trigger": "git tag matching v*",
+    "workflow": ".github/workflows/publish.yml",
+    "commands": {
+      "localMakeWindows": "yarn make --arch x64",
+      "ciPublish": "Push an annotated tag after bumping package.json version above the previous release (currently latest is v2.1.0)."
+    }
+  }
+}

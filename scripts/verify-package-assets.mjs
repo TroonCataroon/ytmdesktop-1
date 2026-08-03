@@ -13,7 +13,18 @@ if (packageDirs.length === 0) {
   throw new Error("No packaged Windows application found under out/. Run `yarn package` or `yarn make` first.");
 }
 
-const requiredAssets = ["vinyl-player-preload.js", "vinyl-player.html", "vinyl-remake.html"];
+const requiredAssets = [
+  "vinyl-player-preload.js",
+  "vinyl-player.html",
+  "vinyl-remake.html",
+  "vinyl-workshop.html",
+  "assets/turntable-base.png",
+  "assets/tonearm.png",
+  "assets/switch-base.png",
+  "assets/switch-lever.png",
+  "assets/knob.png",
+  "assets/workshop-bg.png"
+];
 
 for (const packageDir of packageDirs) {
   const assetRoot = path.join(packageDir, "resources");

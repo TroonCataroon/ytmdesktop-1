@@ -1,0 +1,54 @@
+{
+  "id": "ytmd.install-surface",
+  "version": "1.1.0",
+  "title": "YTMD Install Surface",
+  "description": "Composable web install wizard + PWA companion: OS detection, GitHub Release download links, guided setup for Electron Forge installers, and installable web shortcut for the guide itself. Does not host the Electron main process or ship desktop binaries from Vercel.",
+  "kind": "web-feature",
+  "entry": {
+    "register": "./register.js",
+    "routes": [
+      {
+        "path": "/",
+        "file": "./index.html"
+      },
+      {
+        "path": "/manifest.webmanifest",
+        "file": "./manifest.webmanifest"
+      },
+      {
+        "path": "/sw.js",
+        "file": "./sw.js"
+      }
+    ]
+  },
+  "capabilities": {
+    "pwa": {
+      "manifest": "./manifest.webmanifest",
+      "serviceWorker": "./sw.js",
+      "display": "standalone",
+      "role": "install-guide-companion",
+      "not": "desktop-player-runtime"
+    }
+  },
+  "events": {
+    "publish": [
+      "install.wizard.step",
+      "install.wizard.download",
+      "install.pwa.prompt",
+      "install.pwa.installed"
+    ],
+    "subscribe": []
+  },
+  "dependencies": {
+    "releases": {
+      "provider": "github",
+      "owner": "TroonCataroon",
+      "repo": "ytmdesktop-1",
+      "channel": "latest"
+    },
+    "desktop": {
+      "packager": "electron-forge",
+      "makers": ["squirrel", "zip", "deb", "rpm"]
+    }
+  }
+}

@@ -44,11 +44,19 @@ jobs:
       - name: Install dependencies
         run: yarn --immutable
 
+      # GITHUB_TOKEN is required here so MakerSquirrel can fetch prior RELEASES for delta nupkgs.
       - name: Publish Dry (${{ matrix.arch }})
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
           YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
+          YTMD_RELEASE_PRERELEASE: ${{ vars.YTMD_RELEASE_PRERELEASE }}
         run: yarn publish:dry --arch ${{ matrix.arch }}
+
+      - name: Verify make artifact names
+        env:
+          VERIFY_MAKE_ARCH: ${{ matrix.arch }}
+        run: yarn verify:make
 
       - name: Publish From Dry (${{ matrix.arch }})
         run: yarn publish:fromdry
@@ -56,6 +64,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YTMD_UPDATE_FEED_OWNER: ${{ vars.YTMD_UPDATE_FEED_OWNER || github.repository_owner }}
           YTMD_UPDATE_FEED_REPOSITORY: ${{ vars.YTMD_UPDATE_FEED_REPOSITORY || github.event.repository.name }}
+          YTMD_RELEASE_PRERELEASE: ${{ vars.YTMD_RELEASE_PRERELEASE }}
 
   finalize-release:
     needs: build
