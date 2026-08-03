@@ -26,9 +26,9 @@ const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.met
  */
 
 // CI may set these vars to empty strings when repo vars are unset; use || not ??.
-// Defaults target this fork so tag publishes land where site/ links (not upstream ytmdesktop/ytmdesktop).
-const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || "TroonCataroon";
-const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop-1";
+const [workflowOwner, workflowRepository] = (process.env.GITHUB_REPOSITORY || "").split("/");
+const updateFeedOwner = process.env.YTMD_UPDATE_FEED_OWNER || workflowOwner || "TroonCataroon";
+const updateFeedRepository = process.env.YTMD_UPDATE_FEED_REPOSITORY || workflowRepository || "ytmdesktop-1";
 
 // Stable Setup.exe name used by site/wizard.js and GitHub Release download URLs.
 const windowsSetupExe = `YouTube.Music.Desktop.App-${packageJson.version}.Setup.exe`;
