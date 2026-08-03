@@ -91,7 +91,8 @@ const config: ForgeConfig = {
       setupIcon: "./src/assets/icons/ytmd.ico",
       ...(enableSquirrelRemoteReleases
         ? {
-            remoteReleases: `https://github.com/${updateFeedOwner}/${updateFeedRepository}/releases`,
+            // electron-winstaller SyncReleases expects the repo root URL, not /releases.
+            remoteReleases: `https://github.com/${updateFeedOwner}/${updateFeedRepository}`,
             remoteToken: process.env.GITHUB_TOKEN
           }
         : {})
