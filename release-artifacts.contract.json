@@ -53,7 +53,7 @@
     "workflow": ".github/workflows/publish.yml",
     "commands": {
       "localMakeWindows": "yarn make --arch x64",
-      "ciPublish": "Push an annotated tag after bumping package.json version above the previous release (currently latest is v2.1.0)."
+      "ciPublish": "Push an annotated tag after bumping package.json version above the previous release (currently latest is v2.2.0)."
     }
   }
 }

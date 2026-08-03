@@ -8,15 +8,15 @@ const RELEASE = {
   owner: "TroonCataroon",
   repo: "ytmdesktop-1",
   /** Fallback when the Releases API is rate-limited or unavailable */
-  fallbackTag: "v2.1.0",
+  fallbackTag: "v2.2.0",
   fallbackAssets: [
-    "YouTube.Music.Desktop.App-2.1.0.Setup.exe",
-    "YouTube.Music.Desktop.App-darwin-arm64-2.1.0.zip",
-    "YouTube.Music.Desktop.App-darwin-x64-2.1.0.zip",
-    "youtube-music-desktop-app_2.1.0_amd64.deb",
-    "youtube-music-desktop-app_2.1.0_arm64.deb",
-    "youtube-music-desktop-app-2.1.0-1.x86_64.rpm",
-    "youtube-music-desktop-app-2.1.0-1.arm64.rpm",
+    "YouTube.Music.Desktop.App-2.2.0.Setup.exe",
+    "YouTube.Music.Desktop.App-darwin-arm64-2.2.0.zip",
+    "YouTube.Music.Desktop.App-darwin-x64-2.2.0.zip",
+    "youtube-music-desktop-app_2.2.0_amd64.deb",
+    "youtube-music-desktop-app_2.2.0_arm64.deb",
+    "youtube-music-desktop-app-2.2.0-1.x86_64.rpm",
+    "youtube-music-desktop-app-2.2.0-1.arm64.rpm",
   ],
 };
 
