@@ -25,6 +25,7 @@ type MutableWorkshopGeometry = {
  */
 export class VinylPlayerPlugin extends LegacyVinylPlayerPlugin {
   private workshopRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private workshopRecoveryActive = false;
 
   constructor() {
     super();
@@ -44,11 +45,13 @@ export class VinylPlayerPlugin extends LegacyVinylPlayerPlugin {
   }
 
   override onEnable(): void {
+    this.workshopRecoveryActive = true;
     super.onEnable();
     this.scheduleWorkshopGeometryRecovery();
   }
 
   override onDisable(): void {
+    this.workshopRecoveryActive = false;
     if (this.workshopRecoveryTimer) {
       clearTimeout(this.workshopRecoveryTimer);
       this.workshopRecoveryTimer = null;
@@ -58,19 +61,26 @@ export class VinylPlayerPlugin extends LegacyVinylPlayerPlugin {
 
   override onSettingsChanged(newSettings: Record<string, unknown>, previousSettings: Record<string, unknown>): void {
     super.onSettingsChanged(newSettings, previousSettings);
-    this.scheduleWorkshopGeometryRecovery();
+    if (this.workshopRecoveryActive) {
+      this.scheduleWorkshopGeometryRecovery();
+    }
   }
 
   private scheduleWorkshopGeometryRecovery(): void {
+    if (!this.workshopRecoveryActive) return;
+
     if (this.workshopRecoveryTimer) {
       clearTimeout(this.workshopRecoveryTimer);
       this.workshopRecoveryTimer = null;
     }
 
     void app.whenReady().then(() => {
+      if (!this.workshopRecoveryActive) return;
       this.workshopRecoveryTimer = setTimeout(() => {
         this.workshopRecoveryTimer = null;
-        this.enforceWorkshopGeometry();
+        if (this.workshopRecoveryActive) {
+          this.enforceWorkshopGeometry();
+        }
       }, 0);
     });
   }
