@@ -5,7 +5,8 @@ import {
   WORKSHOP_MIN_WIDTH,
   fitWorkshopSize,
   hasWorkshopAspect,
-  normalizeWorkshopSavedSize
+  normalizeWorkshopSavedSize,
+  workshopFitsDisplay
 } from "./workshop-layout";
 
 describe("Workshop layout contract", () => {
@@ -53,5 +54,10 @@ describe("Workshop layout contract", () => {
     expect(fitted.width).toBe(WORKSHOP_MIN_WIDTH);
     expect(fitted.height).toBe(WORKSHOP_MIN_HEIGHT);
     expect(fitted.width / fitted.height).toBeCloseTo(16 / 9, 2);
+  });
+
+  it("requires valid-aspect Workshop windows to fit the active display before skipping recovery", () => {
+    expect(workshopFitsDisplay(1280, 720, 1280, 720)).toBe(true);
+    expect(workshopFitsDisplay(1920, 1080, 1280, 720)).toBe(false);
   });
 });
