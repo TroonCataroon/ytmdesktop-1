@@ -7,7 +7,7 @@ import { CustomThemesPlugin } from "./builtin/custom-themes";
 import { KeyboardShortcutsPlugin } from "./builtin/keyboard-shortcuts";
 import { NotificationEnhancerPlugin } from "./builtin/notification-enhancer";
 import { NotionSyncPlugin } from "./builtin/notion-sync";
-import { VinylPlayerPlugin } from "./builtin/vinyl-player";
+import { VinylPlayerPlugin } from "./builtin/vinyl-player/workshop-recovery";
 
 type PluginStoreSchema = Record<string, { enabled?: boolean; settings: Record<string, unknown> }>;
 
