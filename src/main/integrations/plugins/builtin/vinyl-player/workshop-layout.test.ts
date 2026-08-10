@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   WORKSHOP_ASPECT,
+  WORKSHOP_MIN_HEIGHT,
+  WORKSHOP_MIN_WIDTH,
   fitWorkshopSize,
   hasWorkshopAspect,
   normalizeWorkshopSavedSize
@@ -42,6 +44,14 @@ describe("Workshop layout contract", () => {
 
     expect(fitted.width).toBeLessThanOrEqual(1280);
     expect(fitted.height).toBeLessThanOrEqual(720);
+    expect(fitted.width / fitted.height).toBeCloseTo(16 / 9, 2);
+  });
+
+  it("preserves the minimum usable Workshop geometry when the work area is impossibly small", () => {
+    const fitted = fitWorkshopSize(300, 100, 100);
+
+    expect(fitted.width).toBe(WORKSHOP_MIN_WIDTH);
+    expect(fitted.height).toBe(WORKSHOP_MIN_HEIGHT);
     expect(fitted.width / fitted.height).toBeCloseTo(16 / 9, 2);
   });
 });
