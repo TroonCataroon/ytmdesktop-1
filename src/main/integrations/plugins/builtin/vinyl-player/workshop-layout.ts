@@ -2,6 +2,7 @@ export const WORKSHOP_SCENE_WIDTH = 1920;
 export const WORKSHOP_SCENE_HEIGHT = 1080;
 export const WORKSHOP_ASPECT = WORKSHOP_SCENE_WIDTH / WORKSHOP_SCENE_HEIGHT;
 export const WORKSHOP_MIN_HEIGHT = 240;
+export const WORKSHOP_MIN_WIDTH = Math.ceil(WORKSHOP_MIN_HEIGHT * WORKSHOP_ASPECT);
 
 const ASPECT_TOLERANCE = 0.015;
 
@@ -45,21 +46,24 @@ export function fitWorkshopSize(
   maximumWidth: number,
   maximumHeight: number
 ): { width: number; height: number } {
-  const safeMaxWidth = Math.max(1, Math.floor(maximumWidth));
-  const safeMaxHeight = Math.max(1, Math.floor(maximumHeight));
+  // A display can theoretically report a work area smaller than the Workshop's
+  // minimum usable geometry. When "fit on display" and "stay usable" conflict,
+  // preserve the minimum geometry and let the existing boundary logic place it.
+  const safeMaxWidth = Math.max(WORKSHOP_MIN_WIDTH, Math.floor(maximumWidth));
+  const safeMaxHeight = Math.max(WORKSHOP_MIN_HEIGHT, Math.floor(maximumHeight));
   const requestedHeight = Math.max(WORKSHOP_MIN_HEIGHT, positiveNumber(currentHeight) ?? 300);
 
-  let height = Math.min(Math.round(requestedHeight), safeMaxHeight);
+  let height = Math.max(WORKSHOP_MIN_HEIGHT, Math.min(Math.round(requestedHeight), safeMaxHeight));
   let width = Math.round(height * WORKSHOP_ASPECT);
 
   if (width > safeMaxWidth) {
     width = safeMaxWidth;
-    height = Math.max(1, Math.round(width / WORKSHOP_ASPECT));
+    height = Math.max(WORKSHOP_MIN_HEIGHT, Math.round(width / WORKSHOP_ASPECT));
   }
 
   if (height > safeMaxHeight) {
     height = safeMaxHeight;
-    width = Math.max(1, Math.round(height * WORKSHOP_ASPECT));
+    width = Math.max(WORKSHOP_MIN_WIDTH, Math.round(height * WORKSHOP_ASPECT));
   }
 
   return { width, height };
