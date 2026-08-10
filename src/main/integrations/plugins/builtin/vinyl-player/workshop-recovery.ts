@@ -5,8 +5,8 @@ import {
   WORKSHOP_SCENE_HEIGHT,
   WORKSHOP_SCENE_WIDTH,
   fitWorkshopSize,
-  hasWorkshopAspect,
-  normalizeWorkshopSavedSize
+  normalizeWorkshopSavedSize,
+  workshopFitsDisplay
 } from "./workshop-layout";
 
 type MutableWorkshopGeometry = {
@@ -95,9 +95,9 @@ export class VinylPlayerPlugin extends LegacyVinylPlayerPlugin {
     workshopWindow.setAspectRatio(WORKSHOP_ASPECT);
 
     const [currentWidth, currentHeight] = workshopWindow.getSize();
-    if (hasWorkshopAspect(currentWidth, currentHeight)) return;
-
     const display = screen.getDisplayMatching(workshopWindow.getBounds());
+    if (workshopFitsDisplay(currentWidth, currentHeight, display.workArea.width, display.workArea.height)) return;
+
     const nextSize = fitWorkshopSize(currentHeight, display.workArea.width, display.workArea.height);
     workshopWindow.setSize(nextSize.width, nextSize.height, false);
   }
