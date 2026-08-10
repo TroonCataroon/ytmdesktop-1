@@ -19,6 +19,29 @@ export function hasWorkshopAspect(width: unknown, height: unknown): boolean {
   return Math.abs(normalizedWidth / normalizedHeight - WORKSHOP_ASPECT) <= ASPECT_TOLERANCE;
 }
 
+export function workshopFitsDisplay(
+  width: unknown,
+  height: unknown,
+  maximumWidth: unknown,
+  maximumHeight: unknown
+): boolean {
+  const normalizedWidth = positiveNumber(width);
+  const normalizedHeight = positiveNumber(height);
+  const normalizedMaximumWidth = positiveNumber(maximumWidth);
+  const normalizedMaximumHeight = positiveNumber(maximumHeight);
+
+  if (
+    normalizedWidth === null ||
+    normalizedHeight === null ||
+    normalizedMaximumWidth === null ||
+    normalizedMaximumHeight === null
+  ) {
+    return false;
+  }
+
+  return hasWorkshopAspect(normalizedWidth, normalizedHeight) && normalizedWidth <= normalizedMaximumWidth && normalizedHeight <= normalizedMaximumHeight;
+}
+
 export function normalizeWorkshopSavedSize(
   settings: Record<string, unknown>,
   currentMode: unknown
