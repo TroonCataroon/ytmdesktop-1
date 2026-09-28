@@ -16,6 +16,7 @@ import BaseIntegration from "../base-integration";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
+import type { FastifyError } from "@fastify/error";
 
 export default class CompanionServer extends BaseIntegration {
   private listenIp = "0.0.0.0";
@@ -57,15 +58,17 @@ export default class CompanionServer extends BaseIntegration {
     // Enhanced error handler with better categorization and logging
     this.fastifyServer.setErrorHandler((error, request, reply) => {
       try {
-        if (isDefinedAPIError(error)) {
+        const fastifyError = error as FastifyError;
+
+        if (isDefinedAPIError(fastifyError)) {
           // Already a known API error, just pass it through
-          log.debug(`API error occurred: ${error.code} - ${error.message}`);
-          reply.status(error.statusCode).send(error);
+          log.debug(`API error occurred: ${fastifyError.code} - ${fastifyError.message}`);
+          reply.status(fastifyError.statusCode).send(fastifyError);
           return;
         }
 
         // Handle common system-level errors
-        if (error.code === "EADDRINUSE") {
+        if (fastifyError.code === "EADDRINUSE") {
           log.error(`Server address in use (port ${this.listenPort}):`, error);
           reply.status(503).send(new InternalServerError(`Server cannot bind to port ${this.listenPort}`));
           return;

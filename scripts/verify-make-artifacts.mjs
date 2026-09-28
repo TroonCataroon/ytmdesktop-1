@@ -14,7 +14,7 @@ const version = packageJson.version;
 function expand(template) {
   return template
     .replaceAll("{version}", version)
-    .replaceAll("{arch}", process.env.VERIFY_MAKE_ARCH || "x64");
+    .replaceAll("{arch}", process.env.VERIFY_MAKE_ARCH || process.arch);
 }
 
 function listFilesRecursive(dir) {
@@ -33,38 +33,52 @@ if (!fs.existsSync(makeRoot)) {
   throw new Error("No out/make directory. Run `yarn make` first.");
 }
 
-const madeFiles = listFilesRecursive(makeRoot).map(f => path.basename(f));
 const platform = process.platform;
+const arch = process.env.VERIFY_MAKE_ARCH || process.arch;
 const errors = [];
 
 if (platform === "win32") {
   const expected = expand(contract.windows.primaryAsset);
-  if (!madeFiles.includes(expected)) {
-    errors.push(`Missing Windows Setup.exe: expected "${expected}", found: ${madeFiles.filter(f => f.endsWith(".exe")).join(", ") || "(none)"}`);
-  }
-  const setupMatches = madeFiles.filter(f => new RegExp(contract.windows.match, "i").test(f));
-  if (setupMatches.length === 0) {
-    errors.push(`No artifact matched Windows pattern ${contract.windows.match}`);
+  const outputDir = path.join(makeRoot, "squirrel.windows", arch);
+  const madeFiles = listFilesRecursive(outputDir).map(f => path.basename(f));
+  const expectedFiles = [
+    expected,
+    "RELEASES",
+    `youtube_music_desktop_app-${version}-full.nupkg`
+  ];
+  for (const expectedFile of expectedFiles) {
+    if (!madeFiles.includes(expectedFile)) {
+      errors.push(`Missing Windows ${arch} artifact "${expectedFile}" in ${outputDir}`);
+    }
   }
 } else if (platform === "darwin") {
-  const arch = process.env.VERIFY_MAKE_ARCH || process.arch;
   const expected = expand(
     arch === "arm64"
       ? contract.macos.primaryAssets.find(a => a.includes("arm64"))
       : contract.macos.primaryAssets.find(a => a.includes("x64"))
   );
-  if (expected && !madeFiles.includes(expected)) {
-    // Forge ZIP naming can vary slightly; accept regex match as fallback.
-    const anyZip = madeFiles.some(f => new RegExp(contract.macos.match, "i").test(f));
-    if (!anyZip) {
-      errors.push(`Missing macOS ZIP (expected ~"${expected}"): found ${madeFiles.filter(f => f.endsWith(".zip")).join(", ") || "(none)"}`);
-    }
+  const outputDir = path.join(makeRoot, "zip", "darwin", arch);
+  const madeFiles = listFilesRecursive(outputDir).map(f => path.basename(f));
+  // MakerZIP retains product-name spaces; GitHub normalizes them for published assets.
+  const localAsset = `${packageJson.productName}-darwin-${arch}-${version}.zip`;
+  if (localAsset.replaceAll(" ", ".") !== expected) {
+    errors.push(`macOS ${arch} local ZIP "${localAsset}" does not match published contract "${expected}"`);
+  }
+  if (!madeFiles.includes(localAsset)) {
+    errors.push(`Missing macOS ${arch} ZIP "${localAsset}" in ${outputDir}`);
   }
 } else if (platform === "linux") {
-  const hasDeb = madeFiles.some(f => new RegExp(contract.linux.matchDeb, "i").test(f));
-  const hasRpm = madeFiles.some(f => new RegExp(contract.linux.matchRpm, "i").test(f));
-  if (!hasDeb && !hasRpm) {
-    errors.push(`Missing Linux .deb/.rpm artifacts under out/make. Found: ${madeFiles.join(", ") || "(none)"}`);
+  const debArch = arch === "x64" ? "amd64" : arch;
+  const rpmArch = arch === "x64" ? "x86_64" : "arm64";
+  const expectedDeb = `youtube-music-desktop-app_${version}_${debArch}.deb`;
+  const expectedRpm = `youtube-music-desktop-app-${version}-1.${rpmArch}.rpm`;
+  const debDir = path.join(makeRoot, "deb", arch);
+  const rpmDir = path.join(makeRoot, "rpm", arch);
+  if (!listFilesRecursive(debDir).some(f => path.basename(f) === expectedDeb)) {
+    errors.push(`Missing Linux ${arch} DEB "${expectedDeb}" in ${debDir}`);
+  }
+  if (!listFilesRecursive(rpmDir).some(f => path.basename(f) === expectedRpm)) {
+    errors.push(`Missing Linux ${arch} RPM "${expectedRpm}" in ${rpmDir}`);
   }
 }
 
@@ -72,5 +86,4 @@ if (errors.length > 0) {
   throw new Error(`Make artifact verification failed:\n- ${errors.join("\n- ")}`);
 }
 
-console.log(`Verified make artifacts for ${platform} against release-artifacts.contract.json (version ${version}).`);
-console.log(`Files: ${madeFiles.join(", ")}`);
+console.log(`Verified exact make artifacts for ${platform}/${arch} against release-artifacts.contract.json (version ${version}).`);

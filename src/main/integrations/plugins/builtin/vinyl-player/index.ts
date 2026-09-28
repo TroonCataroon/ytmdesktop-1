@@ -4,6 +4,16 @@ import playerStateStore, { PlayerState, VideoState } from "../../../../player-st
 import { attachToDesktop } from "../../../../windows/wallpaper";
 import { BasePlugin, PluginSettings } from "../../base-plugin";
 import { pluginManager } from "../../index";
+import {
+  WORKSHOP_ASPECT,
+  WORKSHOP_MIN_HEIGHT,
+  WORKSHOP_MIN_WIDTH,
+  WorkAreaBounds,
+  clampWorkshopPosition,
+  fitWorkshopSize,
+  normalizeWorkshopSavedSize,
+  rectangleIntersectionArea
+} from "./workshop-layout";
 
 interface VinylPlayerWindow {
   window: BrowserWindow;
@@ -18,16 +28,13 @@ interface TrackInfo {
   spinSpeed: number;
   durationSeconds?: number;
   progressSeconds?: number;
+  volume?: number;
 }
 
 export class VinylPlayerPlugin extends BasePlugin {
   private static readonly REMAKE_DEFAULT_WIDTH = 922;
   private static readonly REMAKE_DEFAULT_HEIGHT = 282;
   private static readonly REMAKE_ASPECT = VinylPlayerPlugin.REMAKE_DEFAULT_WIDTH / VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT;
-
-  private static readonly WORKSHOP_DEFAULT_WIDTH = 600;
-  private static readonly WORKSHOP_DEFAULT_HEIGHT = 480;
-  private static readonly WORKSHOP_ASPECT = VinylPlayerPlugin.WORKSHOP_DEFAULT_WIDTH / VinylPlayerPlugin.WORKSHOP_DEFAULT_HEIGHT;
 
   private vinylWindow: VinylPlayerWindow | null = null;
   private isPlaying = false;
@@ -36,6 +43,9 @@ export class VinylPlayerPlugin extends BasePlugin {
   private playerStateListener: ((state: PlayerState) => void) | null = null;
   private showOnStartupTimeout: ReturnType<typeof setTimeout> | null = null;
   private vinylCspSession: Electron.Session | null = null;
+  private lifecycleGeneration = 0;
+  private savingWindowState = false;
+  private lastWorkshopDisplayId: number | null = null;
   private last6KOverlayState = { enabled: false, playing: false };
 
   constructor() {
@@ -88,8 +98,10 @@ export class VinylPlayerPlugin extends BasePlugin {
     // `screen` (used by createVinylWindow) cannot be accessed before `app.ready`.
     if (this.initialized) return;
     this.initialized = true;
+    const generation = ++this.lifecycleGeneration;
 
     void app.whenReady().then(() => {
+      if (!this.initialized || generation !== this.lifecycleGeneration) return;
       this.createVinylWindow();
       this.setupPlayerStateListener();
       this.setupIpcHandlers();
@@ -105,6 +117,7 @@ export class VinylPlayerPlugin extends BasePlugin {
         }
         this.showOnStartupTimeout = setTimeout(() => {
           this.showOnStartupTimeout = null;
+          if (!this.initialized || generation !== this.lifecycleGeneration) return;
           this.showVinylWindow();
         }, 1000);
       }
@@ -112,6 +125,8 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onDisable(): void {
+    this.initialized = false;
+    this.lifecycleGeneration += 1;
     if (this.showOnStartupTimeout) {
       clearTimeout(this.showOnStartupTimeout);
       this.showOnStartupTimeout = null;
@@ -125,10 +140,11 @@ export class VinylPlayerPlugin extends BasePlugin {
     this.saveWindowState();
     this.destroyVinylWindow();
     this.cleanupIpcHandlers();
-    this.initialized = false;
   }
 
   updateSettings(newSettings: Record<string, unknown>): void {
+    const currentMode = typeof this.settings.widgetMode === "string" ? this.settings.widgetMode : "workshop";
+    newSettings = normalizeWorkshopSavedSize(newSettings, currentMode);
     const requestedMode = newSettings.widgetMode;
     const normalizedSettings =
       requestedMode === undefined || requestedMode === "custom" || requestedMode === "remake" || requestedMode === "workshop" || requestedMode === "6klabs"
@@ -138,13 +154,13 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   onSettingsChanged(newSettings: Record<string, unknown>, previousSettings: Record<string, unknown>): void {
-    if (!this.initialized) return;
+    if (!this.initialized || this.savingWindowState || !app.isReady()) return;
 
     // If switching between 6K Labs widget and custom vinyl player, or resizing setting changed, recreate window
     if (
       newSettings.widgetMode !== previousSettings.widgetMode ||
       newSettings.use6KLabsWidget !== previousSettings.use6KLabsWidget ||
-      newSettings.enableResizing !== previousSettings.enableResizing ||
+      (newSettings.enableResizing !== previousSettings.enableResizing && (newSettings.widgetMode !== "workshop" || newSettings.wallpaperMode)) ||
       newSettings.wallpaperMode !== previousSettings.wallpaperMode
     ) {
       const wasVisible = this.vinylWindow?.isVisible ?? false;
@@ -172,6 +188,7 @@ export class VinylPlayerPlugin extends BasePlugin {
       const isRemake = nextWidgetMode === "remake";
       const isWorkshop = nextWidgetMode === "workshop";
       const nextUse6KLabs = nextWidgetMode === "6klabs";
+      const enableResizing = newSettings.enableResizing !== false;
 
       if (newSettings.alwaysOnTop !== previousSettings.alwaysOnTop) {
         window.setAlwaysOnTop(newSettings.alwaysOnTop as boolean);
@@ -181,18 +198,20 @@ export class VinylPlayerPlugin extends BasePlugin {
         window.setOpacity(newSettings.opacity as number);
       }
 
-      if (newSettings.windowSize !== previousSettings.windowSize && (nextWidgetMode === "custom" || isRemake || isWorkshop)) {
+      if (isWorkshop && (newSettings.windowSize !== previousSettings.windowSize || newSettings.enableResizing !== previousSettings.enableResizing)) {
+        const currentBounds = window.getBounds();
+        const display = this.selectDisplayForBounds(currentBounds);
+        const requestedHeight = newSettings.windowSize !== previousSettings.windowSize ? Number(newSettings.windowSize) * 1.5 : currentBounds.height;
+        window.setResizable(enableResizing);
+        this.applyWorkshopGeometry(window, display, requestedHeight, currentBounds.x, currentBounds.y, enableResizing);
+        this.saveWindowState();
+      } else if (newSettings.windowSize !== previousSettings.windowSize && (nextWidgetMode === "custom" || isRemake)) {
         const size = Number(newSettings.windowSize as number);
-        const enableResizing = newSettings.enableResizing as boolean;
         if (isRemake) {
           // Reuse the existing slider but apply it as the REMAKE HEIGHT, keeping the screenshot aspect ratio.
           // This makes the remake widget scale nicely without inventing new UI controls.
           const height = Math.max(160, Math.min(size, 800));
           const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
-          window.setSize(width, height);
-        } else if (isWorkshop) {
-          const height = Math.max(240, Math.min(size * 1.5, 800));
-          const width = Math.round(height * VinylPlayerPlugin.WORKSHOP_ASPECT);
           window.setSize(width, height);
         } else {
           window.setSize(size, size);
@@ -206,16 +225,13 @@ export class VinylPlayerPlugin extends BasePlugin {
             const width = Math.round(height * VinylPlayerPlugin.REMAKE_ASPECT);
             window.setMinimumSize(width, height);
             window.setMaximumSize(width, height);
-          } else if (isWorkshop) {
-            const height = Math.max(240, Math.min(size * 1.5, 800));
-            const width = Math.round(height * VinylPlayerPlugin.WORKSHOP_ASPECT);
-            window.setMinimumSize(width, height);
-            window.setMaximumSize(width, height);
           } else {
             window.setMinimumSize(size, size);
             window.setMaximumSize(size, size);
           }
         }
+      } else if (newSettings.enableResizing !== previousSettings.enableResizing) {
+        window.setResizable(nextUse6KLabs || enableResizing);
       }
 
       // Send updated settings to the local vinyl player modes.
@@ -275,7 +291,9 @@ export class VinylPlayerPlugin extends BasePlugin {
 
   private async refreshFromYtmViewSnapshot(): Promise<void> {
     const wc = this.getYtmViewWebContents();
-    if (!wc || wc.isDestroyed()) return;
+    const targetWindow = this.vinylWindow?.window;
+    const generation = this.lifecycleGeneration;
+    if (!wc || wc.isDestroyed() || !targetWindow || targetWindow.isDestroyed()) return;
 
     try {
       const snapshot = (await wc.executeJavaScript(
@@ -315,6 +333,16 @@ export class VinylPlayerPlugin extends BasePlugin {
         thumbnails?: unknown[];
         docTitle?: string;
       };
+
+      if (
+        !this.initialized ||
+        generation !== this.lifecycleGeneration ||
+        this.vinylWindow?.window !== targetWindow ||
+        targetWindow.isDestroyed() ||
+        wc.isDestroyed()
+      ) {
+        return;
+      }
 
       const title = (snapshot.title || "").trim();
       const author = (snapshot.author || "").trim();
@@ -418,11 +446,13 @@ export class VinylPlayerPlugin extends BasePlugin {
     });
 
     // Handle keyboard shortcuts
-    ipcMain.on("vinyl-player:register-shortcuts", () => {
+    ipcMain.on("vinyl-player:register-shortcuts", event => {
+      if (!this.isTrustedVinylSender(event)) return;
       this.registerKeyboardShortcuts();
     });
 
-    ipcMain.on("vinyl-player:unregister-shortcuts", () => {
+    ipcMain.on("vinyl-player:unregister-shortcuts", event => {
+      if (!this.isTrustedVinylSender(event)) return;
       this.unregisterKeyboardShortcuts();
     });
   }
@@ -455,6 +485,84 @@ export class VinylPlayerPlugin extends BasePlugin {
     globalShortcut.unregister("Alt+Shift+V");
   }
 
+  private selectDisplayForBounds(bounds: Partial<WorkAreaBounds>): Electron.Display {
+    const displays = screen.getAllDisplays();
+    const x = Number(bounds.x);
+    const y = Number(bounds.y);
+    const width = Number(bounds.width);
+    const height = Number(bounds.height);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      const candidateBounds: WorkAreaBounds = {
+        x,
+        y,
+        width: Number.isFinite(width) && width > 0 ? width : 1,
+        height: Number.isFinite(height) && height > 0 ? height : 1
+      };
+      let selectedDisplay: Electron.Display | null = null;
+      let selectedArea = 0;
+      for (const display of displays) {
+        const intersectionArea = rectangleIntersectionArea(candidateBounds, display.workArea);
+        if (intersectionArea > selectedArea) {
+          selectedArea = intersectionArea;
+          selectedDisplay = display;
+        }
+      }
+      if (selectedDisplay) return selectedDisplay;
+    }
+
+    const cursor = screen.getCursorScreenPoint();
+    return screen.getDisplayNearestPoint(cursor) ?? screen.getPrimaryDisplay();
+  }
+
+  private getWorkshopResizeLimits(display: Electron.Display): { width: number; height: number } {
+    return fitWorkshopSize(display.workArea.height, display.workArea.width, display.workArea.height);
+  }
+
+  private applyWorkshopGeometry(
+    window: BrowserWindow,
+    display: Electron.Display,
+    requestedHeight: unknown,
+    requestedX: unknown,
+    requestedY: unknown,
+    enableResizing: boolean
+  ): void {
+    const size = fitWorkshopSize(requestedHeight, display.workArea.width, display.workArea.height);
+    const position = clampWorkshopPosition(requestedX, requestedY, size.width, size.height, display.workArea);
+    this.lastWorkshopDisplayId = display.id;
+
+    // Release the prior display/fixed-size limits before applying a new fitted geometry.
+    window.setMinimumSize(0, 0);
+    window.setMaximumSize(0, 0);
+    window.setSize(size.width, size.height, false);
+    window.setPosition(position.x, position.y, false);
+
+    if (enableResizing) {
+      const maximum = this.getWorkshopResizeLimits(display);
+      window.setMinimumSize(Math.min(WORKSHOP_MIN_WIDTH, size.width), Math.min(WORKSHOP_MIN_HEIGHT, size.height));
+      window.setMaximumSize(maximum.width, maximum.height);
+    } else {
+      window.setMinimumSize(size.width, size.height);
+      window.setMaximumSize(size.width, size.height);
+    }
+  }
+
+  private fitWorkshopWindowToCurrentDisplay(window: BrowserWindow): void {
+    const bounds = window.getBounds();
+    const display = this.selectDisplayForBounds(bounds);
+    const fitted = fitWorkshopSize(bounds.height, display.workArea.width, display.workArea.height);
+    const position = clampWorkshopPosition(bounds.x, bounds.y, fitted.width, fitted.height, display.workArea);
+    if (
+      this.lastWorkshopDisplayId === display.id &&
+      bounds.width === fitted.width &&
+      bounds.height === fitted.height &&
+      bounds.x === position.x &&
+      bounds.y === position.y
+    ) {
+      return;
+    }
+    this.applyWorkshopGeometry(window, display, bounds.height, bounds.x, bounds.y, this.settings.enableResizing !== false);
+  }
+
   private createVinylWindow(): void {
     if (this.vinylWindow) {
       return;
@@ -474,26 +582,34 @@ export class VinylPlayerPlugin extends BasePlugin {
     const useRemake = widgetMode === "remake";
     const useWorkshop = widgetMode === "workshop";
 
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
-
-    const size = use6K ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
-
     // Restore saved window position and size if available
     const savedX = this.settings.savedWindowX as number | undefined;
     const savedY = this.settings.savedWindowY as number | undefined;
     const savedWidth = this.settings.savedWindowWidth as number | undefined;
     const savedHeight = this.settings.savedWindowHeight as number | undefined;
 
+    const selectedDisplay = wallpaperMode
+      ? screen.getPrimaryDisplay()
+      : this.selectDisplayForBounds({ x: savedX, y: savedY, width: savedWidth, height: savedHeight });
+    const { width: screenW, height: screenH } = selectedDisplay.workAreaSize;
+
+    const size = use6K ? 800 : (this.settings.windowSize as number); // Larger size for 6K Labs widget
+
     const desiredSquareSize = Number(this.settings.windowSize as number);
     const remakeHeight = Math.max(160, Math.min(desiredSquareSize || VinylPlayerPlugin.REMAKE_DEFAULT_HEIGHT, 800));
     const remakeWidth = Math.round(remakeHeight * VinylPlayerPlugin.REMAKE_ASPECT);
 
-    const workshopHeight = Math.max(240, Math.min((desiredSquareSize || 300) * 1.5, 800));
-    const workshopWidth = Math.round(workshopHeight * VinylPlayerPlugin.WORKSHOP_ASPECT);
+    const savedWorkshopHeight = Number.isFinite(Number(savedHeight))
+      ? Number(savedHeight)
+      : Number.isFinite(Number(savedWidth))
+        ? Number(savedWidth) / WORKSHOP_ASPECT
+        : undefined;
+    const workshopSize = fitWorkshopSize(savedWorkshopHeight ?? (desiredSquareSize || 300) * 1.5, screenW, screenH);
+    const workshopHeight = workshopSize.height;
+    const workshopWidth = workshopSize.width;
 
-    let width = savedWidth || (useRemake ? remakeWidth : useWorkshop ? workshopWidth : size);
-    let height = savedHeight || (use6K ? 200 : useRemake ? remakeHeight : useWorkshop ? workshopHeight : size);
+    let width = useWorkshop ? workshopWidth : savedWidth || (useRemake ? remakeWidth : size);
+    let height = useWorkshop ? workshopHeight : savedHeight || (use6K ? 200 : useRemake ? remakeHeight : size);
     let x = savedX;
     let y = savedY;
 
@@ -502,6 +618,35 @@ export class VinylPlayerPlugin extends BasePlugin {
       height = screenH;
       x = 0;
       y = 0;
+    } else if (useWorkshop) {
+      const position = clampWorkshopPosition(savedX, savedY, width, height, selectedDisplay.workArea);
+      x = position.x;
+      y = position.y;
+    }
+
+    const workshopMaximumSize = this.getWorkshopResizeLimits(selectedDisplay);
+    const canResize = !wallpaperMode && (use6K || enableResizing);
+    let minWidth: number | undefined;
+    let minHeight: number | undefined;
+    let maxWidth: number | undefined;
+    let maxHeight: number | undefined;
+    if (!wallpaperMode) {
+      if (use6K) {
+        minWidth = 400;
+        minHeight = 100;
+      } else if (useWorkshop) {
+        minWidth = enableResizing ? Math.min(WORKSHOP_MIN_WIDTH, width) : width;
+        minHeight = enableResizing ? Math.min(WORKSHOP_MIN_HEIGHT, height) : height;
+        maxWidth = enableResizing ? workshopMaximumSize.width : width;
+        maxHeight = enableResizing ? workshopMaximumSize.height : height;
+      } else {
+        minWidth = enableResizing ? 160 : width;
+        minHeight = enableResizing ? 160 : height;
+        if (!enableResizing && !useRemake) {
+          maxWidth = size;
+          maxHeight = size;
+        }
+      }
     }
 
     const browserWindowOptions: Electron.BrowserWindowConstructorOptions = {
@@ -509,34 +654,26 @@ export class VinylPlayerPlugin extends BasePlugin {
       height,
       x,
       y,
-      minWidth: use6K ? 400 : enableResizing ? 160 : size,
-      minHeight: use6K ? 100 : enableResizing ? 160 : size,
-      maxWidth: use6K || enableResizing || useRemake || useWorkshop || wallpaperMode ? undefined : size, // Allow resizing if enabled
-      maxHeight: use6K || enableResizing || useRemake || useWorkshop || wallpaperMode ? undefined : size,
+      minWidth,
+      minHeight,
+      maxWidth,
+      maxHeight,
       frame: false,
       transparent: true,
       alwaysOnTop: wallpaperMode ? false : (this.settings.alwaysOnTop as boolean),
-      resizable: !wallpaperMode && (use6K || useRemake || useWorkshop || enableResizing), // Allow resizing based on setting
+      resizable: canResize,
       skipTaskbar: wallpaperMode,
       show: false,
       title: use6K ? "6K Labs Widget" : useRemake ? "Remake Widget" : useWorkshop ? "Workshop Widget" : "Vinyl Player",
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        partition: app.isPackaged ? "vinyl-player" : "vinyl-player-dev",
         preload: app.isPackaged
           ? path.join(process.resourcesPath, "vinyl-player-preload.js")
           : path.join(process.cwd(), "src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js")
       }
     };
-
-    // Set position if saved (validate it's on-screen) - SKIP if wallpaper mode
-    if (!wallpaperMode && savedX !== undefined && savedY !== undefined) {
-      const display = screen.getDisplayNearestPoint({ x: savedX, y: savedY });
-      if (display) {
-        browserWindowOptions.x = savedX;
-        browserWindowOptions.y = savedY;
-      }
-    }
 
     this.vinylWindow = {
       window: new BrowserWindow(browserWindowOptions),
@@ -544,6 +681,11 @@ export class VinylPlayerPlugin extends BasePlugin {
     };
 
     const window = this.vinylWindow.window;
+
+    if (useWorkshop && !wallpaperMode) {
+      this.lastWorkshopDisplayId = selectedDisplay.id;
+      window.setAspectRatio(WORKSHOP_ASPECT);
+    }
 
     if (wallpaperMode && process.platform === "win32") {
       // Attach to desktop on Windows
@@ -650,8 +792,24 @@ export class VinylPlayerPlugin extends BasePlugin {
       window.loadFile(htmlPath);
     }
 
+    let geometrySaveTimeout: ReturnType<typeof setTimeout> | null = null;
+    const scheduleGeometrySave = (): void => {
+      if (geometrySaveTimeout) clearTimeout(geometrySaveTimeout);
+      geometrySaveTimeout = setTimeout(() => {
+        geometrySaveTimeout = null;
+        if (window.isDestroyed()) return;
+        if (useWorkshop && !wallpaperMode) {
+          this.fitWorkshopWindowToCurrentDisplay(window);
+        } else {
+          this.constrainWindowToScreen(window);
+        }
+        this.saveWindowState();
+      }, 100);
+    };
+
     // Handle window events
     window.on("closed", () => {
+      if (geometrySaveTimeout) clearTimeout(geometrySaveTimeout);
       this.saveWindowState();
       this.vinylWindow = null;
     });
@@ -662,16 +820,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       }
     });
 
-    // Save window position when moved
-    window.on("moved", () => {
-      this.saveWindowState();
-    });
-
-    // Save window size when resized and constrain to screen bounds
-    window.on("resized", () => {
-      this.constrainWindowToScreen(window);
-      this.saveWindowState();
-    });
+    window.on("move", scheduleGeometrySave);
+    window.on("resize", scheduleGeometrySave);
 
     // Make window draggable anywhere (not just title bar)
     window.setMovable(true);
@@ -705,7 +855,8 @@ export class VinylPlayerPlugin extends BasePlugin {
     };
 
     // Listen for drag start/end from renderer
-    ipcMain.on("vinyl-player:drag-start", () => {
+    ipcMain.on("vinyl-player:drag-start", event => {
+      if (!this.isTrustedVinylSender(event)) return;
       const [x, y] = window.getPosition();
       const cursor = screen.getCursorScreenPoint();
       dragOffset = {
@@ -716,7 +867,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       startDragTracking();
     });
 
-    ipcMain.on("vinyl-player:drag-end", () => {
+    ipcMain.on("vinyl-player:drag-end", event => {
+      if (!this.isTrustedVinylSender(event)) return;
       isDragging = false;
       stopDragTracking();
     });
@@ -1148,13 +1300,20 @@ export class VinylPlayerPlugin extends BasePlugin {
       this.vinylWindow.window.destroy();
       this.vinylWindow = null;
     }
+    this.lastWorkshopDisplayId = null;
     this.last6KOverlayState = { enabled: false, playing: false };
   }
 
   // Public methods for external control
   public showVinylWindow(): boolean {
+    if (!this.initialized) return false;
+
     if (!app.isReady()) {
-      void app.whenReady().then(() => this.showVinylWindow());
+      const generation = this.lifecycleGeneration;
+      void app.whenReady().then(() => {
+        if (!this.initialized || generation !== this.lifecycleGeneration) return;
+        this.showVinylWindow();
+      });
       return false;
     }
 
@@ -1202,7 +1361,8 @@ export class VinylPlayerPlugin extends BasePlugin {
       thumbnail: track.thumbnail,
       isPlaying: playing,
       spinSpeed: track.spinSpeed,
-      durationSeconds: track.durationSeconds
+      durationSeconds: track.durationSeconds,
+      volume: track.volume
     });
   }
 
@@ -1218,7 +1378,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         isPlaying,
         spinSpeed: Number(this.settings.spinSpeed ?? 1),
         durationSeconds: Number(state.videoDetails.durationSeconds ?? 0),
-        progressSeconds: Number(state.videoProgress ?? 0)
+        progressSeconds: Number(state.videoProgress ?? 0),
+        volume: state.volume
       };
 
       const prevTrack = this.currentTrack;
@@ -1242,7 +1403,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         isPlaying: false,
         spinSpeed: Number(this.settings.spinSpeed ?? 1),
         durationSeconds: 0,
-        progressSeconds: 0
+        progressSeconds: 0,
+        volume: state.volume
       };
       const displayChanged = !this.currentTrack || this.trackDisplayKey(idleTrack, false) !== this.trackDisplayKey(this.currentTrack, this.isPlaying);
 
@@ -1322,7 +1484,8 @@ export class VinylPlayerPlugin extends BasePlugin {
         isPlaying: this.isPlaying,
         spinSpeed: Number(this.settings.spinSpeed ?? 1),
         durationSeconds: Number(this.currentTrack?.durationSeconds ?? 0),
-        progressSeconds: Number(this.currentTrack?.progressSeconds ?? 0)
+        progressSeconds: Number(this.currentTrack?.progressSeconds ?? 0),
+        volume: this.currentTrack?.volume ?? playerStateStore.getState()?.volume
       };
 
       if (!use6KLabs) {
@@ -1373,7 +1536,7 @@ export class VinylPlayerPlugin extends BasePlugin {
   }
 
   private saveWindowState(): void {
-    if (!this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
+    if (this.savingWindowState || !this.vinylWindow?.window || this.vinylWindow.window.isDestroyed()) {
       return;
     }
 
@@ -1381,13 +1544,18 @@ export class VinylPlayerPlugin extends BasePlugin {
     const bounds = window.getBounds();
 
     // Update settings with current window state
-    this.updateSettings({
-      savedWindowX: bounds.x,
-      savedWindowY: bounds.y,
-      savedWindowWidth: bounds.width,
-      savedWindowHeight: bounds.height,
-      wasVisibleOnClose: this.vinylWindow.isVisible
-    });
+    this.savingWindowState = true;
+    try {
+      pluginManager.updatePluginSettings(this.id, {
+        savedWindowX: bounds.x,
+        savedWindowY: bounds.y,
+        savedWindowWidth: bounds.width,
+        savedWindowHeight: bounds.height,
+        wasVisibleOnClose: this.vinylWindow.isVisible
+      });
+    } finally {
+      this.savingWindowState = false;
+    }
   }
 
   private constrainWindowToScreen(window: BrowserWindow): void {

@@ -2,900 +2,674 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Workshop Widget</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Isometric Workshop Player</title>
     <style>
       :root {
-        --text-color: #e0d0b0;
-        --accent-color: #d4a017;
+        color-scheme: dark;
+        --ink: #171811;
+        --line: #29291d;
+        --cream: #ded2ae;
+        --dim: #a99e7c;
+        --olive: #596044;
+        --od: #353b2c;
+        --ol: #78805a;
+        --wood: #795238;
+        --wd: #432f24;
+        --wl: #a1734b;
+        --brass: #b39659;
+        --rust: #a24e35;
       }
-
       * {
         box-sizing: border-box;
       }
-
       html,
       body {
         width: 100%;
         height: 100%;
         margin: 0;
-        padding: 0;
         overflow: hidden;
+        background: #14150f;
+        color: var(--cream);
+        font-family: "Segoe UI", system-ui, sans-serif;
         user-select: none;
-        font-family: "Segoe UI", sans-serif;
-        background-color: #000;
-        /* Drag the window from empty desk areas; interactive controls opt out. */
         -webkit-app-region: drag;
       }
-
-      /* Scene Container - Fixed Aspect Ratio 16:9 (1920x1080) */
+      button,
+      input {
+        font: inherit;
+      }
+      button,
+      [role="slider"] {
+        -webkit-app-region: no-drag;
+      }
+      button:focus-visible,
+      [role="slider"]:focus-visible {
+        outline: 4px solid #e5cc75;
+        outline-offset: 5px;
+      }
       #scene {
         position: absolute;
-        top: 50%;
         left: 50%;
+        top: 50%;
         width: 1920px;
         height: 1080px;
-        transform-origin: center center;
         transform: translate(-50%, -50%);
-        /* Will be scaled by JS */
-      }
-
-      /* Background */
-      .background {
-        position: absolute;
-        inset: 0;
-        background-image: url("assets/workshop-bg.png");
-        background-size: cover;
-        background-position: center;
-        z-index: 0;
-      }
-
-      /* Lighting Overlay */
-      .lighting-overlay {
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at 50% 30%, rgba(255, 220, 150, 0.15) 0%, rgba(0, 0, 0, 0.4) 80%);
-        pointer-events: none;
-        z-index: 10;
-        mix-blend-mode: overlay;
-        transition: opacity 1s ease;
-        opacity: 0.8;
-      }
-
-      .lighting-overlay.active {
-        animation: lightPulse 4s ease-in-out infinite alternate;
-      }
-
-      @keyframes lightPulse {
-        from {
-          opacity: 0.7;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-
-      /* Turntable Group */
-      .turntable-group {
-        position: absolute;
-        /* Anchored relative to 1920x1080 scene */
-        left: 50%;
-        top: 50%;
-        width: 800px;
-        height: 600px;
-        transform: translate(-50%, -50%);
-        z-index: 5;
-      }
-
-      .turntable-base {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-image: url("assets/turntable-base.png");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.7));
-      }
-
-      /* Vinyl Record */
-      .vinyl-wrap {
-        position: absolute;
-        width: 450px;
-        height: 450px;
-        border-radius: 50%;
-        left: 45%; /* Adjusted for turntable image */
-        top: 48%;
-        transform: translate(-50%, -50%);
-        z-index: 2;
-      }
-
-      .vinyl-disc {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        background:
-          radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.06), transparent 48%), conic-gradient(from 0deg, #0a0a0a, #161616, #0e0e0e, #262626, #0a0a0a);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-        position: relative;
-        animation: spin 0s linear infinite;
-      }
-
-      .vinyl-disc.paused {
-        animation-play-state: paused;
-      }
-
-      .vinyl-grooves {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background: repeating-radial-gradient(circle, transparent 14%, rgba(255, 255, 255, 0.035) 14.7%, transparent 15.4%);
-        opacity: 0.6;
-      }
-
-      .vinyl-label {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 35%;
-        height: 35%;
-        border-radius: 50%;
-        background-color: #a0522d;
+        transform-origin: center;
         overflow: hidden;
-        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        background: #25281d;
       }
-
-      .album-art {
-        width: 100%;
-        height: 100%;
-        background-size: cover;
-        background-position: center;
-        opacity: 0.9;
-      }
-
-      .vinyl-hole {
+      .room {
         position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 16px;
-        height: 16px;
-        background: #111;
-        border-radius: 50%;
-        z-index: 10;
+        inset: 0;
+        background:
+          linear-gradient(30deg, transparent 49.6%, #ded2ae12 50%, transparent 50.4%) 0 0/96px 56px,
+          linear-gradient(150deg, transparent 49.6%, #ded2ae0d 50%, transparent 50.4%) 0 0/96px 56px,
+          linear-gradient(#303426 0 58%, #24251b 58%);
       }
-
-      /* Tonearm */
-      .tonearm-wrap {
-        position: absolute;
-        top: 10%;
-        right: 12%;
-        width: 120px;
-        height: 400px;
-        z-index: 10;
-        /* Pivot point needs calibration based on image */
-        transform-origin: 50% 18%;
-        transform: rotate(0deg);
-        transition: transform 0.5s ease-out;
-        cursor: grab;
-        pointer-events: auto;
-        -webkit-app-region: no-drag;
-      }
-
-      .tonearm-wrap:active {
-        cursor: grabbing;
-      }
-
-      .tonearm-img {
-        width: 100%;
-        height: 100%;
-        background-image: url("assets/tonearm.png");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        filter: drop-shadow(10px 10px 20px rgba(0, 0, 0, 0.5));
-      }
-
-      /* Geode Group */
-      .geode-group {
-        position: absolute;
-        left: 15%;
-        top: 20%;
-        width: 250px;
-        height: 250px;
-        z-index: 4;
-        pointer-events: none;
-      }
-
-      .geode-stand {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 180px;
-        height: 60px;
-        /* Optional user asset; CSS pedestal fallback if geode-stand.png is absent. */
-        background-image: url("assets/geode-stand.png"), linear-gradient(180deg, rgba(80, 60, 40, 0.55), rgba(30, 20, 15, 0.85));
-        background-size: contain, 70% 55%;
-        background-position: bottom center, bottom center;
-        background-repeat: no-repeat;
-        border-radius: 40% 40% 20% 20%;
-        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.6));
-      }
-
-      .geode-crystal {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 200px;
-        height: 200px;
-        /* Optional user asset; CSS crystal fallback if geode.png is absent. */
-        background-image:
-          url("assets/geode.png"),
-          radial-gradient(circle at 35% 30%, rgba(220, 180, 255, 0.85), rgba(120, 60, 200, 0.55) 45%, rgba(40, 20, 70, 0.9) 75%);
-        background-size: contain, 70% 70%;
-        background-position: center;
-        background-repeat: no-repeat;
-        clip-path: polygon(50% 8%, 82% 28%, 92% 62%, 68% 92%, 32% 92%, 8% 62%, 18% 28%);
-        filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.5));
-        transition: filter 0.5s ease;
-      }
-
-      /* Geode Glow Effect */
-      .geode-glow {
-        position: absolute;
-        inset: -20px;
-        background: radial-gradient(circle, rgba(180, 100, 255, 0.4) 0%, transparent 70%);
-        opacity: 0;
-        mix-blend-mode: screen;
-        transition: opacity 0.5s ease;
-        pointer-events: none;
-      }
-
-      .geode-group.active .geode-glow {
-        opacity: 1;
-        animation: geodePulse 3s ease-in-out infinite alternate;
-      }
-
-      .geode-group.active .geode-crystal {
-        filter: drop-shadow(0 0 20px rgba(180, 100, 255, 0.6));
-      }
-
-      @keyframes geodePulse {
-        from {
-          opacity: 0.6;
-          transform: scale(0.95);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1.05);
-        }
-      }
-
-      /* Controls Group */
-      .controls-group {
-        position: absolute;
-        bottom: 15%;
-        right: 20%;
-        display: flex;
-        gap: 40px;
-        z-index: 20;
-        -webkit-app-region: no-drag;
-      }
-
-      /* Switch */
-      .switch-container {
-        position: relative;
-        width: 60px;
-        height: 90px;
-        cursor: pointer;
-      }
-
-      .switch-base {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-image: url("assets/switch-base.png");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-
-      .switch-lever {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 80%;
-        height: 80%;
-        transform: translate(-50%, -50%) rotateX(0deg);
-        background-image: url("assets/switch-lever.png");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        transform-origin: center center;
-      }
-
-      .switch-container.active .switch-lever {
-        transform: translate(-50%, -50%) rotateX(180deg);
-      }
-
-      /* Knob */
-      .knob-container {
-        position: relative;
-        width: 80px;
-        height: 80px;
-        cursor: grab;
-      }
-
-      .knob-container:active {
-        cursor: grabbing;
-      }
-
-      .knob-img {
-        width: 100%;
-        height: 100%;
-        background-image: url("assets/knob.png");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        transform: rotate(0deg);
-        filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4));
-      }
-
-      /* Info Card */
-      .info-card {
-        position: absolute;
-        bottom: 10%;
-        left: 10%;
-        width: 300px;
-        padding: 20px;
-        background: rgba(250, 240, 220, 0.95);
-        border: 1px solid #d0c0a0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-        transform: rotate(-3deg);
-        z-index: 20;
-        font-family: "Courier New", Courier, monospace;
-        color: #332;
-        border-radius: 2px;
-        pointer-events: auto;
-      }
-
-      .info-card::before {
+      .room:before {
         content: "";
         position: absolute;
-        top: -12px;
-        left: 50%;
-        width: 24px;
-        height: 24px;
-        background: rgba(200, 50, 50, 0.9);
-        border-radius: 50%;
-        box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
-        transform: translateX(-50%);
+        inset: 57% 0 auto;
+        height: 22px;
+        background: linear-gradient(#15160f 0 5px, #6c4a32 5px 16px, #33251c 16px);
+        border-block: 2px solid var(--line);
       }
-
-      .track-title {
-        font-weight: bold;
-        font-size: 18px;
-        margin-bottom: 6px;
+      .window {
+        position: absolute;
+        left: 150px;
+        top: 94px;
+        width: 450px;
+        height: 340px;
+        background: linear-gradient(155deg, #343b45, #161c22 68%);
+        border: 24px solid var(--wd);
+        box-shadow:
+          0 0 0 5px var(--line),
+          inset 0 0 0 5px #9a704c;
+      }
+      .window:before,
+      .window:after {
+        content: "";
+        position: absolute;
+        background: var(--wd);
+      }
+      .window:before {
+        width: 16px;
+        height: 100%;
+        left: 50%;
+      }
+      .window:after {
+        height: 16px;
+        width: 100%;
+        top: 58%;
+      }
+      .moon {
+        position: absolute;
+        left: 335px;
+        top: 140px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #d7c889;
+        box-shadow: 18px -8px 0 #252b34;
+      }
+      .peg {
+        position: absolute;
+        right: 120px;
+        top: 88px;
+        width: 420px;
+        height: 360px;
+        border: 12px solid var(--wd);
+        box-shadow: 0 0 0 4px var(--line);
+        background:
+          radial-gradient(circle, #161811 0 4px, transparent 5px) 0 0/34px 34px,
+          #5f563d;
+      }
+      .tool {
+        position: absolute;
+        width: 22px;
+        border: 4px solid var(--line);
+        background: var(--ol);
+        transform-origin: 50% 0;
+      }
+      .t1 {
+        height: 190px;
+        left: 100px;
+        top: 65px;
+        transform: rotate(8deg);
+      }
+      .t2 {
+        height: 140px;
+        left: 210px;
+        top: 88px;
+        background: var(--rust);
+        transform: rotate(-13deg);
+      }
+      .t3 {
+        height: 175px;
+        right: 70px;
+        top: 55px;
+        background: var(--brass);
+        transform: rotate(4deg);
+      }
+      .bench {
+        position: absolute;
+        left: -100px;
+        right: -100px;
+        bottom: -65px;
+        height: 500px;
+        background:
+          linear-gradient(90deg, transparent 0 8%, #1d140f55 8.4% 9%, transparent 9.4% 28%, #1d140f40 28.5% 29.2%, transparent 29.6%),
+          linear-gradient(#8a6142, #67472f 62%, #432e22);
+        border-top: 8px solid var(--line);
+        box-shadow: inset 0 15px #a77850;
+      }
+      .machine {
+        --machine-scale: 1;
+        position: absolute;
+        left: 970px;
+        top: 590px;
+        width: 780px;
+        height: 520px;
+        transform: translate(-50%, -50%) scale(var(--machine-scale));
+        transform-origin: center;
+      }
+      .shadow {
+        position: absolute;
+        left: 80px;
+        top: 355px;
+        width: 660px;
+        height: 130px;
+        border-radius: 50%;
+        background: #0f0d0a85;
+        filter: blur(10px);
+      }
+      .deck {
+        position: absolute;
+        left: 85px;
+        top: 20px;
+        width: 610px;
+        height: 430px;
+        transform: rotateX(58deg) rotateZ(-38deg);
+      }
+      .deck-top {
+        position: absolute;
+        inset: 0;
+        border: 9px solid var(--line);
+        border-radius: 18px;
+        background:
+          linear-gradient(90deg, transparent 49%, #2318122e 50%, transparent 51%) 0 0/64px 100%,
+          linear-gradient(160deg, var(--wl), var(--wood) 45%, #60412f);
+        box-shadow:
+          inset 0 0 0 9px #a8784c,
+          18px 24px 0 var(--wd),
+          23px 30px 0 var(--line);
+      }
+      .deck-top:after {
+        content: "";
+        position: absolute;
+        inset: 20px;
+        border: 4px solid #29291d80;
+        border-radius: 10px;
+      }
+      .platter {
+        position: absolute;
+        width: 350px;
+        height: 350px;
+        left: 54px;
+        top: 38px;
+        border-radius: 50%;
+        background: repeating-radial-gradient(circle, #1a1b18 0 8px, #292b27 9px 12px);
+        border: 12px solid var(--line);
+        box-shadow:
+          0 0 0 9px #777568,
+          10px 13px 0 #19140fbf;
+      }
+      .disc {
+        position: absolute;
+        inset: 13px;
+        border-radius: 50%;
+        animation: spin 4s linear infinite;
+      }
+      .disc.paused {
+        animation-play-state: paused;
+      }
+      .disc:before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: repeating-radial-gradient(circle, #171815 0 7px, #292a25 8px 10px);
+        border: 5px solid #090a08;
+      }
+      .label {
+        position: absolute;
+        inset: 31%;
+        border-radius: 50%;
+        overflow: hidden;
+        background: var(--rust);
+        border: 5px solid var(--dim);
+      }
+      .art {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(145deg, var(--rust), #552b22);
+        background-size: cover;
+        background-position: center;
+      }
+      .hole {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--ink);
+        border: 3px solid var(--brass);
+      }
+      .arm {
+        position: absolute;
+        right: 36px;
+        top: 37px;
+        width: 155px;
+        height: 330px;
+        transform-origin: 50% 36px;
+        transform: rotate(-9deg);
+        transition: transform 0.35s ease;
+        cursor: grab;
+        z-index: 4;
+      }
+      .pivot {
+        position: absolute;
+        left: 47px;
+        top: 0;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--brass) 0 18%, #71633e 19% 48%, var(--line) 49%);
+        border: 5px solid var(--line);
+      }
+      .bar {
+        position: absolute;
+        left: 75px;
+        top: 48px;
+        width: 24px;
+        height: 245px;
+        border-radius: 14px;
+        background: linear-gradient(90deg, #675e4c, #d3c596 45%, #615845 70%);
+        border: 4px solid var(--line);
+      }
+      .head {
+        position: absolute;
+        left: 62px;
+        bottom: 2px;
+        width: 55px;
+        height: 82px;
+        border: 5px solid var(--line);
+        border-radius: 6px 6px 16px 16px;
+        background: var(--od);
+      }
+      .lamp {
+        position: absolute;
+        left: 732px;
+        top: 194px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #4a4939;
+        border: 5px solid var(--line);
+      }
+      .machine.playing .lamp {
+        background: #d3a342;
+        box-shadow: 0 0 22px #daaa42b3;
+      }
+      .panel {
+        position: absolute;
+        left: 1240px;
+        top: 725px;
+        width: 455px;
+        min-height: 240px;
+        padding: 28px 32px;
+        background: var(--od);
+        border: 6px solid var(--line);
+        box-shadow:
+          12px 14px 0 #1c1e17,
+          inset 0 0 0 5px var(--ol);
+        transform: skewY(-3deg);
+        -webkit-app-region: no-drag;
+      }
+      .panel > * {
+        transform: skewY(3deg);
+      }
+      .title {
+        color: #f0dfad;
+        font:
+          700 30px/1.15 Georgia,
+          serif;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-
-      .track-artist {
-        font-size: 14px;
-        color: #554;
-        margin-bottom: 12px;
+      .artist {
+        color: var(--dim);
+        font-size: 20px;
+        margin: 9px 0 22px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-
-      .progress-bar {
-        width: 100%;
-        height: 6px;
-        background: rgba(0, 0, 0, 0.1);
-        margin-top: 8px;
-        position: relative;
+      .progress {
+        height: 26px;
+        padding: 5px;
+        border: 4px solid var(--line);
+        background: #1b1c16;
+        cursor: pointer;
       }
-
-      .progress-fill {
+      .fill {
         height: 100%;
-        background: #8b4513;
-        width: 0%;
+        width: 0;
+        background: var(--rust);
+        box-shadow: inset 0 0 0 2px #d87950;
       }
-
-      .time-display {
-        font-size: 12px;
+      .times {
         display: flex;
         justify-content: space-between;
-        margin-top: 4px;
+        margin-top: 8px;
+        color: var(--dim);
+        font: 700 16px/1 monospace;
       }
-
-      /* Close Button */
-      .btn-close {
-        position: absolute;
-        top: 40px;
-        right: 40px;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #ddd;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      .transport {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 19px;
+      }
+      .control {
+        min-height: 48px;
+        border: 4px solid var(--line);
+        background: var(--dim);
+        color: var(--ink);
+        font-size: 21px;
+        font-weight: 900;
         cursor: pointer;
-        transition: background 0.2s;
-        z-index: 100;
-        pointer-events: auto;
+        box-shadow: inset 0 -7px #432f2440;
+      }
+      .control:hover {
+        background: var(--cream);
+      }
+      .control:active {
+        transform: translateY(3px);
+      }
+      .control.playing {
+        background: var(--rust);
+        color: #f7e4bd;
+      }
+      .volume {
+        position: absolute;
+        left: 300px;
+        top: 780px;
+        width: 390px;
+        padding: 20px 25px;
+        background: #34372b;
+        border: 5px solid var(--line);
+        box-shadow: 10px 11px #181a14;
         -webkit-app-region: no-drag;
       }
-
-      .btn-close:hover {
-        background: rgba(200, 50, 50, 0.8);
+      .volume label {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 800;
+        letter-spacing: 0.08em;
       }
-
-      .btn-close svg {
-        width: 24px;
-        height: 24px;
-        fill: currentColor;
+      .volume input {
+        width: 100%;
+        margin-top: 14px;
+        accent-color: var(--rust);
+        cursor: pointer;
       }
-
-      /* Debug Overlay */
-      #debugOverlay {
+      .close {
         position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 1000;
-        display: none;
+        right: 35px;
+        top: 35px;
+        width: 56px;
+        height: 56px;
+        font-size: 26px;
       }
-
-      .debug-crosshair {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        border: 2px solid cyan;
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-      }
-
-      .debug-crosshair::before,
-      .debug-crosshair::after {
-        content: "";
-        position: absolute;
-        background: cyan;
-      }
-      .debug-crosshair::before {
-        top: 9px;
-        left: -10px;
-        width: 40px;
-        height: 2px;
-      }
-      .debug-crosshair::after {
-        left: 9px;
-        top: -10px;
-        height: 40px;
-        width: 2px;
-      }
-
-      .debug-box {
-        position: absolute;
-        border: 1px solid magenta;
-        background: rgba(255, 0, 255, 0.1);
-      }
-
       @keyframes spin {
-        from {
-          transform: rotate(0deg);
-        }
         to {
           transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *:before,
+        *:after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
         }
       }
     </style>
   </head>
   <body>
-    <div id="scene">
-      <div class="background"></div>
-      <div class="lighting-overlay"></div>
-
-      <div class="geode-group" id="geodeGroup">
-        <div class="geode-stand"></div>
-        <div class="geode-glow"></div>
-        <div class="geode-crystal"></div>
+    <main id="scene" aria-label="Isometric record player workshop">
+      <div class="room">
+        <div class="window"></div>
+        <div class="moon"></div>
+        <div class="peg"><i class="tool t1"></i><i class="tool t2"></i><i class="tool t3"></i></div>
+        <div class="bench"></div>
       </div>
-
-      <div class="turntable-group">
-        <div class="turntable-base"></div>
-
-        <div class="vinyl-wrap">
-          <div class="vinyl-disc" id="vinylDisc">
-            <div class="vinyl-grooves"></div>
-            <div class="vinyl-label">
-              <div class="album-art" id="albumArt"></div>
+      <section class="machine" id="machine" aria-label="Record player">
+        <div class="shadow"></div>
+        <div class="deck">
+          <div class="deck-top">
+            <div class="platter">
+              <div class="disc paused" id="vinylDisc">
+                <div class="label"><div class="art" id="albumArt"></div></div>
+                <div class="hole"></div>
+              </div>
             </div>
-            <div class="vinyl-hole"></div>
+            <div class="arm" id="tonearm" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="armPivot" aria-hidden="true" style="position: absolute; width: 0; height: 0; pointer-events: none"></span>
+              <div class="pivot"></div>
+              <div class="bar"></div>
+              <div class="head"></div>
+            </div>
           </div>
         </div>
-
-        <div class="tonearm-wrap" id="tonearm">
-          <div class="tonearm-img"></div>
+        <div class="lamp"></div>
+      </section>
+      <section class="panel" id="infoPanel" aria-live="polite">
+        <div class="title" id="trackTitle">Workshop Player</div>
+        <div class="artist" id="trackArtist">Ready for YouTube Music</div>
+        <div class="progress" id="progressBar" role="slider" tabindex="0" aria-label="Track position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="fill" id="progressFill"></div>
         </div>
+        <div class="times"><span id="currTime">0:00</span><span id="totalTime">0:00</span></div>
+        <div class="transport">
+          <button class="control" id="previousBtn" aria-label="Previous track">◀◀</button
+          ><button class="control" id="playPauseBtn" aria-label="Play">▶</button><button class="control" id="nextBtn" aria-label="Next track">▶▶</button>
+        </div>
+      </section>
+      <div class="volume">
+        <label for="volumeRange"><span>VOLUME</span><output id="volumeValue">100%</output></label
+        ><input id="volumeRange" type="range" min="0" max="100" value="100" />
       </div>
-
-      <div class="info-card">
-        <div class="track-title" id="trackTitle">Loading...</div>
-        <div class="track-artist" id="trackArtist">...</div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <div class="time-display">
-          <span id="currTime">0:00</span>
-          <span id="totalTime">0:00</span>
-        </div>
-      </div>
-
-      <div class="controls-group">
-        <!-- Volume Knob -->
-        <div class="knob-container" id="volumeKnob" title="Volume">
-          <div class="knob-img"></div>
-        </div>
-
-        <!-- Play/Pause Switch -->
-        <div class="switch-container" id="playPauseSwitch" title="Play/Pause">
-          <div class="switch-base"></div>
-          <div class="switch-lever"></div>
-        </div>
-      </div>
-
-      <div class="btn-close" id="closeBtn" title="Close">
-        <!-- Icon injected by JS -->
-      </div>
-
-      <div id="debugOverlay"></div>
-    </div>
-
+      <button class="control close" id="closeBtn" aria-label="Close player">×</button>
+    </main>
     <script>
-      const isElectron = Boolean(window.electron && window.electron.ipcRenderer);
-      const ipcRenderer = isElectron
-        ? window.electron.ipcRenderer
-        : {
-            send: () => {},
-            on: () => {}
-          };
-
-      const els = {
-        scene: document.getElementById("scene"),
-        vinylDisc: document.getElementById("vinylDisc"),
-        albumArt: document.getElementById("albumArt"),
-        tonearm: document.getElementById("tonearm"),
-        trackTitle: document.getElementById("trackTitle"),
-        trackArtist: document.getElementById("trackArtist"),
-        progressFill: document.getElementById("progressFill"),
-        currTime: document.getElementById("currTime"),
-        totalTime: document.getElementById("totalTime"),
-        playPauseSwitch: document.getElementById("playPauseSwitch"),
-        volumeKnob: document.getElementById("volumeKnob"),
-        closeBtn: document.getElementById("closeBtn"),
-        geodeGroup: document.getElementById("geodeGroup"),
-        debugOverlay: document.getElementById("debugOverlay")
+      const isElectron = Boolean(window.electron && window.electron.ipcRenderer),
+        ipcRenderer = isElectron ? window.electron.ipcRenderer : { send: () => {}, on: () => {} };
+      const ids = [
+          "scene",
+          "machine",
+          "vinylDisc",
+          "albumArt",
+          "tonearm",
+          "armPivot",
+          "trackTitle",
+          "trackArtist",
+          "progressBar",
+          "progressFill",
+          "currTime",
+          "totalTime",
+          "infoPanel",
+          "previousBtn",
+          "playPauseBtn",
+          "nextBtn",
+          "volumeRange",
+          "volumeValue",
+          "closeBtn"
+        ],
+        els = Object.fromEntries(ids.map(id => [id, document.getElementById(id)])),
+        CFG = { w: 1920, h: 1080, rest: -9, start: 5, end: 31 };
+      let duration = 0,
+        progress = 0,
+        playing = false,
+        dragging = false,
+        dragStartAngle = 0,
+        dragArmAngle = 0,
+        track = {};
+      function layout() {
+        const s = Math.min(innerWidth / CFG.w, innerHeight / CFG.h);
+        els.scene.style.transform = `translate(-50%,-50%) scale(${s})`;
+      }
+      function time(v) {
+        v = Number.isFinite(+v) ? Math.max(0, +v) : 0;
+        return `${Math.floor(v / 60)}:${Math.floor(v % 60)
+          .toString()
+          .padStart(2, "0")}`;
+      }
+      function arm(p) {
+        p = Math.min(1, Math.max(0, p));
+        els.tonearm.style.transform = `rotate(${CFG.start + p * (CFG.end - CFG.start)}deg)`;
+        els.tonearm.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+      }
+      function seek(p) {
+        p = Math.min(1, Math.max(0, p));
+        ipcRenderer.send("vinyl-player:seek", p * duration);
+        arm(p);
+      }
+      function pointerAngle(e) {
+        const pivot = els.armPivot.getBoundingClientRect();
+        const matrix = new DOMMatrix(getComputedStyle(els.tonearm.closest(".deck")).transform);
+        // ponytail: affine deck and uniform ancestor scales; use perspective unprojection if the artwork gains perspective.
+        const point = new DOMMatrix([matrix.a, matrix.b, matrix.c, matrix.d, 0, 0])
+          .inverse()
+          .transformPoint({ x: e.clientX - pivot.x, y: e.clientY - pivot.y });
+        return Number.isFinite(point.x) && Number.isFinite(point.y) && (point.x || point.y) ? Math.atan2(-point.x, point.y) * (180 / Math.PI) : null;
+      }
+      function update(patch) {
+        if (!patch || typeof patch !== "object") return;
+        track = { ...track, ...patch };
+        const t = track;
+        els.trackTitle.textContent = t.title ?? "Unknown Title";
+        els.trackArtist.textContent = t.artist ?? "Unknown Artist";
+        els.albumArt.style.backgroundImage = t.thumbnail ? `url("${String(t.thumbnail).replace(/["\\]/g, "\\$&")}")` : "";
+        playing = !!t.isPlaying;
+        els.vinylDisc.classList.toggle("paused", !playing);
+        els.machine.classList.toggle("playing", playing);
+        els.playPauseBtn.classList.toggle("playing", playing);
+        els.playPauseBtn.textContent = playing ? "Ⅱ" : "▶";
+        els.playPauseBtn.ariaLabel = playing ? "Pause" : "Play";
+        els.vinylDisc.style.animationDuration = `${Math.max(1.2, 5.8 - (+t.spinSpeed || 1))}s`;
+        duration = Math.max(0, +t.durationSeconds || 0);
+        progress = Math.min(duration, Math.max(0, +t.progressSeconds || 0));
+        const p = duration ? progress / duration : 0;
+        els.progressFill.style.width = `${p * 100}%`;
+        els.progressBar.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+        els.currTime.textContent = time(progress);
+        els.totalTime.textContent = time(duration);
+        if (typeof patch.volume === "number" && Number.isFinite(patch.volume)) {
+          const volume = Math.min(100, Math.max(0, patch.volume));
+          els.volumeRange.value = String(volume);
+          els.volumeValue.value = `${volume}%`;
+        }
+        if (!dragging) {
+          els.tonearm.style.transform = `rotate(${playing || progress ? CFG.start + p * (CFG.end - CFG.start) : CFG.rest}deg)`;
+          els.tonearm.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+        }
+      }
+      ipcRenderer.on("vinyl-player:update-track", update);
+      ipcRenderer.on("vinyl-player:update-settings", s => {
+        if (s.showControls !== undefined) {
+          const d = s.showControls ? "" : "none";
+          els.infoPanel.style.display = d;
+          els.closeBtn.style.display = d;
+        }
+        if (s.scale !== undefined) els.machine.style.setProperty("--machine-scale", String(Math.min(1.35, Math.max(0.7, +s.scale || 1))));
+      });
+      els.playPauseBtn.onclick = () => ipcRenderer.send("vinyl-player:play-pause");
+      els.previousBtn.onclick = () => ipcRenderer.send("vinyl-player:previous");
+      els.nextBtn.onclick = () => ipcRenderer.send("vinyl-player:next");
+      els.closeBtn.onclick = () => ipcRenderer.send("vinyl-player:close");
+      els.volumeRange.oninput = e => {
+        const v = +e.target.value;
+        els.volumeValue.value = `${v}%`;
+        ipcRenderer.send("vinyl-player:set-volume", v);
       };
-
-      const icons = {
-        close: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`
+      els.progressBar.onpointerdown = e => {
+        const r = els.progressBar.getBoundingClientRect();
+        seek((e.clientX - r.left) / r.width);
       };
-
-      els.closeBtn.innerHTML = icons.close;
-
-      // --- Config & Calibration ---
-      const CONFIG = {
-        designWidth: 1920,
-        designHeight: 1080,
-        armRestAngle: 0,
-        armStartAngle: 15,
-        armEndAngle: 40,
-        knobMinAngle: -135,
-        knobMaxAngle: 135,
-        debug: false // Toggle to true to see anchors
-      };
-
-      let currentDuration = 0;
-      let isDraggingArm = false;
-      let isDraggingKnob = false;
-      let currentVolume = 100;
-      let scaleFactor = 1;
-
-      // --- Layout & Scaling ---
-      function updateLayout() {
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-
-        // "Cover" logic: Scale scene to fill window while maintaining 16:9
-        const winAspect = winW / winH;
-        const designAspect = CONFIG.designWidth / CONFIG.designHeight;
-
-        if (winAspect > designAspect) {
-          // Window is wider than design -> fit width
-          scaleFactor = winW / CONFIG.designWidth;
-        } else {
-          // Window is taller -> fit height
-          scaleFactor = winH / CONFIG.designHeight;
-        }
-
-        // Apply user scale preference (from settings)
-        // We store user scale in a data attribute or global var if needed
-        // For now, let's just use the cover scale.
-
-        els.scene.style.transform = `translate(-50%, -50%) scale(${scaleFactor})`;
-
-        if (CONFIG.debug) drawDebugOverlay();
-      }
-
-      window.addEventListener("resize", updateLayout);
-      updateLayout(); // Initial call
-
-      // --- Debug Overlay ---
-      function drawDebugOverlay() {
-        els.debugOverlay.style.display = "block";
-        els.debugOverlay.innerHTML = "";
-
-        const addMarker = (x, y, label) => {
-          const m = document.createElement("div");
-          m.className = "debug-crosshair";
-          m.style.left = x + "px";
-          m.style.top = y + "px";
-          m.title = label;
-          els.debugOverlay.appendChild(m);
-        };
-
-        // Center of scene
-        addMarker(CONFIG.designWidth / 2, CONFIG.designHeight / 2, "Center");
-
-        // Add more markers for key elements if needed
-      }
-
-      // Toggle debug with 'D' key
-      window.addEventListener("keydown", e => {
-        if (e.key === "d" && e.ctrlKey) {
-          CONFIG.debug = !CONFIG.debug;
-          if (CONFIG.debug) updateLayout();
-          else els.debugOverlay.style.display = "none";
-        }
-      });
-
-      // --- Player Logic ---
-
-      function formatTime(seconds) {
-        const m = Math.floor(seconds / 60);
-        const s = Math.floor(seconds % 60);
-        return `${m}:${s.toString().padStart(2, "0")}`;
-      }
-
-      function update(track) {
-        if (!track) return;
-
-        els.trackTitle.textContent = track.title || "Unknown Title";
-        els.trackArtist.textContent = track.artist || "Unknown Artist";
-
-        if (track.thumbnail) {
-          els.albumArt.style.backgroundImage = `url(${track.thumbnail})`;
-        } else {
-          els.albumArt.style.backgroundColor = "#333";
-        }
-
-        // Play/Pause state
-        if (track.isPlaying) {
-          els.vinylDisc.classList.remove("paused");
-          document.querySelector(".lighting-overlay").classList.add("active");
-          els.playPauseSwitch.classList.add("active");
-          els.geodeGroup.classList.add("active");
-        } else {
-          els.vinylDisc.classList.add("paused");
-          document.querySelector(".lighting-overlay").classList.remove("active");
-          els.playPauseSwitch.classList.remove("active");
-          els.geodeGroup.classList.remove("active");
-        }
-
-        // Spin speed
-        const speed = track.spinSpeed || 1;
-        const duration = Math.max(2, 6 - speed); // 1=5s, 5=1s
-        els.vinylDisc.style.animationDuration = `${duration}s`;
-
-        // Progress & Arm Movement
-        const progress = track.progressSeconds || 0;
-        const total = track.durationSeconds || 1;
-        currentDuration = total;
-
-        const pct = Math.min(1, Math.max(0, progress / total));
-
-        els.progressFill.style.width = `${pct * 100}%`;
-        els.currTime.textContent = formatTime(progress);
-        els.totalTime.textContent = formatTime(total);
-
-        // Arm logic (only update if not dragging)
-        if (!isDraggingArm) {
-          let armAngle = CONFIG.armRestAngle;
-          if (track.isPlaying || progress > 0) {
-            armAngle = CONFIG.armStartAngle + pct * (CONFIG.armEndAngle - CONFIG.armStartAngle);
-          }
-          els.tonearm.style.transform = `rotate(${armAngle}deg)`;
-        }
-      }
-
-      ipcRenderer.on("vinyl-player:update-track", track => {
-        update(track);
-      });
-
-      ipcRenderer.on("vinyl-player:update-settings", settings => {
-        if (settings.showControls !== undefined) {
-          // If controls are hidden, maybe hide the whole controls group?
-          // But knobs/switches are part of the scene.
-          // Let's assume 'showControls' refers to the overlay UI (close button, etc)
-          // But user might want to hide the interactive knobs too?
-          // For workshop mode, the knobs ARE the controls.
-          // Let's keep them visible as they are part of the desk.
-          // Maybe just hide the close button if showControls is false?
-          // Or maybe the info card?
-          // Let's hide the info card and close button if controls are off.
-          const display = settings.showControls ? "block" : "none";
-          document.querySelector(".info-card").style.display = display;
-          els.closeBtn.style.display = display;
-        }
-
-        if (settings.scale !== undefined) {
-          // We can use this to adjust the base scale if needed,
-          // but our cover logic handles window resizing.
-          // If user wants to zoom in/out relative to cover, we can multiply scaleFactor.
-          // Let's store user zoom preference.
-          // settings.scale comes from windowSize slider (0.8 to 2.0 approx).
-          // Default is 1.
-          // We can apply this as an additional scale to the scene?
-          // Or maybe just to the turntable group?
-          // The request was "resize the turntable relative to the desk".
-          // So let's scale .turntable-group
-          const turntable = document.querySelector(".turntable-group");
-          if (turntable) {
-            turntable.style.transform = `translate(-50%, -50%) scale(${settings.scale})`;
-          }
-        }
-      });
-
-      if (!isElectron) {
-        update({
-          title: "Workshop Player",
-          artist: "Ready for YouTube Music",
-          thumbnail: "",
-          isPlaying: false,
-          spinSpeed: 2,
-          durationSeconds: 0,
-          progressSeconds: 0
-        });
-      }
-
-      // --- Interaction Logic ---
-
-      // Play/Pause Switch
-      els.playPauseSwitch.addEventListener("click", () => {
-        ipcRenderer.send("vinyl-player:play-pause");
-      });
-
-      els.closeBtn.addEventListener("click", () => {
-        ipcRenderer.send("vinyl-player:close");
-      });
-
-      // Volume Knob Drag
-      els.volumeKnob.addEventListener("mousedown", e => {
-        isDraggingKnob = true;
-        e.preventDefault();
-      });
-
-      // Tonearm Drag
-      els.tonearm.addEventListener("mousedown", e => {
-        isDraggingArm = true;
+      els.tonearm.onpointerdown = e => {
+        const style = getComputedStyle(els.tonearm);
+        const [x, y] = style.transformOrigin.split(" ");
+        els.armPivot.style.left = x;
+        els.armPivot.style.top = y;
+        const rotation = new DOMMatrix(style.transform);
+        dragArmAngle = Math.atan2(rotation.b, rotation.a) * (180 / Math.PI);
+        const angle = pointerAngle(e);
+        if (angle === null || !Number.isFinite(dragArmAngle)) return;
+        dragStartAngle = angle;
+        els.tonearm.setAttribute("aria-valuenow", String(Math.round(Math.min(1, Math.max(0, (dragArmAngle - CFG.start) / (CFG.end - CFG.start))) * 100)));
+        dragging = true;
         els.tonearm.style.transition = "none";
+        els.tonearm.setPointerCapture(e.pointerId);
         e.preventDefault();
+      };
+      els.tonearm.onpointermove = e => {
+        if (dragging) {
+          const angle = pointerAngle(e);
+          if (angle === null) return;
+          const delta = ((angle - dragStartAngle + 540) % 360) - 180;
+          arm((dragArmAngle + delta - CFG.start) / (CFG.end - CFG.start));
+        }
+      };
+      els.tonearm.onpointerup = e => {
+        if (dragging) {
+          dragging = false;
+          els.tonearm.style.transition = "";
+          els.tonearm.releasePointerCapture(e.pointerId);
+          seek(+els.tonearm.getAttribute("aria-valuenow") / 100);
+        }
+      };
+      els.tonearm.onpointercancel = els.tonearm.onlostpointercapture = () => {
+        dragging = false;
+        els.tonearm.style.transition = "";
+      };
+      addEventListener("keydown", e => {
+        if (e.target === els.volumeRange) return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          ipcRenderer.send("vinyl-player:play-pause");
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          if (duration) seek((progress - 5) / duration);
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          if (duration) seek((progress + 5) / duration);
+        } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          els.volumeRange.value = String(Math.min(100, Math.max(0, +els.volumeRange.value + (e.key === "ArrowUp" ? 5 : -5))));
+          els.volumeRange.dispatchEvent(new Event("input", { bubbles: true }));
+        } else if (e.key === "Escape") ipcRenderer.send("vinyl-player:close");
       });
-
-      // Global Mouse Events
-      window.addEventListener("mousemove", e => {
-        if (isDraggingKnob) {
-          handleKnobDrag(e);
-        }
-        if (isDraggingArm) {
-          handleArmDrag(e);
-        }
-      });
-
-      window.addEventListener("mouseup", () => {
-        if (isDraggingKnob) {
-          isDraggingKnob = false;
-        }
-        if (isDraggingArm) {
-          isDraggingArm = false;
-          els.tonearm.style.transition = "transform 0.5s ease-out";
-          handleArmRelease();
-        }
-      });
-
-      function handleKnobDrag(e) {
-        // Need to account for scene scale when calculating deltas?
-        // Actually atan2 uses relative coords so scale cancels out mostly,
-        // but we need the center point in screen space.
-        const rect = els.volumeKnob.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        const deltaX = e.clientX - centerX;
-        const deltaY = e.clientY - centerY;
-        let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-
-        angle += 90;
-        if (angle > 180) angle -= 360;
-        angle = Math.max(CONFIG.knobMinAngle, Math.min(CONFIG.knobMaxAngle, angle));
-
-        els.volumeKnob.querySelector(".knob-img").style.transform = `rotate(${angle}deg)`;
-
-        const range = CONFIG.knobMaxAngle - CONFIG.knobMinAngle;
-        const relativeAngle = angle - CONFIG.knobMinAngle;
-        const volume = Math.round((relativeAngle / range) * 100);
-
-        if (Math.abs(volume - currentVolume) > 2) {
-          currentVolume = volume;
-          ipcRenderer.send("vinyl-player:set-volume", volume);
-        }
-      }
-
-      function handleArmDrag(e) {
-        const rect = els.tonearm.getBoundingClientRect();
-        // Pivot is at 50% 18% (from CSS)
-        const pivotX = rect.left + rect.width / 2;
-        const pivotY = rect.top + rect.height * 0.18;
-
-        const deltaX = e.clientX - pivotX;
-        const deltaY = e.clientY - pivotY;
-
-        let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-
-        // Adjust for vertical orientation
-        let cssAngle = angle - 90;
-
-        // Clamp
-        cssAngle = Math.max(-10, Math.min(60, cssAngle));
-
-        els.tonearm.style.transform = `rotate(${cssAngle}deg)`;
-      }
-
-      function handleArmRelease() {
-        const transform = els.tonearm.style.transform;
-        const match = transform.match(/rotate\(([-\d.]+)deg\)/);
-        if (!match) return;
-
-        const angle = parseFloat(match[1]);
-        const threshold = CONFIG.armStartAngle / 2;
-
-        if (angle < threshold) {
-          // Holster -> Pause
-          const isPlaying = !els.vinylDisc.classList.contains("paused");
-          if (isPlaying) {
-            ipcRenderer.send("vinyl-player:play-pause");
-          }
-        } else {
-          // Record -> Seek
-          const range = CONFIG.armEndAngle - CONFIG.armStartAngle;
-          const relative = Math.max(0, Math.min(range, angle - CONFIG.armStartAngle));
-          const pct = relative / range;
-
-          const seekTime = pct * currentDuration;
-          ipcRenderer.send("vinyl-player:seek", seekTime);
-
-          const isPlaying = !els.vinylDisc.classList.contains("paused");
-          if (!isPlaying) {
-            ipcRenderer.send("vinyl-player:play-pause");
-          }
-        }
-      }
+      addEventListener("resize", layout);
+      layout();
+      if (!isElectron)
+        update({ title: "Workshop Player", artist: "Ready for YouTube Music", isPlaying: false, spinSpeed: 2, durationSeconds: 242, progressSeconds: 74 });
     </script>
   </body>
 </html>
