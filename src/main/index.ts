@@ -2395,7 +2395,7 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("memoryStore:get", (event, key: string) => {
-    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     return memoryStore.get(key);
   });

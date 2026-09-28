@@ -543,6 +543,11 @@
         els.tonearm.style.transform = `rotate(${CFG.start + p * (CFG.end - CFG.start)}deg)`;
         els.tonearm.setAttribute("aria-valuenow", String(Math.round(p * 100)));
       }
+      function tonearmProgress(e) {
+        const r = els.tonearm.querySelector(".pivot").getBoundingClientRect();
+        const angle = (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI - 90;
+        return (angle - CFG.start) / (CFG.end - CFG.start);
+      }
       function seek(p) {
         p = Math.min(1, Math.max(0, p));
         ipcRenderer.send("vinyl-player:seek", p * duration);
@@ -604,10 +609,7 @@
         e.preventDefault();
       };
       els.tonearm.onpointermove = e => {
-        if (dragging) {
-          const r = els.tonearm.getBoundingClientRect();
-          arm((e.clientX - r.left) / r.width);
-        }
+        if (dragging) arm(tonearmProgress(e));
       };
       els.tonearm.onpointerup = e => {
         if (dragging) {
