@@ -129,7 +129,7 @@ it("merges real Workshop track deltas, reflects volume without feedback, and acc
       return { clientX: 900 + local.x * scale, clientY: 500 + local.y * scale, pointerId: 1, preventDefault: vi.fn() };
     };
     update({ progressSeconds: 60 });
-    // Grab off the arm's centerline, then follow its projected arc. No click jump.
+    expect(Number(tonearm.getAttribute("aria-valuenow"))).toBe(50);
     tonearm.onpointerdown!(pointer(23));
     expect(Number(tonearm.getAttribute("aria-valuenow"))).toBe(50);
     const clickCalls = send.mock.calls.length;
@@ -137,6 +137,7 @@ it("merges real Workshop track deltas, reflects volume without feedback, and acc
     expect(send).toHaveBeenLastCalledWith("vinyl-player:seek", 60);
     expect(send).toHaveBeenCalledTimes(clickCalls + 1);
     update({ progressSeconds: 60 });
+    // Grab off the arm's centerline, then follow its projected arc. No click jump.
     tonearm.onpointerdown!(pointer(23));
     tonearm.onpointermove!(pointer(23));
     expect(Number(tonearm.getAttribute("aria-valuenow"))).toBe(50);

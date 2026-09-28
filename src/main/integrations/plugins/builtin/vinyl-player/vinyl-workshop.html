@@ -191,7 +191,6 @@
         width: 610px;
         height: 430px;
         transform: rotateX(58deg) rotateZ(-38deg);
-        transform-style: preserve-3d;
       }
       .deck-top {
         position: absolute;
@@ -587,7 +586,10 @@
           els.volumeRange.value = String(volume);
           els.volumeValue.value = `${volume}%`;
         }
-        if (!dragging) els.tonearm.style.transform = `rotate(${playing || progress ? CFG.start + p * (CFG.end - CFG.start) : CFG.rest}deg)`;
+        if (!dragging) {
+          els.tonearm.style.transform = `rotate(${playing || progress ? CFG.start + p * (CFG.end - CFG.start) : CFG.rest}deg)`;
+          els.tonearm.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+        }
       }
       ipcRenderer.on("vinyl-player:update-track", update);
       ipcRenderer.on("vinyl-player:update-settings", s => {
@@ -621,9 +623,9 @@
         const angle = pointerAngle(e);
         if (angle === null || !Number.isFinite(dragArmAngle)) return;
         dragStartAngle = angle;
+        els.tonearm.setAttribute("aria-valuenow", String(Math.round(Math.min(1, Math.max(0, (dragArmAngle - CFG.start) / (CFG.end - CFG.start))) * 100)));
         dragging = true;
         els.tonearm.style.transition = "none";
-        arm((dragArmAngle - CFG.start) / (CFG.end - CFG.start));
         els.tonearm.setPointerCapture(e.pointerId);
         e.preventDefault();
       };
