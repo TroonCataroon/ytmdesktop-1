@@ -59,8 +59,13 @@ if (platform === "win32") {
   );
   const outputDir = path.join(makeRoot, "zip", "darwin", arch);
   const madeFiles = listFilesRecursive(outputDir).map(f => path.basename(f));
-  if (!expected || !madeFiles.includes(expected)) {
-    errors.push(`Missing macOS ${arch} ZIP "${expected}" in ${outputDir}`);
+  // MakerZIP retains product-name spaces; GitHub normalizes them for published assets.
+  const localAsset = `${packageJson.productName}-darwin-${arch}-${version}.zip`;
+  if (localAsset.replaceAll(" ", ".") !== expected) {
+    errors.push(`macOS ${arch} local ZIP "${localAsset}" does not match published contract "${expected}"`);
+  }
+  if (!madeFiles.includes(localAsset)) {
+    errors.push(`Missing macOS ${arch} ZIP "${localAsset}" in ${outputDir}`);
   }
 } else if (platform === "linux") {
   const debArch = arch === "x64" ? "amd64" : arch;

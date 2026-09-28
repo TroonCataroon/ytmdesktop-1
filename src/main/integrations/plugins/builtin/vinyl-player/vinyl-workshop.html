@@ -472,6 +472,7 @@
               </div>
             </div>
             <div class="arm" id="tonearm" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="armPivot" aria-hidden="true" style="position: absolute; width: 0; height: 0; pointer-events: none"></span>
               <div class="pivot"></div>
               <div class="bar"></div>
               <div class="head"></div>
@@ -507,6 +508,7 @@
           "vinylDisc",
           "albumArt",
           "tonearm",
+          "armPivot",
           "trackTitle",
           "trackArtist",
           "progressBar",
@@ -527,6 +529,8 @@
         progress = 0,
         playing = false,
         dragging = false,
+        dragStartAngle = 0,
+        dragArmAngle = 0,
         track = {};
       function layout() {
         const s = Math.min(innerWidth / CFG.w, innerHeight / CFG.h);
@@ -543,15 +547,19 @@
         els.tonearm.style.transform = `rotate(${CFG.start + p * (CFG.end - CFG.start)}deg)`;
         els.tonearm.setAttribute("aria-valuenow", String(Math.round(p * 100)));
       }
-      function tonearmProgress(e) {
-        const r = els.tonearm.querySelector(".pivot").getBoundingClientRect();
-        const angle = (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI - 90;
-        return (angle - CFG.start) / (CFG.end - CFG.start);
-      }
       function seek(p) {
         p = Math.min(1, Math.max(0, p));
         ipcRenderer.send("vinyl-player:seek", p * duration);
         arm(p);
+      }
+      function pointerAngle(e) {
+        const pivot = els.armPivot.getBoundingClientRect();
+        const matrix = new DOMMatrix(getComputedStyle(els.tonearm.closest(".deck")).transform);
+        // ponytail: affine deck and uniform ancestor scales; use perspective unprojection if the artwork gains perspective.
+        const point = new DOMMatrix([matrix.a, matrix.b, matrix.c, matrix.d, 0, 0])
+          .inverse()
+          .transformPoint({ x: e.clientX - pivot.x, y: e.clientY - pivot.y });
+        return Number.isFinite(point.x) && Number.isFinite(point.y) && (point.x || point.y) ? Math.atan2(-point.x, point.y) * (180 / Math.PI) : null;
       }
       function update(patch) {
         if (!patch || typeof patch !== "object") return;
@@ -604,19 +612,39 @@
         seek((e.clientX - r.left) / r.width);
       };
       els.tonearm.onpointerdown = e => {
+        const style = getComputedStyle(els.tonearm);
+        const [x, y] = style.transformOrigin.split(" ");
+        els.armPivot.style.left = x;
+        els.armPivot.style.top = y;
+        const rotation = new DOMMatrix(style.transform);
+        dragArmAngle = Math.atan2(rotation.b, rotation.a) * (180 / Math.PI);
+        const angle = pointerAngle(e);
+        if (angle === null || !Number.isFinite(dragArmAngle)) return;
+        dragStartAngle = angle;
         dragging = true;
+        els.tonearm.style.transition = "none";
         els.tonearm.setPointerCapture(e.pointerId);
         e.preventDefault();
       };
       els.tonearm.onpointermove = e => {
-        if (dragging) arm(tonearmProgress(e));
+        if (dragging) {
+          const angle = pointerAngle(e);
+          if (angle === null) return;
+          const delta = ((angle - dragStartAngle + 540) % 360) - 180;
+          arm((dragArmAngle + delta - CFG.start) / (CFG.end - CFG.start));
+        }
       };
       els.tonearm.onpointerup = e => {
         if (dragging) {
           dragging = false;
+          els.tonearm.style.transition = "";
           els.tonearm.releasePointerCapture(e.pointerId);
           seek(+els.tonearm.getAttribute("aria-valuenow") / 100);
         }
+      };
+      els.tonearm.onpointercancel = els.tonearm.onlostpointercapture = () => {
+        dragging = false;
+        els.tonearm.style.transition = "";
       };
       addEventListener("keydown", e => {
         if (e.target === els.volumeRange) return;
