@@ -623,6 +623,7 @@
         dragStartAngle = angle;
         dragging = true;
         els.tonearm.style.transition = "none";
+        arm((dragArmAngle - CFG.start) / (CFG.end - CFG.start));
         els.tonearm.setPointerCapture(e.pointerId);
         e.preventDefault();
       };
