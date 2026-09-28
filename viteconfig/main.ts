@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 
 let gitBranch: string = "";
 try {
-  gitBranch = execSync("git rev-parse --abbrev-ref HEAD").toString();
+  gitBranch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 } catch (e) {
   // User has likely downloaded from the YTM Desktop via the "Download ZIP".
   // We don't plan to support this, but at least provide users with a bit of improved UX
@@ -31,7 +31,7 @@ export default defineConfig({
   },
   define: {
     YTMD_DISABLE_UPDATES: devBuild,
-    YTMD_UPDATE_FEED_OWNER: process.env.YTMD_UPDATE_FEED_OWNER ? `'${process.env.YTMD_UPDATE_FEED_OWNER}'` : "'TroonCataroon'",
-    YTMD_UPDATE_FEED_REPOSITORY: process.env.YTMD_UPDATE_FEED_REPOSITORY ? `'${process.env.YTMD_UPDATE_FEED_REPOSITORY}'` : "'ytmdesktop-1'"
+    YTMD_UPDATE_FEED_OWNER: JSON.stringify(process.env.YTMD_UPDATE_FEED_OWNER || "TroonCataroon"),
+    YTMD_UPDATE_FEED_REPOSITORY: JSON.stringify(process.env.YTMD_UPDATE_FEED_REPOSITORY || "ytmdesktop-1")
   }
 });

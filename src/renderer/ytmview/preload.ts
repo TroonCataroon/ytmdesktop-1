@@ -206,8 +206,12 @@ function overrideHistoryButtonDisplay() {
 
 function handleStorageAccessPermissions() {
   // Override requestStorageAccessFor to prevent permission denied errors
-  if (window.requestStorageAccessFor) {
-    window.requestStorageAccessFor = function (origin) {
+  const storageAccessWindow = window as typeof window & {
+    requestStorageAccessFor?: (origin: string) => Promise<void>;
+  };
+
+  if (storageAccessWindow.requestStorageAccessFor) {
+    storageAccessWindow.requestStorageAccessFor = function (origin: string) {
       console.debug(`Storage access requested for ${origin}, auto-granting`);
       return Promise.resolve();
     };

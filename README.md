@@ -43,7 +43,7 @@ TODO: Write guides for v2. While these may still be helpful they are geared towa
 - Binaries: <https://github.com/ytmdesktop/ytmdesktop/releases>
 
 # Developing
-To clone and run this repository you'll need [Git](https://git-scm.com) and [Node.js (v20)](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
+To clone and run this repository you'll need [Git](https://git-scm.com) and [Node.js 22.12 or newer](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
 
 ```sh
 # Clone this repository
@@ -53,7 +53,7 @@ cd ytmdesktop
 ```
 ##### And:
 ```sh
-# Enable Yarn via Corepack (Node 20+)
+# Enable Yarn via Corepack
 corepack enable
 
 # Optional: avoid the interactive "Corepack is about to download ..." prompt

@@ -17,13 +17,7 @@ const requiredAssets = [
   "vinyl-player-preload.js",
   "vinyl-player.html",
   "vinyl-remake.html",
-  "vinyl-workshop.html",
-  "assets/turntable-base.png",
-  "assets/tonearm.png",
-  "assets/switch-base.png",
-  "assets/switch-lever.png",
-  "assets/knob.png",
-  "assets/workshop-bg.png"
+  "vinyl-workshop.html"
 ];
 
 for (const packageDir of packageDirs) {

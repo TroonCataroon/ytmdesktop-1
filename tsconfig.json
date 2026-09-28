@@ -22,5 +22,6 @@
         "src/assets/*"
       ]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "out", "work"]
 }

@@ -63,8 +63,7 @@ const config: ForgeConfig = {
       "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-player-preload.js",
       "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-player.html",
       "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-remake.html",
-      "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-workshop.html",
-      "./src/main/integrations/plugins/builtin/vinyl-player/assets"
+      "./src/main/integrations/plugins/builtin/vinyl-player/vinyl-workshop.html"
     ],
     protocols: [
       {

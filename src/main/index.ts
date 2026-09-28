@@ -36,10 +36,13 @@ import CompanionServer from "./integrations/companion-server";
 import CrashReporter from "./integrations/crash-reporter";
 import CustomCSS from "./integrations/custom-css";
 import DiscordPresence from "./integrations/discord-presence";
+import { isAllowedExternalUrl } from "./external-url";
 import LastFM from "./integrations/last-fm";
 import NowPlayingNotifications from "./integrations/notifications";
 import { pluginManager } from "./integrations/plugins";
+import { isTrustedIpcSender } from "./ipc-sender";
 import SentryIntegration from "./integrations/sentry";
+import { normalizeUpdateSettings } from "./update-settings";
 import VolumeRatio from "./integrations/volume-ratio";
 
 // Initialize Sentry integration (only once, through the integration class)
@@ -1320,13 +1323,7 @@ function sendSettingsWindowStateIpc() {
 
 // Handles any navigation or window opening from ytmView
 function openExternalFromYtmView(urlString: string) {
-  const url = new URL(urlString);
-  const domainSplit = url.hostname.split(".");
-  domainSplit.reverse();
-  const domain = `${domainSplit[1]}.${domainSplit[0]}`;
-  if (domain === "google.com" || domain === "youtube.com") {
-    shell.openExternal(urlString);
-  }
+  if (isAllowedExternalUrl(urlString)) void shell.openExternal(urlString);
 }
 
 /**
@@ -2305,7 +2302,8 @@ app.on("ready", async () => {
     }
   });
 
-  ipcMain.on("ytmView:openDevTools", () => {
+  ipcMain.on("ytmView:openDevTools", event => {
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
     if (ytmView && store.get("developer.enableDevTools")) {
       ytmView.webContents.openDevTools({
         mode: "detach"
@@ -2391,20 +2389,20 @@ app.on("ready", async () => {
 
   // Handle memory store ipc
   ipcMain.on("memoryStore:set", (event, key: string, value?: unknown) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     memoryStore.set(key, value);
   });
 
   ipcMain.handle("memoryStore:get", (event, key: string) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     return memoryStore.get(key);
   });
 
   // Handle settings store ipc
   ipcMain.on("settings:set", (event, key: string, value?: unknown) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     try {
       store.set(key, value);
@@ -2421,21 +2419,13 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("settings:get", (event, key: string) => {
-    if (
-      mainWindow &&
-      event.sender !== mainWindow.webContents &&
-      settingsWindow &&
-      event.sender !== settingsWindow.webContents &&
-      ytmView &&
-      event.sender !== ytmView.webContents
-    )
-      return;
+    if (!isTrustedIpcSender(event.sender, mainWindow?.webContents, settingsWindow?.webContents, ytmView?.webContents)) return;
 
     return store.get(key);
   });
 
   ipcMain.handle("settings:reset", (event, key: keyof StoreSchema) => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     store.reset(key);
   });
@@ -2443,7 +2433,7 @@ app.on("ready", async () => {
   // Handle safeStorage ipc
   ipcMain.handle("safeStorage:decryptString", (event, value: string) => {
     if (!memoryStore.get("safeStorageAvailable")) throw new Error("safeStorage is unavailable");
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     if (value) {
       return safeStorage.decryptString(Buffer.from(value, "hex"));
@@ -2454,20 +2444,20 @@ app.on("ready", async () => {
 
   ipcMain.handle("safeStorage:encryptString", (event, value: string) => {
     if (!memoryStore.get("safeStorageAvailable")) throw new Error("safeStorage is unavailable");
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     return safeStorage.encryptString(value).toString("hex");
   });
 
   // Handle app ipc
   ipcMain.handle("app:getVersion", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     return app.getVersion();
   });
 
   ipcMain.on("app:checkForUpdates", event => {
-    if (event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     // Store the last check time
     store.set("updates.lastChecked", Date.now());
@@ -2485,9 +2475,7 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("app:getUpdateStatus", event => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
-      return;
-    }
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     return {
       status: memoryStore.get("updateStatus") || "idle",
@@ -2501,23 +2489,19 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("app:isUpdateAvailable", event => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
-      return;
-    }
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     return appUpdateAvailable;
   });
 
   ipcMain.handle("app:isUpdateDownloaded", event => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents && mainWindow && event.sender !== mainWindow.webContents) {
-      return;
-    }
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents, mainWindow?.webContents)) return;
 
     return appUpdateDownloaded;
   });
 
   ipcMain.on("app:restartApplicationForUpdate", event => {
-    if (mainWindow && event.sender !== mainWindow.webContents && settingsWindow && event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, mainWindow?.webContents, settingsWindow?.webContents)) return;
 
     if (!appUpdateDownloaded) {
       log.warn("Attempted to restart for update, but no update is downloaded");
@@ -2539,30 +2523,30 @@ app.on("ready", async () => {
   });
 
   ipcMain.handle("app:getUpdateSettings", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
     return store.get("updates");
   });
 
   ipcMain.on("app:updateSettings", (event, settings) => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (!isTrustedIpcSender(event.sender, settingsWindow?.webContents)) return;
 
-    // Validate and update settings
-    if (typeof settings === "object") {
-      if (typeof settings.checkIntervalMinutes === "number") {
-        store.set("updates.checkIntervalMinutes", Math.max(15, settings.checkIntervalMinutes));
+    const normalizedSettings = normalizeUpdateSettings(settings);
+    if (normalizedSettings) {
+      if (normalizedSettings.checkIntervalMinutes !== undefined) {
+        store.set("updates.checkIntervalMinutes", normalizedSettings.checkIntervalMinutes);
       }
 
-      if (typeof settings.checkOnStartup === "boolean") {
-        store.set("updates.checkOnStartup", settings.checkOnStartup);
+      if (normalizedSettings.checkOnStartup !== undefined) {
+        store.set("updates.checkOnStartup", normalizedSettings.checkOnStartup);
       }
 
-      if (typeof settings.autoInstall === "boolean") {
-        store.set("updates.autoInstall", settings.autoInstall);
+      if (normalizedSettings.autoInstall !== undefined) {
+        store.set("updates.autoInstall", normalizedSettings.autoInstall);
       }
 
-      if (typeof settings.betaChannel === "boolean") {
-        store.set("updates.betaChannel", settings.betaChannel);
+      if (normalizedSettings.betaChannel !== undefined) {
+        store.set("updates.betaChannel", normalizedSettings.betaChannel);
       }
     }
   });
@@ -2897,7 +2881,8 @@ app.on("activate", () => {
 // Add this after the other ipcMain handlers, before app startup
 
 // Global error handlers for renderer process errors
-ipcMain.on("renderer:unhandledError", async (_, errorInfo) => {
+ipcMain.on("renderer:unhandledError", async (event, errorInfo) => {
+  if (!isTrustedIpcSender(event.sender, mainWindow?.webContents, settingsWindow?.webContents)) return;
   log.error("Renderer process uncaught error:", errorInfo);
 
   try {
@@ -2909,7 +2894,8 @@ ipcMain.on("renderer:unhandledError", async (_, errorInfo) => {
   }
 });
 
-ipcMain.on("renderer:unhandledRejection", async (_, errorInfo) => {
+ipcMain.on("renderer:unhandledRejection", async (event, errorInfo) => {
+  if (!isTrustedIpcSender(event.sender, mainWindow?.webContents, settingsWindow?.webContents)) return;
   log.error("Renderer process unhandled promise rejection:", errorInfo);
 
   try {
@@ -2921,7 +2907,8 @@ ipcMain.on("renderer:unhandledRejection", async (_, errorInfo) => {
   }
 });
 
-ipcMain.on("renderer:reportError", async (_, errorInfo) => {
+ipcMain.on("renderer:reportError", async (event, errorInfo) => {
+  if (!isTrustedIpcSender(event.sender, mainWindow?.webContents, settingsWindow?.webContents)) return;
   log.error("Renderer process reported error:", errorInfo);
 
   try {

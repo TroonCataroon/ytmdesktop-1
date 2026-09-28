@@ -150,3 +150,10 @@ $RECYCLE.BIN/
 .scripts/cleanup-branches.js
 .scripts/test-sentry-update-monitoring.js
 .scripts/generateContributors.mjs
+
+# Local audit and continuation evidence
+/.tmp/
+/work/
+/docs/audit/
+/docs/assets/record-player-recovery/
+/plans/audits/ytmdesktop-2026-09-04.md
